@@ -1,0 +1,1 @@
+#Usar este ficheiro para transformar o JSON da base de dados num JSOPN limpo para usar a React
