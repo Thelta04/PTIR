@@ -76,8 +76,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tuxy_db',
+        'USER': 'tuxy_user',
+        'PASSWORD': 'ptir11',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
