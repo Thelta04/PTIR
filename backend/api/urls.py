@@ -32,11 +32,21 @@ urlpatterns = [
     # # path('taxis/available', views.get_available_taxis),
 
     # Táxis
-    path('taxis/', views.TaxiListCreateView.as_view(), name='taxis'),
+    path('taxis/', views.TaxiListCreateView.as_view(), name='ver_taxis'),
     
+    #Utilizadores
+    #Gets
+    path('client/<int:id>', views.ClientDetailView.as_view(), name='ver_clientes'),
+    path('driver/<int:id>', views.DriverDetailView.as_view(), name='ver_motoristas'),
+
     # Registos
-    path('auth/register/cliente/', views.ClienteCreateView.as_view(), name='registo_cliente'),
-    # path('auth/register/cliente/<int:id>', views.ClienteDetailView.as_view(), name='ver_cliente'),
-    path('auth/register/motorista/', views.MotoristaCreateView.as_view(), name='registo_motorista'),
-    path('auth/register/gestor/', views.GestorCreateView.as_view(), name='registo_gestor'),
+    path('auth/register/client/', views.ClientCreateView.as_view(), name='registo_cliente'),
+    path('auth/register/driver/', views.DriverCreateView.as_view(), name='registo_motorista'),
+    path('auth/register/manager/', views.ManagerCreateView.as_view(), name='registo_gestor'),
+    
+    # Autenticação (Login)
+    path('auth/login/', views.LoginView.as_view(), name='login'),
+    
+    # Gestão de Contas (Ativar / Desativar)
+    path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
 ]

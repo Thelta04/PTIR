@@ -27,6 +27,7 @@ class Utilizador(models.Model):
         ('sem resposta', 'Sem Resposta')
     ])
     senha = models.CharField(max_length=40)
+    is_banned = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'utilizador'

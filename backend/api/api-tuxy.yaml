@@ -1,5 +1,3 @@
-
-
 openapi: 3.0.0
 info:
   title: Taxi Management API
@@ -20,28 +18,6 @@ security:
 paths:
 
   # --- AUTENTICAÇÃO ---
-  /auth/password-reset:
-    post:
-      summary: Recuperar password
-      tags: [Autenticação]
-      description: Envia instruções para redefinir a password para o email associado à conta.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PasswordResetRequest'
-      responses:
-        '200':
-          description: Pedido de recuperação enviado com sucesso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PasswordResetResponse'
-        '404':
-          description: Utilizador não encontrado
-
   /auth/login:
     post:
       summary: Autenticar utilizador
@@ -98,6 +74,92 @@ paths:
               schema:
                 $ref: '#/components/schemas/Driver'
 
+  # --- GESTÃO DE UTILIZADORES ---
+  /users:
+    get:
+      summary: Listar todos os utilizadores
+      tags: [Utilizadores]
+      description: Retorna a lista de todos os utilizadores registados no sistema (clientes, motoristas e gestores). Operação restrita a gestores.
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [cliente, motorista, gestor]
+          description: Filtrar utilizadores por tipo de perfil
+      responses:
+        '200':
+          description: Lista de utilizadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Sem permissão para realizar esta operação
+
+  /users/{id}:
+    delete:
+      summary: Remover um utilizador
+      tags: [Utilizadores]
+      description: Remove permanentemente um utilizador do sistema. Operação restrita a gestores.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID do utilizador
+      responses:
+        '200':
+          description: Utilizador removido com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Utilizador removido com sucesso."
+        '404':
+          description: Utilizador não encontrado
+        '403':
+          description: Sem permissão para realizar esta operação
+
+  /users/{id}/toggle-status:
+    patch:
+      summary: Ativar ou desativar conta de utilizador
+      tags: [Utilizadores]
+      description: Alterna o estado ativo/inativo de uma conta de cliente ou motorista. Operação restrita a gestores.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID do utilizador
+      responses:
+        '200':
+          description: Estado da conta alterado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  is_active:
+                    type: boolean
+                    description: Novo estado da conta após o toggle
+                  mensagem:
+                    type: string
+                    example: "Conta desativada com sucesso."
+        '404':
+          description: Utilizador não encontrado
+        '403':
+          description: Sem permissão para realizar esta operação
+
   # --- GESTÃO DE CLIENTES ---
   /clients:
     get:
@@ -123,7 +185,7 @@ paths:
           required: true
           schema:
             type: integer
-          description: ID do motoroista
+          description: ID do motorista
       requestBody:
         content:
           application/json:
@@ -157,8 +219,7 @@ paths:
                   type: integer
       responses:
         '200':
-          description: Viagem aceite
-
+          description: Viagem recusada
 
   /clients/{id}/trips:
     get:
@@ -180,7 +241,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Trip'
+
   /clients/{id}:
+    get:
+      summary: Obter detalhes de um cliente
+      tags: [Clientes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID do cliente
+      responses:
+        '200':
+          description: Detalhes do cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+              examples:
+                cliente_exemplo:
+                  summary: Cliente encontrado
+                  value:
+                    id: 2
+                    name: "Maria Costa"
+                    nif: "987654321"
+                    gender: "FEMININO"
+                    email: "maria@email.com"
+                    phone: null
+        '404':
+          description: Cliente não encontrado
     delete:
       summary: Remover um cliente
       tags: [Clientes]
@@ -191,8 +282,8 @@ paths:
           schema:
             type: integer
           description: ID do Cliente
-      responses: 
-        '201':
+      responses:
+        '200':
           description: Cliente Removido
 
   # --- GESTÃO DE MOTORISTAS ---
@@ -216,8 +307,6 @@ paths:
                 items:
                   $ref: '#/components/schemas/Driver'
 
-  
-  # --- RATING ---
   /drivers/{id}/rate:
     post:
       summary: Avaliar Motorista
@@ -260,6 +349,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Driver'
+              examples:
+                motorista_exemplo:
+                  summary: Motorista encontrado
+                  value:
+                    id: 1
+                    name: "Joao Silva"
+                    nif: "123456789"
+                    license_number: "C1234567"
+                    birth_year: 1985
+                    gender: "MASCULINO"
+                    status: "AVAILABLE"
+                    rating: 4.8
         '404':
           description: Motorista não encontrado
     delete:
@@ -272,11 +373,10 @@ paths:
           schema:
             type: integer
           description: ID do Motorista
-      responses: 
-        '201':
-          description: Taxi Removido
+      responses:
+        '200':
+          description: Motorista Removido
 
-  
   # --- GESTÃO DE TÁXIS ---
   /taxis:
     get:
@@ -303,11 +403,12 @@ paths:
       responses:
         '201':
           description: Táxi criado
+
   /taxi/available:
     get:
-      summary: Registar reabastecimento ou carregamento
+      summary: Listar táxis disponíveis num intervalo de tempo
       tags: [Táxis]
-      description: Registar combustível ou carga elétrica (validar tipo de motor do táxi).
+      description: Retorna os táxis disponíveis entre dois instantes de tempo.
       parameters:
         - name: start_time
           in: query
@@ -322,12 +423,18 @@ paths:
             type: string
             format: date-time
       responses:
-        '201':
-          description: Reabastecimento registado
+        '200':
+          description: Lista de táxis disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Taxi'
 
   /taxi/{id}:
     delete:
-      summary: Remover um taxi
+      summary: Remover um táxi
       tags: [Táxis]
       parameters:
         - name: id
@@ -336,28 +443,27 @@ paths:
           schema:
             type: integer
           description: ID do Taxi
-      responses: 
-        '201':
-          description: Taxi Removido
-
-
+      responses:
+        '200':
+          description: Táxi Removido
 
   # --- GESTÃO DE TURNOS ---
   /shifts:
     get:
       summary: Listar Turnos
       tags: [Turnos]
-      description: Listar Turnos
+      description: Listar todos os turnos registados.
       responses:
-        '201':
-          description: Turno iniciado
+        '200':
+          description: Lista de turnos
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Shift'
-
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
     post:
-      summary: Agendar um turno 
+      summary: Agendar um turno
       tags: [Turnos]
       description: Motorista inicia turno (max 8h) e associa-se a um táxi.
       requestBody:
@@ -379,7 +485,7 @@ paths:
                   format: date-time
       responses:
         '201':
-          description: Turno iniciado
+          description: Turno criado
           content:
             application/json:
               schema:
@@ -398,7 +504,7 @@ paths:
           description: ID do turno
       responses:
         '200':
-          description: Turno finalizado com sucesso
+          description: Turno iniciado com sucesso
 
   /shifts/{id}/end:
     patch:
@@ -426,11 +532,11 @@ paths:
           schema:
             type: integer
           description: ID do Turno
-      responses: 
-        '201':
-          description: Taxi Removido
+      responses:
+        '200':
+          description: Turno Removido
 
-  # --- GESTÃO DE VIAGENS E AVALIAÇÕES ---
+  # --- GESTÃO DE VIAGENS ---
   /trips:
     get:
       summary: Histórico geral de viagens
@@ -511,7 +617,7 @@ paths:
                   type: integer
       responses:
         '200':
-          description: Pedido canccelado
+          description: Pedido cancelado
 
   /trips/{id}/complete:
     patch:
@@ -533,7 +639,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Invoice'
 
-
   # --- REABASTECIMENTOS ---
   /refuelings:
     post:
@@ -549,6 +654,7 @@ paths:
       responses:
         '201':
           description: Reabastecimento registado
+
   /refuelings/{id}:
     delete:
       summary: Remover um reabastecimento
@@ -560,16 +666,16 @@ paths:
           schema:
             type: integer
           description: ID do reabastecimento
-      responses: 
-        '201':
-          description: Taxi Removido
+      responses:
+        '200':
+          description: Reabastecimento Removido
 
-  # --- RELATÓRIOS SEMANAIS ---
+  # --- RELATÓRIOS ---
   /reports/reabastecimento:
     get:
-      summary: Relatório de motoristas
+      summary: Relatório de reabastecimentos
       tags: [Relatórios]
-      description: Retorna estatísticas de cada reabastecimento, incluindo quantidade de combustivel ou kWh e preços.
+      description: Retorna estatísticas de cada reabastecimento, incluindo quantidade de combustível ou kWh e preços.
       parameters:
         - in: query
           name: time_start
@@ -587,7 +693,7 @@ paths:
           description: Data de fim (YYYY-MM-DD)
       responses:
         '200':
-          description: Relatório semanal de motoristas
+          description: Relatório de reabastecimentos
           content:
             application/json:
               schema:
@@ -595,25 +701,26 @@ paths:
                 items:
                   type: object
                   properties:
-                    driver_id:
-                      type: integer
-                    name:
+                    date_inicio:
                       type: string
-                    total_trips:
+                      format: date
+                    date_fim:
+                      type: string
+                      format: date
+                    total_reabastecimentos:
                       type: integer
-                    total_km:
+                    total_litros:
                       type: number
                       minimum: 0
-                    total_income:
+                    total_preco:
                       type: number
                       minimum: 0
-                    average_rating:
+                    total_kwh:
                       type: number
                       minimum: 0
-                      maximum: 5
               examples:
-                semana_motoristas:
-                  summary: Exemplo de relatório semanal de motoristas
+                semana_reabastecimentos:
+                  summary: Exemplo de relatório de reabastecimentos
                   value:
                     - date_inicio: "2025-02-12"
                       date_fim: "2025-03-01"
@@ -743,7 +850,7 @@ paths:
                       total_spent: 75.5
                       average_passengers: 1.7
 
-  # --- EMISSÃO DE FATURAS ---
+  # --- FATURAS ---
   /invoices:
     get:
       summary: Listar faturas
@@ -980,7 +1087,32 @@ components:
           type: string
           format: date-time
 
-    # --- PESSOAS (BASE) ---
+    # --- UTILIZADORES ---
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        nif:
+          type: string
+          pattern: '^[0-9]{9}$'
+        genero:
+          type: string
+          enum: [masculino, femenino, outro, sem resposta]
+        role:
+          type: string
+          enum: [cliente, motorista, gestor]
+          description: Tipo de perfil do utilizador
+        is_active:
+          type: boolean
+          description: Estado da conta
+
+    # --- PESSOAS ---
     Client:
       type: object
       properties:
@@ -1000,7 +1132,6 @@ components:
           format: email
         phone:
           type: string
-
 
     Driver:
       type: object
@@ -1115,7 +1246,7 @@ components:
         total_income:
           type: number
 
-    # --- VIAGENS E RATING ---
+    # --- VIAGENS ---
     Trip:
       type: object
       properties:
@@ -1174,6 +1305,7 @@ components:
           type: string
           description: Comentário opcional sobre a viagem.
 
+    # --- FATURAS ---
     Invoice:
       type: object
       properties:

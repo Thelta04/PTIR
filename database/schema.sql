@@ -17,7 +17,8 @@ CREATE TABLE utilizador (
     nome VARCHAR(60) NOT NULL,
     email VARCHAR(60),
     genero VARCHAR(15) NOT NULL, 
-    senha VARCHAR(255) NOT NULL
+    senha VARCHAR(255) NOT NULL,
+    is_banned BOOLEAN DEFAULT FALSE
 );
 
 -- MOTORISTA 
@@ -63,32 +64,30 @@ CREATE TABLE reabastecimento (
     id_periodo INTEGER NOT NULL REFERENCES periodo_tempo(id_periodo)
 );
 
--- AVALIACAO
-CREATE TABLE avaliacao (
-    id SERIAL PRIMARY KEY,
-    valor INT NOT NULL,
-    id_viagem INTEGER NOT NULL,
-    id_motorista INTEGER NOT NULL,
-    id_cliente INTEGER NOT NULL
-);
-
 -- VIAGEM
 CREATE TABLE viagem (
     id SERIAL PRIMARY KEY,
-    id_pedido INTEGER,
-    id_cliente INTEGER,
     quilometros INT NOT NULL,
     origem VARCHAR(255) NOT NULL,
     destino VARCHAR(255) NOT NULL,
     nivel_conforto VARCHAR(10) NOT NULL,
     preco DECIMAL(10,2) NOT NULL, 
+
+    id_cliente INTEGER NOT NULL REFERENCES cliente(id_user),
     id_turno INTEGER NOT NULL REFERENCES turno(id),
     id_periodo INTEGER NOT NULL REFERENCES periodo_tempo(id_periodo)
 );
 
+-- AVALIACAO
+CREATE TABLE avaliacao (
+    id SERIAL PRIMARY KEY,
+    valor INT NOT NULL,
+    id_viagem INTEGER NOT NULL REFERENCES viagem(id)
+);
+
 -- FATURA
 CREATE TABLE fatura (
-    id_viagem INTEGER PRIMARY KEY REFERENCES viagem(id) ON DELETE CASCADE,
+    id_viagem INTEGER PRIMARY KEY REFERENCES viagem(id),
     numero INT NOT NULL,
     data DATE NOT NULL DEFAULT CURRENT_DATE,
     valor_total DECIMAL(10,2) NOT NULL,
@@ -121,9 +120,9 @@ ALTER TABLE utilizador
     ADD CONSTRAINT chk_utilizador_nif CHECK (nif ~ '^[1-9][0-9]{8}$'),
     ADD CONSTRAINT chk_utilizador_genero CHECK (genero IN ('masculino', 'feminino')),
     ADD CONSTRAINT chk_utilizador_senha CHECK (
-        char_length(senha_hash) >= 6
-        AND senha_hash ~ '[A-Za-z]'
-        AND senha_hash ~ '[0-9]'
+        char_length(senha) >= 6
+        AND senha ~ '[A-Za-z]'
+        AND senha ~ '[0-9]'
     );
 
 ALTER TABLE motorista
@@ -155,7 +154,6 @@ ALTER TABLE periodo_tempo
 --------------------------
 
 ALTER TABLE turno
-    ADD CONSTRAINT uq_turno_periodo UNIQUE (id_periodo),
     ADD CONSTRAINT uq_turno_taxi_periodo UNIQUE (id_taxi, id_periodo),
     ADD CONSTRAINT uq_turno_motorista_periodo UNIQUE (id_motorista, id_periodo);
 
@@ -179,7 +177,7 @@ ALTER TABLE reabastecimento
 ALTER TABLE pedido_viagem
     ADD CONSTRAINT chk_pedido_origem_destino CHECK (origem <> destino),
     ADD CONSTRAINT chk_pedido_conforto CHECK (nivel_conforto IN ('basico', 'luxuoso')),
-    ADD CONSTRAINT chk_pedido_passageiros CHECK (n_passageiros BETWEEN 1 AND 4),
+    ADD CONSTRAINT chk_pedido_passageiros CHECK (n_passageiros BETWEEN 1 AND 6),
     ADD CONSTRAINT chk_pedido_estado CHECK (estado IN ('pendente', 'aceite', 'cancelado', 'expirado'));
 
 ----------------------------
@@ -187,11 +185,6 @@ ALTER TABLE pedido_viagem
 ---------------------------
 
 ALTER TABLE viagem
-    ADD CONSTRAINT uq_viagem_pedido UNIQUE (id_pedido),
-    ADD CONSTRAINT fk_viagem_pedido FOREIGN KEY (id_pedido)
-        REFERENCES pedido_viagem(id) ON DELETE RESTRICT,
-    ADD CONSTRAINT fk_viagem_cliente FOREIGN KEY (id_cliente)
-        REFERENCES cliente(id_user) ON DELETE RESTRICT,
     ADD CONSTRAINT chk_viagem_origem_destino CHECK (origem <> destino),
     ADD CONSTRAINT chk_viagem_conforto CHECK (nivel_conforto IN ('basico', 'luxuoso')),
     ADD CONSTRAINT chk_viagem_quilometros CHECK (quilometros > 0),
@@ -217,10 +210,4 @@ ALTER TABLE fatura
 
 ALTER TABLE avaliacao
     ADD CONSTRAINT uq_avaliacao_viagem UNIQUE (id_viagem),
-    ADD CONSTRAINT fk_avaliacao_viagem FOREIGN KEY (id_viagem)
-        REFERENCES viagem(id) ON DELETE RESTRICT,
-    ADD CONSTRAINT fk_avaliacao_cliente FOREIGN KEY (id_cliente)
-        REFERENCES cliente(id_user) ON DELETE RESTRICT,
-    ADD CONSTRAINT fk_avaliacao_motorista FOREIGN KEY (id_motorista)
-        REFERENCES motorista(id_user) ON DELETE RESTRICT,
     ADD CONSTRAINT chk_avaliacao_valor CHECK (valor BETWEEN 1 AND 5);

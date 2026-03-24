@@ -1,12 +1,7 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
 from .models import Taxi, Utilizador, Cliente, Motorista, Gestor
-from .serializers import (
-    TaxiSerializer, 
-    RegistoClienteSerializer, 
-    RegistoMotoristaSerializer, 
-    RegistoGestorSerializer
-)
+from .serializers import *
 
 # A Vista do Táxi mantém-se igual, pois é direta (1 tabela)
 class TaxiListCreateView(generics.ListCreateAPIView):
@@ -15,9 +10,9 @@ class TaxiListCreateView(generics.ListCreateAPIView):
 
 # --- Vistas com Lógica de Negócio ---
 
-class ClienteCreateView(views.APIView):
+class ClientCreateView(views.APIView):
     def post(self, request):
-        serializer = RegistoClienteSerializer(data=request.data)
+        serializer = RegistoClientSerializer(data=request.data)
         if serializer.is_valid():
             dados = serializer.validated_data
             
@@ -34,24 +29,23 @@ class ClienteCreateView(views.APIView):
         # Se falhar a validação (ex: faltar o email), devolve erro 400 automaticamente
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# class ClienteDetailView(views.APIView):
-#     def get(self, request, id):
-#         try:
-#             # 1. Busca o utilizador pelo id
-#             user = Utilizador.objects.get(pk=id)
-#             cliente = Cliente.objects.get(id_user=user)
-#         except Utilizador.DoesNotExist:
-#             return Response({"erro": "Utilizador não encontrado"}, status=status.HTTP_404_NOT_FOUND)
-#         except Cliente.DoesNotExist:
-#             return Response({"erro": "Cliente não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+class ClientDetailView(views.APIView):
+    def get(self, request, id):
+        try:
+            # 1. Busca o utilizador pelo id
+            user = Utilizador.objects.get(pk=id)
+            client = Cliente.objects.get(id_user=user)
+        except Utilizador.DoesNotExist:
+            return Response({"erro": "Utilizador não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        except Cliente.DoesNotExist:
+            return Response({"erro": "Client não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = ClienteSerializer(client)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-#         # 2. Serializa e devolve os dados
-#         serializer = RegistoClienteSerializer(user)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-class MotoristaCreateView(views.APIView):
+class DriverCreateView(views.APIView):
     def post(self, request):
-        serializer = RegistoMotoristaSerializer(data=request.data)
+        serializer = RegistoDriverSerializer(data=request.data)
         if serializer.is_valid():
             dados = serializer.validated_data
             
@@ -59,6 +53,7 @@ class MotoristaCreateView(views.APIView):
                 nif=dados['nif'], nome=dados['nome'], email=dados['email'],
                 genero=dados['genero'], senha=dados['senha']
             )
+            Cliente.objects.create(id_user=user)
             Motorista.objects.create(
                 id_user=user, 
                 carta_conducao=dados['carta_conducao'], 
@@ -68,10 +63,26 @@ class MotoristaCreateView(views.APIView):
             return Response({"mensagem": "Motorista criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class DriverDetailView(views.APIView):
+    def get(self, request, id):
+        try:
+            # 1. Busca o utilizador pelo id
+            user = Utilizador.objects.get(pk=id)
+            driver = Motorista.objects.get(id_user=user)
+        except Utilizador.DoesNotExist:
+            return Response({"erro": "Utilizador não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        except driver.DoesNotExist:
+            return Response({"erro": "Motorista não encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-class GestorCreateView(views.APIView):
+        # 2. Serializa e devolve os dados
+        from .serializers import MotoristaSerializer
+        serializer = MotoristaSerializer(driver)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ManagerCreateView(views.APIView):
     def post(self, request):
-        serializer = RegistoGestorSerializer(data=request.data)
+        serializer = RegistoManagerSerializer(data=request.data)
         if serializer.is_valid():
             dados = serializer.validated_data
             
@@ -83,3 +94,49 @@ class GestorCreateView(views.APIView):
             
             return Response({"mensagem": "Gestor criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoginView(views.APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        senha = request.data.get('senha')
+        if not email or not senha:
+            return Response({"erro": "Email e senha são obrigatórios."},status=status.HTTP_400_BAD_REQUEST
+        )
+        try:
+            user = Utilizador.objects.get(email=email, senha=senha)
+        except Utilizador.DoesNotExist:
+            return Response({"erro": "Credenciais inválidas."},status=status.HTTP_401_UNAUTHORIZED
+            )
+        #ve se esta banido 
+        if user.is_banned:
+            return Response(
+                {"erro": "Conta suspensa."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        # Determinar o tipo de utilizador
+        tipo = None
+        if Cliente.objects.filter(id_user=user).exists():
+            tipo = "cliente"
+        elif Motorista.objects.filter(id_user=user).exists():
+            tipo = "motorista"
+        else:
+            return Response({"erro": "Utilizador sem perfil associado."},status=status.HTTP_403_FORBIDDEN
+            )
+        return Response({"mensagem": "Login efetuado com sucesso!","id": user.id,"nome": user.nome,"email": user.email,"tipo": tipo
+        }, status=status.HTTP_200_OK) #o tipo vai com a mensagem 
+    
+class BanView(views.APIView):
+    def patch(self, request, id):
+        # Esta rota usa PATCH porque vamos atualizar apenas 1 campo (is_active)
+        try:
+            user = Utilizador.objects.get(id=id)
+            
+            # Inverte o estado atual (Se for True passa a False, e vice-versa)
+            user.is_banned = not user.is_banned 
+            user.save()
+            
+            estado_texto = "Banido" if user.is_banned else "Ativo"
+            return Response({"mensagem": estado_texto}, status=status.HTTP_200_OK)
+            
+        except Utilizador.DoesNotExist:
+            return Response({"erro": "Utilizador não encontrado."}, status=status.HTTP_404_NOT_FOUND)

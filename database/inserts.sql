@@ -5,12 +5,12 @@ INSERT INTO taxi (matricula, quilometragem, marca, modelo, nivel_conforto, tipo_
 ('EE-33-FF',  50000, 'Tesla',    'Model 3', 'luxuoso', 'eletrico');
 
 -- UTILIZADOR -----------------------------------------------------------
-INSERT INTO utilizador (nif, nome, email, genero, senha) VALUES
-('123456789', 'Joao Silva',    'joao@email.com',   'masculino', 'Joao123'),
-('987654321', 'Maria Costa',   'maria@email.com',  'feminino',  'Maria123'),
-('456789123', 'Pedro Santos',  'pedro@email.com',  'masculino', 'Pedro123'),
-('321654987', 'Ana Ferreira',  'ana@email.com',    'feminino',  'Ana12345'),
-('741852963', 'Carlos Mendes', 'carlos@email.com', 'masculino', 'Carlos123');
+INSERT INTO utilizador (nif, nome, email, genero, senha, is_banned) VALUES
+('123456789', 'Joao Silva',    'joao@email.com',   'masculino', 'Joao123', false),
+('987654321', 'Maria Costa',   'maria@email.com',  'feminino',  'Maria123', false),
+('456789123', 'Pedro Santos',  'pedro@email.com',  'masculino', 'Pedro123', false),
+('321654987', 'Ana Ferreira',  'ana@email.com',    'feminino',  'Ana12345', false),
+('741852963', 'Carlos Mendes', 'carlos@email.com', 'masculino', 'Carlos123', false);
 
 -- MOTORISTA -----------------------------------------------------------
 INSERT INTO motorista (id_user, carta_conducao, ano_nascimento) VALUES
@@ -49,9 +49,9 @@ INSERT INTO pedido_viagem (origem, destino, nivel_conforto, estado, n_passageiro
 ('Cascais', 'Lisboa', 'luxuoso', 'aceite', 3, 4);
 
 -- VIAGEM -----------------------------------------------------------
-INSERT INTO viagem (id_pedido, id_cliente, quilometros, origem, destino, nivel_conforto, preco, id_turno, id_periodo) VALUES
-(1, 2, 12, 'Lisboa',  'Oeiras', 'basico',  15.00, 1, 5),
-(2, 4, 25, 'Cascais', 'Lisboa', 'luxuoso', 35.00, 2, 6);
+INSERT INTO viagem(id_cliente, quilometros, origem, destino, nivel_conforto, preco, id_turno, id_periodo) VALUES
+(2, 12, 'Lisboa', 'Oeiras', 'basico', 15.00, 1, 5),
+(4, 25, 'Cascais', 'Lisboa', 'luxuoso', 35.00, 2, 6);
 
 -- REABASTECIMENTO -----------------------------------------------------------
 INSERT INTO reabastecimento (euros, kwh, litros, quilometragem_inicial, id_turno, id_periodo) VALUES
