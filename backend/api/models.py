@@ -2,7 +2,8 @@
 from django.db import models #basicamente o jdbc de css so que em pyhton
 
 class Taxi(models.Model):
-    matricula = models.CharField(max_length=10)
+    matricula = models.CharField(max_length=8, primary_key=True)
+    ano_compra = models.CharField(max_length=4)
     quilometragem = models.IntegerField()
     marca = models.CharField(max_length=40)
     modelo = models.CharField(max_length=40)
@@ -11,6 +12,7 @@ class Taxi(models.Model):
         ('luxuoso', 'Luxuoso')
     ])
     tipo_motor = models.CharField(max_length=40)
+    n_passageiros = models.IntegerField()
 
     class Meta:
         db_table = 'taxi'

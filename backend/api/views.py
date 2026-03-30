@@ -5,12 +5,6 @@ from .serializers import *
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 
-# A Vista do Táxi mantém-se igual, pois é direta (1 tabela)
-# Como herda de ListCreateAPIView e tem um serializer_class, o Swagger já a lê automaticamente!
-class TaxiListCreateView(generics.ListCreateAPIView):
-    queryset = Taxi.objects.all()
-    serializer_class = TaxiSerializer
-
 # --- Vistas com Lógica de Negócio ---
 
 class ClientCreateView(views.APIView):
@@ -45,7 +39,7 @@ class ClientDetailView(views.APIView):
     @extend_schema(
         summary="Consultar dados do Cliente",
         description="Devolve a informação detalhada de um cliente específico com base no ID do utilizador.",
-        responses={200: ClienteSerializer}
+        responses={200: UtilizadorSerializer}
     )
     def get(self, request, id):
         try:
@@ -57,7 +51,7 @@ class ClientDetailView(views.APIView):
         except Cliente.DoesNotExist:
             return Response({"erro": "Client não encontrado"}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = ClienteSerializer(client)
+        serializer = UtilizadorSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DriverCreateView(views.APIView):
@@ -135,6 +129,61 @@ class ManagerCreateView(views.APIView):
             return Response({"mensagem": "Gestor criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class TaxiCreateView(views.APIView):
+    @extend_schema(
+        summary="Registar um novo Táxi (Exclusivo a Gestores)",
+        description="Adiciona um novo veículo à frota. Requer que o cabeçalho 'X-User-ID' seja enviado com o ID de um Gestor válido.",
+        request=RegistoTaxiSerializer,
+        responses={201: inline_serializer(
+            name='TaxiCreateResponse',
+            fields={'mensagem': serializers.CharField(), 'matricula': serializers.CharField()}
+        )}
+    )
+    def post(self, request):
+        user_id = request.headers.get('X-User-ID')
+        
+        if not user_id:
+            return Response({"erro": "Acesso negado. Falta a identificação (X-User-ID)."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        try:
+            user = Utilizador.objects.get(id=user_id)
+            # Verifica se quem está a fazer o pedido existe na tabela Gestor
+            if not Gestor.objects.filter(id_user=user).exists():
+                return Response(
+                    {"erro": "Acesso Proibido. Apenas Gestores podem adicionar veículos à frota."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Utilizador.DoesNotExist:
+            return Response({"erro": "Utilizador inválido ou não encontrado."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = RegistoTaxiSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            
+            return Response({
+                "mensagem": "Táxi registado com sucesso na frota!",
+                "matricula": serializer.data['matricula']
+            }, status=status.HTTP_201_CREATED)
+            
+        # Se houver erros (ex: nível de conforto inválido, matrícula repetida)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TaxiDetailView(views.APIView):
+    @extend_schema(
+        summary="Consultar dados de um Táxi",
+        description="Devolve a informação detalhada de um táxi específico com base na matrícula.",
+        responses={200: RegistoTaxiSerializer}
+    )
+    def get(self, request, matricula):
+        try:
+            taxi = Taxi.objects.get(matricula=matricula)
+        except Taxi.DoesNotExist:
+            return Response({"erro": "Táxi não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RegistoTaxiSerializer(taxi)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class LoginView(views.APIView):
     @extend_schema(
         summary="Iniciar Sessão",
@@ -177,9 +226,11 @@ class LoginView(views.APIView):
         # Determinar o tipo de utilizador
         tipo = None
         if Cliente.objects.filter(id_user=user).exists():
-            tipo = "cliente"
+            tipo = "CLIENTE"
         elif Motorista.objects.filter(id_user=user).exists():
-            tipo = "motorista"
+            tipo = "MOTORISTA"
+        elif Gestor.objects.filter(id_user=user).exists():
+            tipo = "GESTOR"
         else:
             return Response({"erro": "Utilizador sem perfil associado."},status=status.HTTP_403_FORBIDDEN
             )
