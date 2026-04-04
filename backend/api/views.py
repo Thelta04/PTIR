@@ -106,6 +106,18 @@ class DriverDetailView(views.APIView):
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class DriverListView(views.APIView):
+    @extend_schema(
+        summary="List all Drivers",
+        description="Returns a list of all drivers in the system.",
+        responses=DriverSerializer(many=True)
+    )
+    def get(self, request):
+        drivers = Driver.objects.all()
+        from .serializers import DriverSerializer
+        serializer = DriverSerializer(drivers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class ManagerCreateView(views.APIView):
     authentication_classes = [JWTAuthentication]
@@ -163,16 +175,24 @@ class TaxiCreateView(views.APIView):
 class TaxiDetailView(views.APIView):
     @extend_schema(
         summary="Get Taxi details",
-        description="Returns the detailed information of a specific taxi based on its license plate.",
-        responses={200: TaxiDetailSerializer}
+        description="Returns the detailed information of a specific taxi based on the license plate.",
     )
     def get(self, request, license_plate):
         try:
             taxi = Taxi.objects.get(license_plate=license_plate)
         except Taxi.DoesNotExist:
             return Response({"error": "Taxi not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(TaxiDetailSerializer(taxi).data)
 
-        serializer = TaxiDetailSerializer(taxi)
+class TaxiListView(views.APIView):
+    @extend_schema(
+        summary="List all Taxis",
+        description="Returns a list of all taxis in the system.",
+        responses=TaxiDetailSerializer(many=True)
+    )
+    def get(self, request):
+        taxis = Taxi.objects.all()
+        serializer = TaxiDetailSerializer(taxis, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ShiftCreateView(views.APIView):
@@ -216,17 +236,28 @@ class ShiftCreateView(views.APIView):
 
 class ShiftListView(views.APIView):
     @extend_schema(
-        summary="List all shifts for a Driver",
-        description="Returns a list of all shifts (past, present, and future) for a specific driver, identified by their user ID.",
-        responses={200: ShiftDetailSerializer(many=True)}
+        summary="List Driver Shifts",
+        description="Returns a list of shifts assigned to a specific driver.",
+        responses=ShiftDetailSerializer(many=True)
     )
     def get(self, request, id):
         try:
-            driver = Driver.objects.get(pk=id)
+            driver = Driver.objects.get(user__id=id)
         except Driver.DoesNotExist:
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        shifts = Shift.objects.filter(driver=driver).order_by('-scheduled_interval__start_time')
+        shifts = Shift.objects.filter(driver=driver)
+        serializer = ShiftDetailSerializer(shifts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ShiftListViews(views.APIView):
+    @extend_schema(
+        summary="List all Shifts",
+        description="Returns a list of all shifts in the system for managers.",
+        responses=ShiftDetailSerializer(many=True)
+    )
+    def get(self, request):
+        shifts = Shift.objects.all()
         serializer = ShiftDetailSerializer(shifts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

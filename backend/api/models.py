@@ -55,6 +55,7 @@ class Client(models.Model):
         db_table = 'client'
 
 class TimeInterval(models.Model):
+    id_interval = models.AutoField(primary_key=True, db_column='id_interval')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
 
@@ -62,11 +63,12 @@ class TimeInterval(models.Model):
         db_table = 'time_interval'
 
 class Shift(models.Model):
-    taxi = models.ForeignKey(Taxi, on_delete=models.CASCADE)
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    taxi = models.ForeignKey(Taxi, on_delete=models.CASCADE, db_column='id_taxi')
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, db_column='id_driver')
     scheduled_interval = models.ForeignKey(
         TimeInterval,
         on_delete=models.CASCADE,
+        db_column='id_scheduled_interval',
         related_name='shift_scheduled',
         help_text='Scheduled interval (planned start and end)'
     )
@@ -75,6 +77,7 @@ class Shift(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        db_column='id_real_interval',
         related_name='shift_real',
         help_text='Real interval (actual start and end of the shift)'
     )
@@ -87,24 +90,25 @@ class Refueling(models.Model):
     kwh = models.IntegerField(null=True, blank=True)
     liters = models.IntegerField(null=True, blank=True)
     initial_mileage = models.IntegerField()
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
-    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')
 
     class Meta:
         db_table = 'refueling'
 
 class Rating(models.Model):
+    id_trip = models.OneToOneField('Trip', on_delete=models.CASCADE, primary_key=True, db_column='id_trip')
     score = models.IntegerField()
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'rating'
 
 class Trip(models.Model):
     kilometers     = models.IntegerField()
-    origin         = models.CharField(max_length=255)
-    destination    = models.CharField(max_length=255)
+    origin_coords  = models.CharField(max_length=255, db_column='origin_coords')
+    dest_coords    = models.CharField(max_length=255, db_column='dest_coords')
+    origin         = models.CharField(max_length=255, db_column='origin_address')
+    destination    = models.CharField(max_length=255, db_column='dest_address')
     comfort_level  = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
     price          = models.DecimalField(max_digits=10, decimal_places=2)
     num_passengers = models.IntegerField()
@@ -116,14 +120,16 @@ class Trip(models.Model):
         ('COMPLETED',       'Completed'),
         ('CANCELED',        'Canceled'),
     ], default='PENDING')
-    client   = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')   # ← fix
-    shift    = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')     # ← fix
-    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')  # ← fix
+    client   = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')
+    shift    = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')
 
     class Meta:
         db_table = 'trip'
 
 class Invoice(models.Model):
+    trip = models.OneToOneField(Trip, on_delete=models.CASCADE, primary_key=True, db_column='id_trip')
+    number = models.IntegerField()
     date = models.DateField()
     amount_total = models.DecimalField(max_digits=10, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)

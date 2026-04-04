@@ -43,6 +43,20 @@ source venv/bin/activate
 python manage.py runserver
 ```
 
+## Running the Frontend (Local Development)
+
+The frontend is built with React and Vite. For local development, the Vite server proxies all `/api` requests to `localhost:8000` (the Django backend), effectively bypassing CORS issues.
+
+Make sure your Django backend is running on port 8000 (either via Docker or locally).
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be accessible at `http://localhost:5173/`.
+
 ## API Documentation (Swagger)
 
 The project uses `drf-spectacular` to automatically generate OpenAPI documentation based on the API views and serializers.
@@ -107,3 +121,4 @@ curl -X POST http://localhost:8000/api/auth/token/refresh/ \
 
 1. **Banning:** Any user can be banned by a Manager (JWT required). A banned user (`is_banned=True`) will fail authentication at the `/auth/login/` endpoint.
 2. **Dates and Times:** Ensure `timezone.now()` is used rather than standard Python `datetime` for tz-aware operations where needed.
+3. **Database Schema Mappings:** The PostgreSQL database schema uses custom naming conventions (e.g., `id_scheduled_interval`, `id_taxi`, `id_trip`). When modifying Django models with Foreign Keys or OneToOne fields, you **MUST** explicitly specify the `db_column` attribute (e.g., `db_column='id_taxi'`). Otherwise, Django will default to `<field_name>_id` and queries will crash with `column does not exist` errors.
