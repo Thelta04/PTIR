@@ -9,6 +9,7 @@ urlpatterns = [
     # Users
     # Gets
     path('client/<int:id>', views.ClientDetailView.as_view(), name='client_detail'),
+    path('client/', views.ClientListView.as_view(), name='list_clients'),
     path('driver/<int:id>', views.DriverDetailView.as_view(), name='driver_detail'),
     path('driver/', views.DriverListView.as_view(), name='list_drivers'),
     path('taxi/<str:license_plate>', views.TaxiDetailView.as_view(), name='taxi_detail'),

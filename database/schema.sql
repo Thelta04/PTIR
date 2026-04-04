@@ -110,7 +110,7 @@ CREATE TABLE invoice (
 ALTER TABLE user_account
     ADD CONSTRAINT uq_user_account_email UNIQUE (email),
     ADD CONSTRAINT chk_user_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
-    ADD CONSTRAINT chk_user_gender CHECK (gender IN ('male', 'female', 'other')), -- RIA 13
+    ADD CONSTRAINT chk_user_gender CHECK (gender IN ('Male', 'Female', 'Other')), -- RIA 13
     ADD CONSTRAINT chk_user_password CHECK (char_length(password) >= 6 AND password ~ '[A-Za-z]' AND password ~ '[0-9]'); -- RIA 15
 
 ALTER TABLE driver

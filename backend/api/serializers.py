@@ -112,6 +112,7 @@ class ShiftDetailSerializer(serializers.ModelSerializer):
 
 #GETS
 class UserSerializer(serializers.ModelSerializer):
+    id    = serializers.IntegerField(source='user_id', read_only=True)
     nif   = serializers.CharField(source='user.nif',   read_only=True)
     name  = serializers.CharField(source='user.name',  read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
@@ -120,10 +121,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = ['nif', 'name', 'email', 'gender', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned"]
 
 
 class DriverSerializer(serializers.ModelSerializer):
+    id    = serializers.IntegerField(source='user_id', read_only=True)
     nif   = serializers.CharField(source='user.nif',   read_only=True)
     name  = serializers.CharField(source='user.name',  read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
@@ -134,7 +136,7 @@ class DriverSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Driver
-        fields = ['nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)

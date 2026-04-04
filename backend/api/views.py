@@ -57,6 +57,18 @@ class ClientDetailView(views.APIView):
         serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class ClientListView(views.APIView):
+    @extend_schema(
+        summary="List all Clients",
+        description="Returns a list of all clients in the system.",
+        responses=UserSerializer(many=True)
+    )
+    def get(self, request):
+        clients = Client.objects.all()
+        from .serializers import UserSerializer
+        serializer = UserSerializer(clients, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class DriverCreateView(views.APIView):
     @extend_schema(
         summary="Create a new Driver",
