@@ -102,23 +102,23 @@ class Rating(models.Model):
         db_table = 'rating'
 
 class Trip(models.Model):
-    kilometers    = models.IntegerField()
-    origin        = models.CharField(max_length=255)
-    destination   = models.CharField(max_length=255)
-    comfort_level = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
-    price         = models.DecimalField(max_digits=10, decimal_places=2)  # era IntegerField
-    num_passengers = models.IntegerField()                                 # ← em falta
-    status        = models.CharField(max_length=20, choices=[             # ← em falta
-        ('PENDING',          'Pending'),
-        ('DRIVER_ACCEPTED',  'Driver Accepted'),
-        ('CLIENT_ACCEPTED',  'Client Accepted'),
-        ('IN_PROGRESS',      'In Progress'),
-        ('COMPLETED',        'Completed'),
-        ('CANCELED',         'Canceled'),
+    kilometers     = models.IntegerField()
+    origin         = models.CharField(max_length=255)
+    destination    = models.CharField(max_length=255)
+    comfort_level  = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    num_passengers = models.IntegerField()
+    status         = models.CharField(max_length=20, choices=[
+        ('PENDING',         'Pending'),
+        ('DRIVER_ACCEPTED', 'Driver Accepted'),
+        ('CLIENT_ACCEPTED', 'Client Accepted'),
+        ('IN_PROGRESS',     'In Progress'),
+        ('COMPLETED',       'Completed'),
+        ('CANCELED',        'Canceled'),
     ], default='PENDING')
-    client        = models.ForeignKey(Client, on_delete=models.CASCADE)  
-    shift         = models.ForeignKey(Shift, on_delete=models.CASCADE)
-    interval      = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
+    client   = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')   # ← fix
+    shift    = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')     # ← fix
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')  # ← fix
 
     class Meta:
         db_table = 'trip'

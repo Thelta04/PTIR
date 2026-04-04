@@ -1,21 +1,23 @@
 # ==========================================
-# DEPENDÊNCIAS DO BACKEND (PYTHON / DJANGO)
+# BACKEND DEPENDENCIES (PYTHON / DJANGO)
 # pip install -r backend_req.txt
 # ==========================================
 
-# Core da Framework
+# Core Framework
 Django==6.0.2
 djangorestframework==3.15.1
 
-# Comunicação com a Base de Dados PostgreSQL
+# PostgreSQL adapter
 psycopg2-binary==2.9.9
 
-# Servidor de Produção (Substituto do runserver)
+# Production WSGI server
 gunicorn==21.2.0
-nginx = 1.24.0
 
-# Geração Automática de Documentação (Swagger)
+# API Documentation (Swagger)
 drf-spectacular==0.27.1
 
-# Segurança e Cross-Origin (Obrigatório para o Frontend conseguir falar com a API)
+# CORS (required for frontend to call the API)
 django-cors-headers==4.3.1
+
+# JWT Authentication
+PyJWT==2.12.1

@@ -1,5 +1,5 @@
 import './App.css'
-import Gestor from './components/Gestor'
+import Gestor from './Gestor'
 
 function App() {
   return <Gestor />

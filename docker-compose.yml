@@ -3,12 +3,14 @@ services:
   db:
     build: ./database
     container_name: tuxy_db
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tuxy_user -d tuxy_db"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,38 +22,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=tuxy_db
-      - DB_USER=tuxy_user
-      - DB_PASSWORD=ptir11
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "8000:8000"
 
-  # ── React (Vite build) ───────────────────────
-  frontend:
-    build: ./frontend
-    container_name: tuxy_frontend
-    # This container only exists to produce the built static files.
-    # Nginx copies them at build time via the multi-stage Dockerfile.
-    # We still define it here so docker compose build handles it.
-    profiles:
-      - build-only
-
-  # ── Nginx reverse proxy ──────────────────────
+  # ── Nginx (frontend build + reverse proxy) ───
   nginx:
-    build: ./nginx
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     container_name: tuxy_nginx
     depends_on:
       - backend
     ports:
       - "80:80"
-    volumes:
-      # Mount the frontend build output into nginx
-      - frontend_dist:/usr/share/nginx/html:ro
 
 volumes:
   pgdata:
-  frontend_dist:

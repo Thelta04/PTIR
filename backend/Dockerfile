@@ -15,9 +15,10 @@ RUN pip install --no-cache-dir -r backend_req.txt && \
 # Copy project
 COPY . .
 
-# Collect static files for Django admin / DRF browsable API
-RUN python manage.py collectstatic --noinput 2>/dev/null || true
+# Add execution permissions to entrypoint
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8000
 
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

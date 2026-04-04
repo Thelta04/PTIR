@@ -17,10 +17,23 @@ If you need to wipe the database clean and start over with the default mock data
 
 ```bash
 cd database
-./start_db.sh
+sudo bash start_db.sh
 ```
 
-## Running the Backend
+## Running via Docker
+
+The entire application can be run using Docker Compose, orchestrating the PostgreSQL database, Django backend (Gunicorn), and an Nginx reverse proxy serving the compiled React frontend.
+
+1. Get the `.env` file (Available at Discord)
+2. Build and start all services:
+   ```bash
+   docker compose up --build
+   ```
+
+- **Frontend:** Accessible at `http://localhost:80`
+- **Backend API:** Proxied through Nginx at `http://localhost:80/api/`
+
+## Running the Backend (Without Docker)
 
 Ensure your virtual environment is active, then start the Django development server:
 
@@ -92,6 +105,5 @@ curl -X POST http://localhost:8000/api/auth/token/refresh/ \
 
 ## Important Reminders
 
-1. **User Profiles:** The system uses a base `User` model. Specific roles (`Driver`, `Client`, `Manager`) are modeled as One-to-One relationships linked to the base `User`.
-2. **Banning:** Any user can be banned by a Manager (JWT required). A banned user (`is_banned=True`) will fail authentication at the `/auth/login/` endpoint.
-3. **Dates and Times:** Ensure `timezone.now()` is used rather than standard Python `datetime` for tz-aware operations where needed.
+1. **Banning:** Any user can be banned by a Manager (JWT required). A banned user (`is_banned=True`) will fail authentication at the `/auth/login/` endpoint.
+2. **Dates and Times:** Ensure `timezone.now()` is used rather than standard Python `datetime` for tz-aware operations where needed.
