@@ -1,242 +1,242 @@
-DROP TABLE IF EXISTS avaliacao, fatura, pedido_viagem, viagem, reabastecimento, turno, periodo_tempo, motorista, gestor, cliente, utilizador, taxi CASCADE;
+DROP TABLE IF EXISTS rating, invoice, trip_request, trip, refueling, shift, time_interval, driver, manager, client, user_account, taxi CASCADE;
 
 -- TAXI
 CREATE TABLE taxi ( 
-    matricula VARCHAR(10) PRIMARY KEY, 
-    ano_compra INT NOT NULL,
-    quilometragem INT NOT NULL,
-    marca VARCHAR(40) NOT NULL,
-    modelo VARCHAR(40) NOT NULL,
-    nivel_conforto VARCHAR(10) NOT NULL,  
-    tipo_motor VARCHAR(40) NOT NULL,
-    n_passageiros INT NOT NULL
+    license_plate VARCHAR(10) PRIMARY KEY, 
+    purchase_year INT NOT NULL,
+    mileage INT NOT NULL,
+    brand VARCHAR(40) NOT NULL,
+    model VARCHAR(40) NOT NULL,
+    comfort_level VARCHAR(10) NOT NULL,  
+    engine_type VARCHAR(40) NOT NULL,
+    num_passengers INT NOT NULL
 );
 
--- UTILIZADORES
-CREATE TABLE utilizador (
+-- USERS
+CREATE TABLE user_account (
     id SERIAL PRIMARY KEY,
     nif VARCHAR(9) NOT NULL UNIQUE, 
-    nome VARCHAR(60) NOT NULL,
+    name VARCHAR(60) NOT NULL,
     email VARCHAR(60),
-    genero VARCHAR(15) NOT NULL, 
-    senha VARCHAR(255) NOT NULL,
+    gender VARCHAR(15) NOT NULL, 
+    password VARCHAR(255) NOT NULL,
     is_banned BOOLEAN DEFAULT FALSE
 );
 
--- MOTORISTA 
-CREATE TABLE motorista (
-    id_user INTEGER PRIMARY KEY REFERENCES utilizador(id) ON DELETE CASCADE, 
-    carta_conducao VARCHAR(12) NOT NULL,
-    ano_nascimento INT NOT NULL
+-- DRIVER 
+CREATE TABLE driver (
+    id_user INTEGER PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE, 
+    license_number VARCHAR(12) NOT NULL,
+    birth_year INT NOT NULL
 );
 
--- GESTOR
-CREATE TABLE gestor (
-    id_user INTEGER PRIMARY KEY REFERENCES utilizador(id) ON DELETE CASCADE
+-- MANAGER
+CREATE TABLE manager (
+    id_user INTEGER PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE
 );
 
--- CLIENTE
-CREATE TABLE cliente (
-    id_user INTEGER PRIMARY KEY REFERENCES utilizador(id) ON DELETE CASCADE
+-- CLIENT
+CREATE TABLE client (
+    id_user INTEGER PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE
 );
 
--- PERIODO DE TEMPO
-CREATE TABLE periodo_tempo (
-    id_periodo SERIAL PRIMARY KEY,
-    hora_inicio TIMESTAMP NOT NULL,
-    hora_fim TIMESTAMP NOT NULL
+-- TIME INTERVAL
+CREATE TABLE time_interval (
+    id_interval SERIAL PRIMARY KEY,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL
 );
 
--- TURNO
-CREATE TABLE turno (
+-- SHIFT
+CREATE TABLE shift (
     id SERIAL PRIMARY KEY,
-    id_taxi VARCHAR(10) NOT NULL REFERENCES taxi(matricula), 
-    id_motorista INTEGER NOT NULL REFERENCES motorista(id_user),
-    id_periodo INTEGER NOT NULL REFERENCES periodo_tempo(id_periodo)
+    id_taxi VARCHAR(10) NOT NULL REFERENCES taxi(license_plate), 
+    id_driver INTEGER NOT NULL REFERENCES driver(id_user),
+    id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
 );
 
--- REABASTECIMENTO
-CREATE TABLE reabastecimento (
+-- REFUELING
+CREATE TABLE refueling (
     id SERIAL PRIMARY KEY,
-    euros DECIMAL(10,2),
+    cost DECIMAL(10,2),
     kwh INT,
-    litros INT,
-    quilometragem_inicial INT NOT NULL,
-    id_turno INTEGER NOT NULL REFERENCES turno(id),
-    id_periodo INTEGER NOT NULL REFERENCES periodo_tempo(id_periodo)
+    liters INT,
+    initial_mileage INT NOT NULL,
+    id_shift INTEGER NOT NULL REFERENCES shift(id),
+    id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
 );
 
--- VIAGEM
-CREATE TABLE viagem (
+-- TRIP
+CREATE TABLE trip (
     id SERIAL PRIMARY KEY,
-    quilometros INT NOT NULL,
-    origem_coords VARCHAR(255) NOT NULL,
-    destino_coords VARCHAR(255) NOT NULL,
-    origem_morada VARCHAR(255) NOT NULL,
-    destino_morada VARCHAR(255) NOT NULL,
-    nivel_conforto VARCHAR(10) NOT NULL,
-    preco DECIMAL(10,2) NOT NULL, 
-    n_passageiros INT NOT NULL,
-    estado VARCHAR(20) NOT NULL DEFAULT 'EM_ESPERA',
+    kilometers INT NOT NULL,
+    origin_coords VARCHAR(255) NOT NULL,
+    dest_coords VARCHAR(255) NOT NULL,
+    origin_address VARCHAR(255) NOT NULL,
+    dest_address VARCHAR(255) NOT NULL,
+    comfort_level VARCHAR(10) NOT NULL,
+    price DECIMAL(10,2) NOT NULL, 
+    num_passengers INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
-    id_cliente INTEGER NOT NULL REFERENCES cliente(id_user),
-    id_turno INTEGER NOT NULL REFERENCES turno(id),
-    id_periodo INTEGER NOT NULL REFERENCES periodo_tempo(id_periodo)
+    id_client INTEGER NOT NULL REFERENCES client(id_user),
+    id_shift INTEGER NOT NULL REFERENCES shift(id),
+    id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
 );
 
--- AVALIACAO
-CREATE TABLE avaliacao (
-    id_viagem PRIMARY KEY INTEGER NOT NULL UNIQUE REFERENCES viagem(id),
-    valor INT NOT NULL
+-- RATING
+CREATE TABLE rating (
+    id_trip PRIMARY KEY INTEGER NOT NULL UNIQUE REFERENCES trip(id),
+    score INT NOT NULL
 );
 
--- FATURA
-CREATE TABLE fatura (
-    id_viagem INTEGER PRIMARY KEY REFERENCES viagem(id),
-    numero INT NOT NULL,
-    data DATE NOT NULL DEFAULT CURRENT_DATE,
-    valor_total DECIMAL(10,2) NOT NULL,
-    valor_pago DECIMAL(10,2) NOT NULL,
+-- INVOICE
+CREATE TABLE invoice (
+    id_trip INTEGER PRIMARY KEY REFERENCES trip(id),
+    number INT NOT NULL,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    amount_total DECIMAL(10,2) NOT NULL,
+    amount_paid DECIMAL(10,2) NOT NULL,
     nif VARCHAR(9) NOT NULL,
-    ano INT GENERATED ALWAYS AS (EXTRACT(YEAR FROM data)::INT) STORED
+    year INT GENERATED ALWAYS AS (EXTRACT(YEAR FROM date)::INT) STORED
 );
 
 
 -- ==============================================================================
--- CONSTRAINTS (RIAs SIMPLES)
+-- CONSTRAINTS (SIMPLE INTEGRITY RULES)
 -- ==============================================================================
 
-ALTER TABLE utilizador
-    ADD CONSTRAINT uq_utilizador_email UNIQUE (email),
-    ADD CONSTRAINT chk_utilizador_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
-    ADD CONSTRAINT chk_utilizador_genero CHECK (genero IN ('masculino', 'feminino', 'outro')), -- RIA 13
-    ADD CONSTRAINT chk_utilizador_senha CHECK (char_length(senha) >= 6 AND senha ~ '[A-Za-z]' AND senha ~ '[0-9]'); -- RIA 15
+ALTER TABLE user_account
+    ADD CONSTRAINT uq_user_email UNIQUE (email),
+    ADD CONSTRAINT chk_user_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
+    ADD CONSTRAINT chk_user_gender CHECK (gender IN ('male', 'female', 'other')), -- RIA 13
+    ADD CONSTRAINT chk_user_password CHECK (char_length(password) >= 6 AND password ~ '[A-Za-z]' AND password ~ '[0-9]'); -- RIA 15
 
-ALTER TABLE motorista
-    ADD CONSTRAINT uq_motorista_carta UNIQUE (carta_conducao), -- RIA 14
-    ADD CONSTRAINT chk_motorista_maior_idade CHECK (ano_nascimento <= EXTRACT(YEAR FROM CURRENT_DATE)::INT - 18), -- RIA 4
-    ADD CONSTRAINT chk_motorista_ano_nascimento CHECK (ano_nascimento >= 1900);
+ALTER TABLE driver
+    ADD CONSTRAINT uq_driver_license UNIQUE (license_number), -- RIA 14
+    ADD CONSTRAINT chk_driver_minimum_age CHECK (birth_year <= EXTRACT(YEAR FROM CURRENT_DATE)::INT - 18), -- RIA 4
+    ADD CONSTRAINT chk_driver_birth_year CHECK (birth_year >= 1900);
 
 ALTER TABLE taxi
-    ADD CONSTRAINT chk_taxi_tipo_motor CHECK (tipo_motor IN ('combustao', 'eletrico')), -- RIA 17
-    ADD CONSTRAINT chk_taxi_marca_modelo_not_empty CHECK (marca <> '' AND modelo <> ''),
-    ADD CONSTRAINT chk_taxi_quilometragem CHECK (quilometragem >= 0),
-    ADD CONSTRAINT chk_taxi_nivel_conforto CHECK (nivel_conforto IN ('basico', 'luxuoso')), -- RIA 16
-    ADD CONSTRAINT chk_taxi_n_passageiros CHECK (n_passageiros BETWEEN 1 AND 4); -- RIA 18
+    ADD CONSTRAINT chk_taxi_engine_type CHECK (engine_type IN ('combustion', 'electric')), -- RIA 17
+    ADD CONSTRAINT chk_taxi_brand_model_not_empty CHECK (brand <> '' AND model <> ''),
+    ADD CONSTRAINT chk_taxi_mileage CHECK (mileage >= 0),
+    ADD CONSTRAINT chk_taxi_comfort_level CHECK (comfort_level IN ('basic', 'luxury')), -- RIA 16
+    ADD CONSTRAINT chk_taxi_num_passengers CHECK (num_passengers BETWEEN 1 AND 4); -- RIA 18
 
-ALTER TABLE periodo_tempo
-    ADD CONSTRAINT chk_periodo_hora CHECK (hora_inicio < hora_fim); -- RIA 1
+ALTER TABLE time_interval
+    ADD CONSTRAINT chk_interval_time CHECK (start_time < end_time); -- RIA 1
 
-ALTER TABLE turno
-    ADD CONSTRAINT uq_turno_taxi_periodo UNIQUE (id_taxi, id_periodo),
-    ADD CONSTRAINT uq_turno_motorista_periodo UNIQUE (id_motorista, id_periodo);
+ALTER TABLE shift
+    ADD CONSTRAINT uq_shift_taxi_interval UNIQUE (id_taxi, id_interval),
+    ADD CONSTRAINT uq_shift_driver_interval UNIQUE (id_driver, id_interval);
 
-ALTER TABLE reabastecimento
-    ADD CONSTRAINT chk_reabastecimento_quilometragem CHECK (quilometragem_inicial > 0), -- RIA 25
-    ADD CONSTRAINT chk_reabastecimento_euros CHECK (euros > 0), -- RIA 24
-    ADD CONSTRAINT chk_reabastecimento_quantidade CHECK (
-        num_nonnulls(litros, kwh) = 1
-        AND (litros IS NULL OR litros > 0) -- RIA 22
+ALTER TABLE refueling
+    ADD CONSTRAINT chk_refueling_mileage CHECK (initial_mileage > 0), -- RIA 25
+    ADD CONSTRAINT chk_refueling_cost CHECK (cost > 0), -- RIA 24
+    ADD CONSTRAINT chk_refueling_quantity CHECK (
+        num_nonnulls(liters, kwh) = 1
+        AND (liters IS NULL OR liters > 0) -- RIA 22
         AND (kwh IS NULL OR kwh > 0) -- RIA 23
     );
     
-ALTER TABLE viagem
-    ADD CONSTRAINT chk_viagem_origem_destino CHECK (origem_coords <> destino_coords),
-    ADD CONSTRAINT chk_viagem_conforto CHECK (nivel_conforto IN ('basico', 'luxuoso')),
-    ADD CONSTRAINT chk_viagem_quilometros CHECK (quilometros > 0), -- RIA 19
-    ADD CONSTRAINT chk_viagem_preco CHECK (preco > 0), -- RIA 20
-    ADD CONSTRAINT chk_viagem_passageiros CHECK (n_passageiros BETWEEN 1 AND 4), -- RIA 18
-    ADD CONSTRAINT chk_viagem_estado CHECK (estado IN ('EM_ESPERA', 'ACEITE_MOTORISTA', 'ACEITE_CLIENTE', 'A_DECORRER', 'CONCLUIDA', 'CANCELADO')); -- RIA 27
+ALTER TABLE trip
+    ADD CONSTRAINT chk_trip_origin_dest CHECK (origin_coords <> dest_coords),
+    ADD CONSTRAINT chk_trip_comfort CHECK (comfort_level IN ('basic', 'luxury')),
+    ADD CONSTRAINT chk_trip_kilometers CHECK (kilometers > 0), -- RIA 19
+    ADD CONSTRAINT chk_trip_price CHECK (price > 0), -- RIA 20
+    ADD CONSTRAINT chk_trip_passengers CHECK (num_passengers BETWEEN 1 AND 4), -- RIA 18
+    ADD CONSTRAINT chk_trip_status CHECK (status IN ('PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED')); -- RIA 27
 
-ALTER TABLE fatura
-    ADD CONSTRAINT uq_fatura_ano_numero UNIQUE (ano, numero),
-    ADD CONSTRAINT chk_fatura_numero CHECK (numero >= 1), -- RIA 21
-    ADD CONSTRAINT chk_fatura_valores CHECK (valor_total > 0 AND valor_pago >= 0 AND valor_pago <= valor_total),
-    ADD CONSTRAINT chk_fatura_nif CHECK (nif ~ '^[1-9][0-9]{8}$');
+ALTER TABLE invoice
+    ADD CONSTRAINT uq_invoice_year_number UNIQUE (year, number),
+    ADD CONSTRAINT chk_invoice_number CHECK (number >= 1), -- RIA 21
+    ADD CONSTRAINT chk_invoice_values CHECK (amount_total > 0 AND amount_paid >= 0 AND amount_paid <= amount_total),
+    ADD CONSTRAINT chk_invoice_nif CHECK (nif ~ '^[1-9][0-9]{8}$');
 
-ALTER TABLE avaliacao
-    ADD CONSTRAINT chk_avaliacao_valor CHECK (valor BETWEEN 1 AND 5);
+ALTER TABLE rating
+    ADD CONSTRAINT chk_rating_score CHECK (score BETWEEN 1 AND 5);
 
 
 -- ==============================================================================
--- TRIGGERS (RIAs COMPLEXAS E CRUZADAS)
+-- TRIGGERS (COMPLEX AND CROSS-TABLE INTEGRITY RULES)
 -- ==============================================================================
 
--- RIA 28: Avaliação só em viagens CONCLUIDAS
-CREATE OR REPLACE FUNCTION function_valida_avaliacao() RETURNS TRIGGER AS $$BEGIN
-    IF (SELECT estado FROM viagem WHERE id = NEW.id_viagem) != 'CONCLUIDA' THEN
-        RAISE EXCEPTION 'RIA 28: Um cliente só pode dar avaliação quando a viagem estiver CONCLUIDA.';
+-- RIA 28: Rating only for COMPLETED trips
+CREATE OR REPLACE FUNCTION fn_validate_rating() RETURNS TRIGGER AS $$BEGIN
+    IF (SELECT status FROM trip WHERE id = NEW.id_trip) != 'COMPLETED' THEN
+        RAISE EXCEPTION 'RIA 28: A client can only rate a trip when its status is COMPLETED.';
     END IF;
     RETURN NEW;
 END;$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_valida_avaliacao
-BEFORE INSERT OR UPDATE ON avaliacao
-FOR EACH ROW EXECUTE FUNCTION function_valida_avaliacao();
+CREATE TRIGGER trg_validate_rating
+BEFORE INSERT OR UPDATE ON rating
+FOR EACH ROW EXECUTE FUNCTION fn_validate_rating();
 
--- RIA 2 e RIA 5: Duração do Turno e Ano do Táxi
-CREATE OR REPLACE FUNCTION function_valida_turno() RETURNS TRIGGER AS $$DECLARE
-    v_hora_inicio TIMESTAMP;
-    v_hora_fim TIMESTAMP;
-    v_ano_compra INT;
+-- RIA 2 and RIA 5: Shift duration and Taxi purchase year
+CREATE OR REPLACE FUNCTION fn_validate_shift() RETURNS TRIGGER AS $$DECLARE
+    v_start_time TIMESTAMP;
+    v_end_time TIMESTAMP;
+    v_purchase_year INT;
 BEGIN
-    SELECT hora_inicio, hora_fim INTO v_hora_inicio, v_hora_fim FROM periodo_tempo WHERE id_periodo = NEW.id_periodo;
-    SELECT ano_compra INTO v_ano_compra FROM taxi WHERE matricula = NEW.id_taxi;
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM time_interval WHERE id_interval = NEW.id_interval;
+    SELECT purchase_year INTO v_purchase_year FROM taxi WHERE license_plate = NEW.id_taxi;
 
-    IF EXTRACT(EPOCH FROM (v_hora_fim - v_hora_inicio))/3600 > 8 THEN
-        RAISE EXCEPTION 'RIA 2: O turno não pode durar mais de 8 horas.';
+    IF EXTRACT(EPOCH FROM (v_end_time - v_start_time))/3600 > 8 THEN
+        RAISE EXCEPTION 'RIA 2: A shift cannot last more than 8 hours.';
     END IF;
 
-    IF v_ano_compra > EXTRACT(YEAR FROM v_hora_inicio) THEN
-        RAISE EXCEPTION 'RIA 5: O ano de compra do táxi não pode ser posterior ao ano do turno.';
+    IF v_purchase_year > EXTRACT(YEAR FROM v_start_time) THEN
+        RAISE EXCEPTION 'RIA 5: The taxi purchase year cannot be later than the shift year.';
     END IF;
 
     RETURN NEW;
 END;$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_valida_turno
-BEFORE INSERT OR UPDATE ON turno
-FOR EACH ROW EXECUTE FUNCTION function_valida_turno();
+CREATE TRIGGER trg_validate_shift
+BEFORE INSERT OR UPDATE ON shift
+FOR EACH ROW EXECUTE FUNCTION fn_validate_shift();
 
--- RIA 3: Viagem contida no Turno
-CREATE OR REPLACE FUNCTION function_valida_viagem() RETURNS TRIGGER AS $$DECLARE
-    v_inicio_viagem TIMESTAMP;
-    v_fim_viagem TIMESTAMP;
-    v_inicio_turno TIMESTAMP;
-    v_fim_turno TIMESTAMP;
+-- RIA 3: Trip must be contained within the Shift
+CREATE OR REPLACE FUNCTION fn_validate_trip() RETURNS TRIGGER AS $$DECLARE
+    v_trip_start TIMESTAMP;
+    v_trip_end TIMESTAMP;
+    v_shift_start TIMESTAMP;
+    v_shift_end TIMESTAMP;
 BEGIN
-    SELECT hora_inicio, hora_fim INTO v_inicio_viagem, v_fim_viagem FROM periodo_tempo WHERE id_periodo = NEW.id_periodo;
+    SELECT start_time, end_time INTO v_trip_start, v_trip_end FROM time_interval WHERE id_interval = NEW.id_interval;
     
-    SELECT p.hora_inicio, p.hora_fim INTO v_inicio_turno, v_fim_turno 
-    FROM turno t JOIN periodo_tempo p ON t.id_periodo = p.id_periodo 
-    WHERE t.id = NEW.id_turno;
+    SELECT ti.start_time, ti.end_time INTO v_shift_start, v_shift_end 
+    FROM shift s JOIN time_interval ti ON s.id_interval = ti.id_interval 
+    WHERE s.id = NEW.id_shift;
 
-    IF v_inicio_viagem < v_inicio_turno OR v_fim_viagem > v_fim_turno THEN
-        RAISE EXCEPTION 'RIA 3: O período da viagem tem de estar contido no período do turno correspondente.';
+    IF v_trip_start < v_shift_start OR v_trip_end > v_shift_end THEN
+        RAISE EXCEPTION 'RIA 3: The trip period must be contained within the corresponding shift period.';
     END IF;
 
     RETURN NEW;
 END;$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_valida_viagem
-BEFORE INSERT OR UPDATE ON viagem
-FOR EACH ROW EXECUTE FUNCTION function_valida_viagem();
+CREATE TRIGGER trg_validate_trip
+BEFORE INSERT OR UPDATE ON trip
+FOR EACH ROW EXECUTE FUNCTION fn_validate_trip();
 
--- RIA 8: Fatura posterior à viagem
-CREATE OR REPLACE FUNCTION function_valida_fatura() RETURNS TRIGGER AS $$DECLARE
-    v_inicio_viagem TIMESTAMP;
+-- RIA 8: Invoice must be after the trip
+CREATE OR REPLACE FUNCTION fn_validate_invoice() RETURNS TRIGGER AS $$DECLARE
+    v_trip_start TIMESTAMP;
 BEGIN
-    SELECT p.hora_inicio INTO v_inicio_viagem 
-    FROM viagem v JOIN periodo_tempo p ON v.id_periodo = p.id_periodo 
-    WHERE v.id = NEW.id_viagem;
+    SELECT ti.start_time INTO v_trip_start 
+    FROM trip t JOIN time_interval ti ON t.id_interval = ti.id_interval 
+    WHERE t.id = NEW.id_trip;
 
-    IF NEW.data < DATE(v_inicio_viagem) THEN
-        RAISE EXCEPTION 'RIA 8: A data da fatura não pode ser anterior à data de início da viagem.';
+    IF NEW.date < DATE(v_trip_start) THEN
+        RAISE EXCEPTION 'RIA 8: The invoice date cannot be earlier than the trip start date.';
     END IF;
 
     RETURN NEW;
 END;$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_valida_fatura
-BEFORE INSERT OR UPDATE ON fatura
-FOR EACH ROW EXECUTE FUNCTION function_valida_fatura();
+CREATE TRIGGER trg_validate_invoice
+BEFORE INSERT OR UPDATE ON invoice
+FOR EACH ROW EXECUTE FUNCTION fn_validate_invoice();

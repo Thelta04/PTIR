@@ -1,131 +1,144 @@
 # models.py
-from django.db import models #basicamente o jdbc de css so que em pyhton
+from django.db import models
+
 
 class Taxi(models.Model):
-    matricula = models.CharField(max_length=8, primary_key=True)
-    ano_compra = models.CharField(max_length=4)
-    quilometragem = models.IntegerField()
-    marca = models.CharField(max_length=40)
-    modelo = models.CharField(max_length=40)
-    nivel_conforto = models.CharField(max_length=10, choices=[
-        ('basico', 'Básico'),
-        ('luxuoso', 'Luxuoso')
+    license_plate = models.CharField(max_length=8, primary_key=True)
+    purchase_year = models.CharField(max_length=4)
+    mileage = models.IntegerField()
+    brand = models.CharField(max_length=40)
+    model = models.CharField(max_length=40)
+    comfort_level = models.CharField(max_length=10, choices=[
+        ('basic', 'Basic'),
+        ('luxury', 'Luxury')
     ])
-    tipo_motor = models.CharField(max_length=40)
-    n_passageiros = models.IntegerField()
+    engine_type = models.CharField(max_length=40)
+    num_passengers = models.IntegerField()
 
     class Meta:
         db_table = 'taxi'
     
 
-class Utilizador(models.Model):
+class UserAccount(models.Model):
     nif = models.CharField(max_length=12)
-    nome = models.CharField(max_length=60)
+    name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
-    genero = models.CharField(max_length=15, choices=[
-        ('femenino', 'Feminino'),
-        ('masculino', 'Masculino'),
-        ('outro', 'Outro'),
-        ('sem resposta', 'Sem Resposta')
+    gender = models.CharField(max_length=15, choices=[
+        ('female', 'Female'),
+        ('male', 'Male'),
+        ('other', 'Other'),
     ])
-    senha = models.CharField(max_length=40)
+    password = models.CharField(max_length=40)
     is_banned = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'utilizador'
+        db_table = 'user_account'
 
-class Motorista(models.Model):
-    id_user = models.OneToOneField(Utilizador, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
-    carta_conducao = models.CharField(max_length=12)
-    ano_nascimento = models.CharField(max_length=4)
-
-    class Meta:
-        db_table = 'motorista'
-
-class Gestor(models.Model):
-    id_user = models.OneToOneField(Utilizador, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+class Driver(models.Model):
+    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+    license_number = models.CharField(max_length=12)
+    birth_year = models.CharField(max_length=4)
 
     class Meta:
-        db_table = 'gestor'
+        db_table = 'driver'
 
-class Cliente(models.Model):
-    id_user = models.OneToOneField(Utilizador, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+class Manager(models.Model):
+    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+
+    class Meta:
+        db_table = 'manager'
+
+class Client(models.Model):
+    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
     
     class Meta:
-        db_table = 'cliente'
+        db_table = 'client'
 
-class Periodo(models.Model):
-    hora_inicio = models.DateTimeField()
-    hora_fim = models.DateTimeField()
-
-    class Meta:
-        db_table = 'periodo_tempo'
-
-class Turno(models.Model):
-    id_taxi = models.ForeignKey(Taxi, on_delete=models.CASCADE)
-    id_motorista = models.ForeignKey(Motorista, on_delete=models.CASCADE)
-    id_periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE)
+class TimeInterval(models.Model):
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
 
     class Meta:
-        db_table = 'turno'
+        db_table = 'time_interval'
 
-class Reabastecimento(models.Model):
-    euros = models.IntegerField()
+class Shift(models.Model):
+    taxi = models.ForeignKey(Taxi, on_delete=models.CASCADE)
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    scheduled_interval = models.ForeignKey(
+        TimeInterval,
+        on_delete=models.CASCADE,
+        related_name='shift_scheduled',
+        help_text='Scheduled interval (planned start and end)'
+    )
+    real_interval = models.ForeignKey(
+        TimeInterval,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='shift_real',
+        help_text='Real interval (actual start and end of the shift)'
+    )
+
+    class Meta:
+        db_table = 'shift'
+
+class Refueling(models.Model):
+    cost = models.IntegerField()
     kwh = models.IntegerField(null=True, blank=True)
-    litros = models.IntegerField(null=True, blank=True)
-    quilometragem_inicial = models.IntegerField()
-    id_turno = models.ForeignKey(Turno, on_delete=models.CASCADE)
-    id_periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE)
+    liters = models.IntegerField(null=True, blank=True)
+    initial_mileage = models.IntegerField()
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'reabastecimento'
+        db_table = 'refueling'
 
-class Avaliacao(models.Model):
-    valor = models.IntegerField()
-    id_motorista = models.ForeignKey(Motorista, on_delete=models.CASCADE)
-    id_cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+class Rating(models.Model):
+    score = models.IntegerField()
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'avaliacao'
+        db_table = 'rating'
 
-class Viagem(models.Model):
-    quilometros = models.IntegerField()
-    origem = models.CharField(max_length=255)
-    destino = models.CharField(max_length=255)
-    nivel_conforto = models.CharField(max_length=10, choices=[
-        ('basico', 'Básico'),
-        ('luxuoso', 'Luxuoso')
+class Trip(models.Model):
+    kilometers = models.IntegerField()
+    origin = models.CharField(max_length=255)
+    destination = models.CharField(max_length=255)
+    comfort_level = models.CharField(max_length=10, choices=[
+        ('basic', 'Basic'),
+        ('luxury', 'Luxury')
     ])
-    preco = models.IntegerField()
-    id_turno = models.ForeignKey(Turno, on_delete=models.CASCADE)
-    id_periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE)
+    price = models.IntegerField()
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'viagem'
+        db_table = 'trip'
 
-class Fatura(models.Model):
-    data = models.DateField()
-    valor_total = models.DecimalField(max_digits=10, decimal_places=2)
-    valor_pago = models.DecimalField(max_digits=10, decimal_places=2)
+class Invoice(models.Model):
+    date = models.DateField()
+    amount_total = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     nif = models.CharField(max_length=9)
 
     class Meta:
-        db_table = 'fatura'
+        db_table = 'invoice'
 
-class PedidoViagem(models.Model):
-    origem = models.CharField(max_length=255)
-    destino = models.CharField(max_length=255)
-    nivel_conforto = models.CharField(max_length=10, choices=[
-        ('basico', 'Básico'),
-        ('luxuoso', 'Luxuoso')
+class TripRequest(models.Model):
+    origin = models.CharField(max_length=255)
+    destination = models.CharField(max_length=255)
+    comfort_level = models.CharField(max_length=10, choices=[
+        ('basic', 'Basic'),
+        ('luxury', 'Luxury')
     ])
-    estado = models.CharField(max_length=12, choices=[
-        ('Em espera', 'Em Espera'),
-        ('Confirmado', 'Confirmado'),
-        ('Cancelado', 'Cancelado'),
-        ('Suspenso', 'Suspenso')
+    status = models.CharField(max_length=12, choices=[
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('canceled', 'Canceled'),
+        ('suspended', 'Suspended')
     ])
-    n_passageiros = models.IntegerField()
+    num_passengers = models.IntegerField()
 
     class Meta:
-        db_table = 'pedido_viagem'
+        db_table = 'trip_request'

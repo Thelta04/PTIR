@@ -8,84 +8,84 @@ class TaxiSerializer(serializers.ModelSerializer):
 
 #PUT / POST
 
-class RegistoDriverSerializer(serializers.Serializer):
+class RegisterDriverSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
-    nome = serializers.CharField(max_length=60)
+    name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    genero = serializers.CharField(max_length=15)
-    senha = serializers.CharField(max_length=40)
-    carta_conducao = serializers.CharField(max_length=12)
-    ano_nascimento = serializers.CharField(max_length=4)
+    gender = serializers.CharField(max_length=15)
+    password = serializers.CharField(max_length=40)
+    license_number = serializers.CharField(max_length=12)
+    birth_year = serializers.CharField(max_length=4)
 
-class RegistoClientSerializer(serializers.Serializer):
+class RegisterClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
-    nome = serializers.CharField(max_length=60)
+    name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    genero = serializers.CharField(max_length=15)
-    senha = serializers.CharField(max_length=40)
+    gender = serializers.CharField(max_length=15)
+    password = serializers.CharField(max_length=40)
 
-class RegistoManagerSerializer(serializers.Serializer):
+class RegisterManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
-    nome = serializers.CharField(max_length=60)
+    name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    genero = serializers.CharField(max_length=15)
-    senha = serializers.CharField(max_length=40)
+    gender = serializers.CharField(max_length=15)
+    password = serializers.CharField(max_length=40)
 
-class RegistoTaxiSerializer(serializers.ModelSerializer):
-    matricula = serializers.CharField(max_length=8)
-    ano_compra = serializers.CharField(max_length=4)
-    quilometragem = serializers.IntegerField()
-    marca = serializers.CharField(max_length=40)
-    modelo = serializers.CharField(max_length=40)
-    nivel_conforto = serializers.CharField(max_length=10)
-    tipo_motor = serializers.CharField(max_length=40)
-    n_passageiros = serializers.IntegerField()
+class RegisterTaxiSerializer(serializers.ModelSerializer):
+    license_plate = serializers.CharField(max_length=8)
+    purchase_year = serializers.CharField(max_length=4)
+    mileage = serializers.IntegerField()
+    brand = serializers.CharField(max_length=40)
+    model = serializers.CharField(max_length=40)
+    comfort_level = serializers.CharField(max_length=10)
+    engine_type = serializers.CharField(max_length=40)
+    num_passengers = serializers.IntegerField()
 
-    def validate_nivel_conforto(self, value):
-        if value not in ['basico', 'luxuoso']:
-            raise serializers.ValidationError("Nível de conforto deve ser 'basico' ou 'luxuoso'.")
+    def validate_comfort_level(self, value):
+        if value not in ['basic', 'luxury']:
+            raise serializers.ValidationError("Comfort level must be 'basic' or 'luxury'.")
         return value
     
     class Meta:
         model = Taxi
-        fields = ['matricula', 'ano_compra', 'quilometragem', 'marca', 'modelo', 'nivel_conforto', 'tipo_motor', 'n_passageiros']
+        fields = ['license_plate', 'purchase_year', 'mileage', 'brand', 'model', 'comfort_level', 'engine_type', 'num_passengers']
 
 #GETS
-class UtilizadorSerializer(serializers.ModelSerializer):
-    nif   = serializers.CharField(source='id_user.nif',   read_only=True)
-    nome  = serializers.CharField(source='id_user.nome',  read_only=True)
-    email = serializers.CharField(source='id_user.email', read_only=True)
-    genero = serializers.CharField(source='id_user.genero', read_only=True)
-    is_banned = serializers.BooleanField(source= "id_user.is_banned", read_only = True)
+class UserSerializer(serializers.ModelSerializer):
+    nif   = serializers.CharField(source='user.nif',   read_only=True)
+    name  = serializers.CharField(source='user.name',  read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    gender = serializers.CharField(source='user.gender', read_only=True)
+    is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
 
     class Meta:
-        model = Cliente
-        fields = ['nif', 'nome', 'email', 'genero', "is_banned"]
+        model = Client
+        fields = ['nif', 'name', 'email', 'gender', "is_banned"]
 
 
-class MotoristaSerializer(serializers.ModelSerializer):
-    nif   = serializers.CharField(source='id_user.nif',   read_only=True)
-    nome  = serializers.CharField(source='id_user.nome',  read_only=True)
-    email = serializers.CharField(source='id_user.email', read_only=True)
-    genero = serializers.CharField(source='id_user.genero', read_only=True)
-    is_banned = serializers.BooleanField(source="id_user.is_banned", read_only = True)
-    carta_conducao = serializers.CharField(read_only=True)
-    ano_nascimento = serializers.CharField(read_only=True)
+class DriverSerializer(serializers.ModelSerializer):
+    nif   = serializers.CharField(source='user.nif',   read_only=True)
+    name  = serializers.CharField(source='user.name',  read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    gender = serializers.CharField(source='user.gender', read_only=True)
+    is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
+    license_number = serializers.CharField(read_only=True)
+    birth_year = serializers.CharField(read_only=True)
 
     class Meta:
-        model = Motorista
-        fields = ['nif', 'nome', 'email', 'genero', 'carta_conducao', 'ano_nascimento', "is_banned"]
+        model = Driver
+        fields = ['nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
 
-class RegistoTaxiSerializer(serializers.ModelSerializer):
-    matricula = serializers.CharField(read_only = True)
-    ano_compra = serializers.CharField(read_only = True)
-    quilometragem = serializers.IntegerField(read_only = True)
-    marca = serializers.CharField(read_only = True)
-    modelo = serializers.CharField(read_only = True)
-    nivel_conforto = serializers.CharField(read_only = True)
-    tipo_motor = serializers.CharField(read_only = True)
-    n_passageiros = serializers.IntegerField(read_only = True)
+class TaxiDetailSerializer(serializers.ModelSerializer):
+    license_plate = serializers.CharField(read_only=True)
+    purchase_year = serializers.CharField(read_only=True)
+    mileage = serializers.IntegerField(read_only=True)
+    brand = serializers.CharField(read_only=True)
+    model = serializers.CharField(read_only=True)
+    comfort_level = serializers.CharField(read_only=True)
+    engine_type = serializers.CharField(read_only=True)
+    num_passengers = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Taxi
-        fields = ['matricula', 'ano_compra', 'quilometragem', 'marca', 'modelo', 'nivel_conforto', 'tipo_motor', 'n_passageiros']
+        fields = ['license_plate', 'purchase_year', 'mileage', 'brand', 'model', 'comfort_level', 'engine_type', 'num_passengers']

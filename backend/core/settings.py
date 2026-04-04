@@ -72,13 +72,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 REST_FRAMEWORK = {
-    # Diz ao Django para usar o drf-spectacular para gerar o esquema
+    # Tells Django to use drf-spectacular to generate the schema
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'API Tuxy',
-    'DESCRIPTION': 'Documentação oficial da API para a gestão de frota de táxis.',
+    'DESCRIPTION': 'Official API documentation for taxi fleet management.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }

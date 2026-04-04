@@ -1,263 +1,262 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
-from .models import Taxi, Utilizador, Cliente, Motorista, Gestor
+from .models import Taxi, UserAccount, Client, Driver, Manager
 from .serializers import *
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 
-# --- Vistas com Lógica de Negócio ---
+# --- Views with Business Logic ---
 
 class ClientCreateView(views.APIView):
     @extend_schema(
-        summary="Registar um novo Cliente",
-        description="Cria o utilizador base e associa-lhe imediatamente o perfil de Cliente.",
-        request=RegistoClientSerializer,
+        summary="Register a new Client",
+        description="Creates the base user and immediately associates the Client profile.",
+        request=RegisterClientSerializer,
         responses={201: inline_serializer(
             name='ClientCreateResponse',
-            fields={'mensagem': serializers.CharField(), 'id': serializers.IntegerField()}
+            fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegistoClientSerializer(data=request.data)
+        serializer = RegisterClientSerializer(data=request.data)
         if serializer.is_valid():
-            dados = serializer.validated_data
+            data = serializer.validated_data
             
-            # 1. Cria o Utilizador Base
-            user = Utilizador.objects.create(
-                nif=dados['nif'], nome=dados['nome'], email=dados['email'],
-                genero=dados['genero'], senha=dados['senha']
+            # 1. Create the base User
+            user = UserAccount.objects.create(
+                nif=data['nif'], name=data['name'], email=data['email'],
+                gender=data['gender'], password=data['password']
             )
-            # 2. Cria o perfil de Cliente
-            Cliente.objects.create(id_user=user)
+            # 2. Create the Client profile
+            Client.objects.create(user=user)
             
-            return Response({"mensagem": "Cliente criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Client created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
         
-        # Se falhar a validação (ex: faltar o email), devolve erro 400 automaticamente
+        # If validation fails (e.g. missing email), return 400 automatically
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ClientDetailView(views.APIView):
     @extend_schema(
-        summary="Consultar dados do Cliente",
-        description="Devolve a informação detalhada de um cliente específico com base no ID do utilizador.",
-        responses={200: UtilizadorSerializer}
+        summary="Get Client details",
+        description="Returns the detailed information of a specific client based on the user ID.",
+        responses={200: UserSerializer}
     )
     def get(self, request, id):
         try:
-            # 1. Busca o utilizador pelo id
-            user = Utilizador.objects.get(pk=id)
-            client = Cliente.objects.get(id_user=user)
-        except Utilizador.DoesNotExist:
-            return Response({"erro": "Utilizador não encontrado"}, status=status.HTTP_404_NOT_FOUND)
-        except Cliente.DoesNotExist:
-            return Response({"erro": "Client não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+            # 1. Find the user by id
+            user = UserAccount.objects.get(pk=id)
+            client = Client.objects.get(user=user)
+        except UserAccount.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = UtilizadorSerializer(client)
+        serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DriverCreateView(views.APIView):
     @extend_schema(
-        summary="Registar um novo Motorista",
-        description="Cria o utilizador base, perfil de cliente, e associa a carta de condução e ano de nascimento ao perfil de Motorista.",
-        request=RegistoDriverSerializer,
+        summary="Register a new Driver",
+        description="Creates the base user, client profile, and associates the license number and birth year to the Driver profile.",
+        request=RegisterDriverSerializer,
         responses={201: inline_serializer(
             name='DriverCreateResponse',
-            fields={'mensagem': serializers.CharField(), 'id': serializers.IntegerField()}
+            fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegistoDriverSerializer(data=request.data)
+        serializer = RegisterDriverSerializer(data=request.data)
         if serializer.is_valid():
-            dados = serializer.validated_data
+            data = serializer.validated_data
             
-            user = Utilizador.objects.create(
-                nif=dados['nif'], nome=dados['nome'], email=dados['email'],
-                genero=dados['genero'], senha=dados['senha']
+            user = UserAccount.objects.create(
+                nif=data['nif'], name=data['name'], email=data['email'],
+                gender=data['gender'], password=data['password']
             )
-            Cliente.objects.create(id_user=user)
-            Motorista.objects.create(
-                id_user=user, 
-                carta_conducao=dados['carta_conducao'], 
-                ano_nascimento=dados['ano_nascimento']
+            Client.objects.create(user=user)
+            Driver.objects.create(
+                user=user, 
+                license_number=data['license_number'], 
+                birth_year=data['birth_year']
             )
             
-            return Response({"mensagem": "Motorista criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Driver created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DriverDetailView(views.APIView):
     @extend_schema(
-        summary="Consultar dados do Motorista",
-        description="Devolve a informação detalhada de um motorista específico com base no ID do utilizador.",
-        # O Swagger vai ler a estrutura diretamente do import abaixo
+        summary="Get Driver details",
+        description="Returns the detailed information of a specific driver based on the user ID.",
     )
     def get(self, request, id):
         try:
-            # 1. Busca o utilizador pelo id
-            user = Utilizador.objects.get(pk=id)
-            driver = Motorista.objects.get(id_user=user)
-        except Utilizador.DoesNotExist:
-            return Response({"erro": "Utilizador não encontrado"}, status=status.HTTP_404_NOT_FOUND)
-        except Motorista.DoesNotExist: # NOTA: Corrigi aqui de driver.DoesNotExist para Motorista.DoesNotExist para evitar bugs futuros
-            return Response({"erro": "Motorista não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+            # 1. Find the user by id
+            user = UserAccount.objects.get(pk=id)
+            driver = Driver.objects.get(user=user)
+        except UserAccount.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Driver.DoesNotExist:
+            return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Serializa e devolve os dados
-        from .serializers import MotoristaSerializer
-        serializer = MotoristaSerializer(driver)
+        # 2. Serialize and return the data
+        from .serializers import DriverSerializer
+        serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ManagerCreateView(views.APIView):
     @extend_schema(
-        summary="Registar um novo Gestor",
-        description="Cria o utilizador base e associa-lhe o perfil de Gestor da plataforma.",
-        request=RegistoManagerSerializer,
+        summary="Register a new Manager",
+        description="Creates the base user and associates the Manager profile.",
+        request=RegisterManagerSerializer,
         responses={201: inline_serializer(
             name='ManagerCreateResponse',
-            fields={'mensagem': serializers.CharField(), 'id': serializers.IntegerField()}
+            fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegistoManagerSerializer(data=request.data)
+        serializer = RegisterManagerSerializer(data=request.data)
         if serializer.is_valid():
-            dados = serializer.validated_data
+            data = serializer.validated_data
             
-            user = Utilizador.objects.create(
-                nif=dados['nif'], nome=dados['nome'], email=dados['email'],
-                genero=dados['genero'], senha=dados['senha']
+            user = UserAccount.objects.create(
+                nif=data['nif'], name=data['name'], email=data['email'],
+                gender=data['gender'], password=data['password']
             )
-            Gestor.objects.create(id_user=user)
+            Manager.objects.create(user=user)
             
-            return Response({"mensagem": "Gestor criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Manager created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiCreateView(views.APIView):
     @extend_schema(
-        summary="Registar um novo Táxi (Exclusivo a Gestores)",
-        description="Adiciona um novo veículo à frota. Requer que o cabeçalho 'X-User-ID' seja enviado com o ID de um Gestor válido.",
-        request=RegistoTaxiSerializer,
+        summary="Register a new Taxi (Manager only)",
+        description="Adds a new vehicle to the fleet. Requires the 'X-User-ID' header with a valid Manager ID.",
+        request=RegisterTaxiSerializer,
         responses={201: inline_serializer(
             name='TaxiCreateResponse',
-            fields={'mensagem': serializers.CharField(), 'matricula': serializers.CharField()}
+            fields={'message': serializers.CharField(), 'license_plate': serializers.CharField()}
         )}
     )
     def post(self, request):
         user_id = request.headers.get('X-User-ID')
         
         if not user_id:
-            return Response({"erro": "Acesso negado. Falta a identificação (X-User-ID)."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Access denied. Missing identification (X-User-ID)."}, status=status.HTTP_401_UNAUTHORIZED)
             
         try:
-            user = Utilizador.objects.get(id=user_id)
-            # Verifica se quem está a fazer o pedido existe na tabela Gestor
-            if not Gestor.objects.filter(id_user=user).exists():
+            user = UserAccount.objects.get(id=user_id)
+            # Check if the requester exists in the Manager table
+            if not Manager.objects.filter(user=user).exists():
                 return Response(
-                    {"erro": "Acesso Proibido. Apenas Gestores podem adicionar veículos à frota."}, 
+                    {"error": "Forbidden. Only Managers can add vehicles to the fleet."}, 
                     status=status.HTTP_403_FORBIDDEN
                 )
-        except Utilizador.DoesNotExist:
-            return Response({"erro": "Utilizador inválido ou não encontrado."}, status=status.HTTP_401_UNAUTHORIZED)
+        except UserAccount.DoesNotExist:
+            return Response({"error": "Invalid or unknown user."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        serializer = RegistoTaxiSerializer(data=request.data)
+        serializer = RegisterTaxiSerializer(data=request.data)
         
         if serializer.is_valid():
             serializer.save()
             
             return Response({
-                "mensagem": "Táxi registado com sucesso na frota!",
-                "matricula": serializer.data['matricula']
+                "message": "Taxi registered successfully in the fleet!",
+                "license_plate": serializer.data['license_plate']
             }, status=status.HTTP_201_CREATED)
             
-        # Se houver erros (ex: nível de conforto inválido, matrícula repetida)
+        # If there are errors (e.g. invalid comfort level, duplicate plate)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiDetailView(views.APIView):
     @extend_schema(
-        summary="Consultar dados de um Táxi",
-        description="Devolve a informação detalhada de um táxi específico com base na matrícula.",
-        responses={200: RegistoTaxiSerializer}
+        summary="Get Taxi details",
+        description="Returns the detailed information of a specific taxi based on its license plate.",
+        responses={200: TaxiDetailSerializer}
     )
-    def get(self, request, matricula):
+    def get(self, request, license_plate):
         try:
-            taxi = Taxi.objects.get(matricula=matricula)
+            taxi = Taxi.objects.get(license_plate=license_plate)
         except Taxi.DoesNotExist:
-            return Response({"erro": "Táxi não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Taxi not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = RegistoTaxiSerializer(taxi)
+        serializer = TaxiDetailSerializer(taxi)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class LoginView(views.APIView):
     @extend_schema(
-        summary="Iniciar Sessão",
-        description="Valida as credenciais do utilizador e devolve o tipo de perfil de acesso (Gestor, Motorista, Cliente).",
+        summary="Login",
+        description="Validates the user credentials and returns the access profile type (Manager, Driver, Client).",
         request=inline_serializer(
             name='LoginRequest',
             fields={
                 'email': serializers.EmailField(),
-                'senha': serializers.CharField()
+                'password': serializers.CharField()
             }
         ),
         responses={200: inline_serializer(
             name='LoginSuccessResponse',
             fields={
-                'mensagem': serializers.CharField(),
+                'message': serializers.CharField(),
                 'id': serializers.IntegerField(),
-                'nome': serializers.CharField(),
+                'name': serializers.CharField(),
                 'email': serializers.EmailField(),
-                'tipo': serializers.CharField()
+                'type': serializers.CharField()
             }
         )}
     )
     def post(self, request):
         email = request.data.get('email')
-        senha = request.data.get('senha')
-        if not email or not senha:
-            return Response({"erro": "Email e senha são obrigatórios."},status=status.HTTP_400_BAD_REQUEST
+        password = request.data.get('password')
+        if not email or not password:
+            return Response({"error": "Email and password are required."},status=status.HTTP_400_BAD_REQUEST
         )
         try:
-            user = Utilizador.objects.get(email=email, senha=senha)
-        except Utilizador.DoesNotExist:
-            return Response({"erro": "Credenciais inválidas."},status=status.HTTP_401_UNAUTHORIZED
+            user = UserAccount.objects.get(email=email, password=password)
+        except UserAccount.DoesNotExist:
+            return Response({"error": "Invalid credentials."},status=status.HTTP_401_UNAUTHORIZED
             )
-        #ve se esta banido 
+        # Check if banned
         if user.is_banned:
             return Response(
-                {"erro": "Conta suspensa."},
+                {"error": "Account suspended."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # Determinar o tipo de utilizador
-        tipo = None
-        if Cliente.objects.filter(id_user=user).exists():
-            tipo = "CLIENTE"
-        elif Motorista.objects.filter(id_user=user).exists():
-            tipo = "MOTORISTA"
-        elif Gestor.objects.filter(id_user=user).exists():
-            tipo = "GESTOR"
+        # Determine the user type
+        user_type = None
+        if Client.objects.filter(user=user).exists():
+            user_type = "CLIENT"
+        elif Driver.objects.filter(user=user).exists():
+            user_type = "DRIVER"
+        elif Manager.objects.filter(user=user).exists():
+            user_type = "MANAGER"
         else:
-            return Response({"erro": "Utilizador sem perfil associado."},status=status.HTTP_403_FORBIDDEN
+            return Response({"error": "User has no associated profile."},status=status.HTTP_403_FORBIDDEN
             )
-        return Response({"mensagem": "Login efetuado com sucesso!","id": user.id,"nome": user.nome,"email": user.email,"tipo": tipo
-        }, status=status.HTTP_200_OK) #o tipo vai com a mensagem 
+        return Response({"message": "Login successful!","id": user.id,"name": user.name,"email": user.email,"type": user_type
+        }, status=status.HTTP_200_OK)
     
 class BanView(views.APIView):
     @extend_schema(
-        summary="Banir ou Ativar Utilizador",
-        description="Inverte o estado de suspensão (is_banned) de uma conta. Não requer dados no body.",
-        request=None, # Como é um PATCH que apenas inverte o estado internamente, não precisamos de Body
+        summary="Ban or Activate User",
+        description="Toggles the suspension state (is_banned) of an account. No body data required.",
+        request=None,
         responses={200: inline_serializer(
             name='BanToggleResponse',
-            fields={'mensagem': serializers.CharField()}
+            fields={'message': serializers.CharField()}
         )}
     )
     def patch(self, request, id):
-        # Esta rota usa PATCH porque vamos atualizar apenas 1 campo (is_active)
+        # This route uses PATCH because we're updating only 1 field (is_banned)
         try:
-            user = Utilizador.objects.get(id=id)
+            user = UserAccount.objects.get(id=id)
             
-            # Inverte o estado atual (Se for True passa a False, e vice-versa)
+            # Toggle the current state (True becomes False, and vice-versa)
             user.is_banned = not user.is_banned 
             user.save()
             
-            estado_texto = "Banido" if user.is_banned else "Ativo"
-            return Response({"mensagem": estado_texto}, status=status.HTTP_200_OK)
+            status_text = "Banned" if user.is_banned else "Active"
+            return Response({"message": status_text}, status=status.HTTP_200_OK)
             
-        except Utilizador.DoesNotExist:
-            return Response({"erro": "Utilizador não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except UserAccount.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)

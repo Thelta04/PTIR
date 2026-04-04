@@ -1,4 +1,4 @@
-#Definir as rotas da API (/api/taxis/ ou /api/viagens/) 
+# Define the API routes (/api/taxis/ or /api/trips/) 
 
 from django.contrib import admin
 from django.urls import path, include
@@ -6,23 +6,28 @@ from api import views
 
 urlpatterns = [
     
-    #Utilizadores
-    #Gets
-    path('client/<int:id>', views.ClientDetailView.as_view(), name='ver_clientes'),
-    path('driver/<int:id>', views.DriverDetailView.as_view(), name='ver_motoristas'),
-    path('taxi/<str:matricula>', views.TaxiDetailView.as_view(), name='ver_taxi'),
+    # Users
+    # Gets
+    path('client/<int:id>', views.ClientDetailView.as_view(), name='client_detail'),
+    path('driver/<int:id>', views.DriverDetailView.as_view(), name='driver_detail'),
+    path('taxi/<str:license_plate>', views.TaxiDetailView.as_view(), name='taxi_detail'),
 
-    # Registos
-    path('auth/register/client/', views.ClientCreateView.as_view(), name='registo_cliente'),
-    path('auth/register/driver/', views.DriverCreateView.as_view(), name='registo_motorista'),
-    path('auth/register/manager/', views.ManagerCreateView.as_view(), name='registo_gestor'),
+    # Registration
+    path('auth/register/client/', views.ClientCreateView.as_view(), name='register_client'),
+    path('auth/register/driver/', views.DriverCreateView.as_view(), name='register_driver'),
+    path('auth/register/manager/', views.ManagerCreateView.as_view(), name='register_manager'),
 
-    # Táxis
-    path('taxi/register/', views.TaxiCreateView.as_view(), name='ver_taxis'),
+    # Taxis
+    path('taxi/register/', views.TaxiCreateView.as_view(), name='register_taxi'),
     
-    # Autenticação (Login)
+    # Shifts
+    path('shift/create/', views.ShiftCreateView.as_view(), name='create_shift'),
+    path('shift/get/<int:id>/', views.ShiftListView.as_view(), name='list_shifts'),
+    path('shift/<int:id>/delete/', views.ShiftDeleteView.as_view(), name='delete_shift'),
+
+    # Authentication (Login)
     path('auth/login/', views.LoginView.as_view(), name='login'),
     
-    # Gestão de Contas (Ativar / Desativar)
+    # Account Management (Activate / Deactivate)
     path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
 ]

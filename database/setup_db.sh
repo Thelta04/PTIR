@@ -1,13 +1,13 @@
 # ==========================================
-# INSTALAÇÃO DO MOTOR DE BASE DE DADOS
+# DATABASE ENGINE INSTALLATION
 # ==========================================
 
-# 1. Atualizar o sistema
+# 1. Update the system
 sudo apt update && sudo apt upgrade -y
 
-# 2. Instalar o PostgreSQL e ferramentas extra
+# 2. Install PostgreSQL and extra tools
 sudo apt install postgresql postgresql-contrib -y
 
-# 3. Garantir que o serviço arranca sempre que a VM reiniciar
+# 3. Ensure the service starts automatically when the VM reboots
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
