@@ -25,9 +25,18 @@ urlpatterns = [
     path('shift/get/<int:id>/', views.ShiftListView.as_view(), name='list_shifts'),
     path('shift/<int:id>/delete/', views.ShiftDeleteView.as_view(), name='delete_shift'),
 
-    # Authentication (Login)
+    # Authentication
     path('auth/login/', views.LoginView.as_view(), name='login'),
+    path('auth/token/refresh/', views.TokenRefreshView.as_view(), name='token_refresh'),
     
-    # Account Management (Activate / Deactivate)
+    # Account Management (Ban - Manager only)
     path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
+    
+    
+    # # Trips (viagens)
+    path('trip/', views.TripListView.as_view(), name='list_trips'),
+    path('trip/create/', views.TripCreateView.as_view(), name='create_trip'),
+    path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip'),
+    path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
+    path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip')
 ]

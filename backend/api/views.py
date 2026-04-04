@@ -1,10 +1,13 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
-from .models import Taxi, UserAccount, Client, Driver, Manager
+from rest_framework.permissions import AllowAny
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip
 from .serializers import *
+from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
-
+from django.db import transaction
+ 
 # --- Views with Business Logic ---
 
 class ClientCreateView(views.APIView):
@@ -23,7 +26,7 @@ class ClientCreateView(views.APIView):
             data = serializer.validated_data
             
             # 1. Create the base User
-            user = UserAccount.objects.create(
+            user = User.objects.create(
                 nif=data['nif'], name=data['name'], email=data['email'],
                 gender=data['gender'], password=data['password']
             )
@@ -44,9 +47,9 @@ class ClientDetailView(views.APIView):
     def get(self, request, id):
         try:
             # 1. Find the user by id
-            user = UserAccount.objects.get(pk=id)
+            user = User.objects.get(pk=id)
             client = Client.objects.get(user=user)
-        except UserAccount.DoesNotExist:
+        except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         except Client.DoesNotExist:
             return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -69,7 +72,7 @@ class DriverCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            user = UserAccount.objects.create(
+            user = User.objects.create(
                 nif=data['nif'], name=data['name'], email=data['email'],
                 gender=data['gender'], password=data['password']
             )
@@ -91,9 +94,9 @@ class DriverDetailView(views.APIView):
     def get(self, request, id):
         try:
             # 1. Find the user by id
-            user = UserAccount.objects.get(pk=id)
+            user = User.objects.get(pk=id)
             driver = Driver.objects.get(user=user)
-        except UserAccount.DoesNotExist:
+        except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         except Driver.DoesNotExist:
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -119,7 +122,7 @@ class ManagerCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            user = UserAccount.objects.create(
+            user = User.objects.create(
                 nif=data['nif'], name=data['name'], email=data['email'],
                 gender=data['gender'], password=data['password']
             )
@@ -129,9 +132,12 @@ class ManagerCreateView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
     @extend_schema(
         summary="Register a new Taxi (Manager only)",
-        description="Adds a new vehicle to the fleet. Requires the 'X-User-ID' header with a valid Manager ID.",
+        description="Adds a new vehicle to the fleet. Requires a valid Manager JWT token.",
         request=RegisterTaxiSerializer,
         responses={201: inline_serializer(
             name='TaxiCreateResponse',
@@ -139,22 +145,6 @@ class TaxiCreateView(views.APIView):
         )}
     )
     def post(self, request):
-        user_id = request.headers.get('X-User-ID')
-        
-        if not user_id:
-            return Response({"error": "Access denied. Missing identification (X-User-ID)."}, status=status.HTTP_401_UNAUTHORIZED)
-            
-        try:
-            user = UserAccount.objects.get(id=user_id)
-            # Check if the requester exists in the Manager table
-            if not Manager.objects.filter(user=user).exists():
-                return Response(
-                    {"error": "Forbidden. Only Managers can add vehicles to the fleet."}, 
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        except UserAccount.DoesNotExist:
-            return Response({"error": "Invalid or unknown user."}, status=status.HTTP_401_UNAUTHORIZED)
-
         serializer = RegisterTaxiSerializer(data=request.data)
         
         if serializer.is_valid():
@@ -165,7 +155,6 @@ class TaxiCreateView(views.APIView):
                 "license_plate": serializer.data['license_plate']
             }, status=status.HTTP_201_CREATED)
             
-        # If there are errors (e.g. invalid comfort level, duplicate plate)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiDetailView(views.APIView):
@@ -183,10 +172,95 @@ class TaxiDetailView(views.APIView):
         serializer = TaxiDetailSerializer(taxi)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class ShiftCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Create a new Shift (Manager only)",
+        description="Creates a new shift for a driver and a taxi within a specific time interval. Requires a valid Manager JWT token.",
+        request=ShiftCreateSerializer,
+        responses={201: inline_serializer(
+            name='ShiftCreateResponse',
+            fields={'message': serializers.CharField(), 'shift_id': serializers.IntegerField()}
+        )}
+    )
+    def post(self, request):
+        serializer = ShiftCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            
+            driver = Driver.objects.get(pk=data['driver_id'])
+            taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+
+            try:
+                with transaction.atomic():
+                    interval = TimeInterval.objects.create(
+                        start_time=data['start_time'],
+                        end_time=data['end_time']
+                    )
+                    shift = Shift.objects.create(
+                        driver=driver,
+                        taxi=taxi,
+                        scheduled_interval=interval
+                    )
+                return Response({"message": "Shift created successfully!", "shift_id": shift.id}, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ShiftListView(views.APIView):
+    @extend_schema(
+        summary="List all shifts for a Driver",
+        description="Returns a list of all shifts (past, present, and future) for a specific driver, identified by their user ID.",
+        responses={200: ShiftDetailSerializer(many=True)}
+    )
+    def get(self, request, id):
+        try:
+            driver = Driver.objects.get(pk=id)
+        except Driver.DoesNotExist:
+            return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        shifts = Shift.objects.filter(driver=driver).order_by('-scheduled_interval__start_time')
+        serializer = ShiftDetailSerializer(shifts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ShiftDeleteView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Delete a Shift (Manager only)",
+        description="Deletes a scheduled shift. Only possible if the shift has not started and has no trips. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None, 
+            403: inline_serializer(name="ShiftDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ShiftDeleteNotFound", fields={'error': serializers.CharField()})
+        }
+    )
+    def delete(self, request, id):
+        try:
+            shift = Shift.objects.get(pk=id)
+            if shift.real_interval is not None:
+                 return Response({"error": "Cannot delete a shift that has already started."}, status=status.HTTP_403_FORBIDDEN)
+            if Trip.objects.filter(shift=shift).exists():
+                return Response({"error": "Cannot delete a shift that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
+            shift.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+
 class LoginView(views.APIView):
+    authentication_classes = []  # Public endpoint
+    permission_classes = [AllowAny]
+
     @extend_schema(
         summary="Login",
-        description="Validates the user credentials and returns the access profile type (Manager, Driver, Client).",
+        description="Validates credentials and returns the user profile. Managers also receive JWT access and refresh tokens.",
         request=inline_serializer(
             name='LoginRequest',
             fields={
@@ -201,7 +275,9 @@ class LoginView(views.APIView):
                 'id': serializers.IntegerField(),
                 'name': serializers.CharField(),
                 'email': serializers.EmailField(),
-                'type': serializers.CharField()
+                'type': serializers.CharField(),
+                'access': serializers.CharField(),
+                'refresh': serializers.CharField(),
             }
         )}
     )
@@ -209,37 +285,49 @@ class LoginView(views.APIView):
         email = request.data.get('email')
         password = request.data.get('password')
         if not email or not password:
-            return Response({"error": "Email and password are required."},status=status.HTTP_400_BAD_REQUEST
-        )
+            return Response({"error": "Email and password are required."}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            user = UserAccount.objects.get(email=email, password=password)
-        except UserAccount.DoesNotExist:
-            return Response({"error": "Invalid credentials."},status=status.HTTP_401_UNAUTHORIZED
-            )
-        # Check if banned
+            user = User.objects.get(email=email, password=password)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+
         if user.is_banned:
-            return Response(
-                {"error": "Account suspended."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        # Determine the user type
+            return Response({"error": "Account suspended."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Determine user type
         user_type = None
-        if Client.objects.filter(user=user).exists():
-            user_type = "CLIENT"
+        if Manager.objects.filter(user=user).exists():
+            user_type = "MANAGER"
         elif Driver.objects.filter(user=user).exists():
             user_type = "DRIVER"
-        elif Manager.objects.filter(user=user).exists():
-            user_type = "MANAGER"
+        elif Client.objects.filter(user=user).exists():
+            user_type = "CLIENT"
         else:
-            return Response({"error": "User has no associated profile."},status=status.HTTP_403_FORBIDDEN
-            )
-        return Response({"message": "Login successful!","id": user.id,"name": user.name,"email": user.email,"type": user_type
-        }, status=status.HTTP_200_OK)
+            return Response({"error": "User has no associated profile."}, status=status.HTTP_403_FORBIDDEN)
+
+        response_data = {
+            "message": "Login successful!",
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "type": user_type,
+        }
+
+        # Only managers receive JWT tokens
+        if user_type == "MANAGER":
+            access, refresh = generate_tokens(user)
+            response_data["access"] = access
+            response_data["refresh"] = refresh
+
+        return Response(response_data, status=status.HTTP_200_OK)
     
 class BanView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
     @extend_schema(
-        summary="Ban or Activate User",
-        description="Toggles the suspension state (is_banned) of an account. No body data required.",
+        summary="Ban or Activate User (Manager only)",
+        description="Toggles the suspension state (is_banned) of an account. Requires a valid Manager JWT token.",
         request=None,
         responses={200: inline_serializer(
             name='BanToggleResponse',
@@ -247,16 +335,236 @@ class BanView(views.APIView):
         )}
     )
     def patch(self, request, id):
-        # This route uses PATCH because we're updating only 1 field (is_banned)
         try:
-            user = UserAccount.objects.get(id=id)
-            
-            # Toggle the current state (True becomes False, and vice-versa)
+            user = User.objects.get(id=id)
             user.is_banned = not user.is_banned 
             user.save()
             
             status_text = "Banned" if user.is_banned else "Active"
             return Response({"message": status_text}, status=status.HTTP_200_OK)
             
-        except UserAccount.DoesNotExist:
+        except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TokenRefreshView(views.APIView):
+    authentication_classes = []  # Public endpoint
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Refresh JWT token",
+        description="Returns a new access token given a valid refresh token.",
+        request=inline_serializer(
+            name='TokenRefreshRequest',
+            fields={'refresh': serializers.CharField()}
+        ),
+        responses={200: inline_serializer(
+            name='TokenRefreshResponse',
+            fields={'access': serializers.CharField()}
+        )}
+    )
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({"error": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payload = decode_token(refresh_token, expected_type='refresh')
+            user = User.objects.get(pk=payload['user_id'])
+            access, _ = generate_tokens(user)
+            return Response({"access": access}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+# Trips
+class TripListView(views.APIView):
+    @extend_schema(
+        summary="List all trips",
+        description="Returns all trips. Can be filtered by status.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request):
+        status_filter = request.query_params.get('status', None)
+        
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).all()
+        
+        if status_filter:
+            trips = trips.filter(status=status_filter)
+        
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class TripCreateView(views.APIView):
+    @extend_schema(
+        summary="Create a new trip (Client)",
+        description="Client requests a new trip. Creates a TimeInterval and associates it with the trip.",
+        request=TripCreateSerializer,
+        responses={201: TripListSerializer}
+    )
+    def post(self, request):
+        serializer = TripCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        
+        try:
+            client = Client.objects.get(user__id=data['client_id'])
+            shift  = Shift.objects.get(id=data['shift_id'])
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # 1. Criar o TimeInterval para a viagem
+        interval = TimeInterval.objects.create(
+            start_time=data['start_time'],
+            end_time=data['end_time']
+        )
+        
+        # 2. Criar a Trip
+        trip = Trip.objects.create(client=client,
+            shift=shift,
+            interval=interval,
+            origin=data['origin'],
+            destination=data['destination'],
+            comfort_level=data['comfort_level'],
+            num_passengers=data['num_passengers'],
+            kilometers=0,   # ainda não conhecido no momento do pedido
+            price=0,        # ainda não conhecido no momento do pedido
+            status='PENDING'
+        )
+        
+        response_serializer = TripListSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TripAcceptView(views.APIView):
+    @extend_schema(
+        summary="Driver accepts a trip",
+        description="Changes trip status from PENDING to DRIVER_ACCEPTED.",
+        request=TripAcceptSerializer,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'shift__driver__user',
+                'shift__taxi',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Validar que o estado atual permite aceitar
+        if trip.status != 'PENDING':
+            return Response(
+                {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = TripAcceptSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validar que o driver pertence ao shift da viagem
+        driver_id = serializer.validated_data['driver_id']
+        if trip.shift.driver.user_id != driver_id:
+            return Response(
+                {"error": "This driver is not assigned to this trip's shift."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        trip.status = 'DRIVER_ACCEPTED'
+        trip.save()
+        
+        response_serializer = TripListSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+    
+
+class TripCancelView(views.APIView):
+    @extend_schema(
+        summary="Cancel a trip (Client)",
+        description="Client cancels a trip. Only possible if status is PENDING or DRIVER_ACCEPTED.",
+        request=TripCancelSerializer,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'shift__driver__user',
+                'shift__taxi',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Só pode cancelar se ainda não estiver em progresso ou completa
+        cancelable_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED']
+        if trip.status not in cancelable_statuses:
+            return Response(
+                {"error": f"Trip cannot be canceled. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        trip.status = 'CANCELED'
+        trip.save()
+        
+        response_serializer = TripListSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+class TripCompleteView(views.APIView):
+    @extend_schema(
+        summary="Complete a trip and generate invoice",
+        description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
+        responses={200: TripCompleteSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'shift__driver__user',
+                'shift__taxi',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Só pode completar se estiver IN_PROGRESS
+        if trip.status != 'IN_PROGRESS':
+            return Response(
+                {"error": f"Trip cannot be completed. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Atualizar estado
+        trip.status = 'COMPLETED'
+        trip.save()
+        
+        # Gerar fatura
+        # Buscar o último número de fatura do ano atual para incrementar
+        from django.utils import timezone
+        current_year = timezone.now().year
+        last_invoice = Invoice.objects.filter(date__year=current_year).order_by('-number').first()
+        next_number  = (last_invoice.number + 1) if last_invoice else 1
+        
+        Invoice.objects.create(
+            trip=trip,
+            number=next_number,
+            date=timezone.now().date(),
+            amount_total=trip.price,
+            amount_paid=trip.price,
+            nif=trip.client.user.nif
+        )
+        
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)

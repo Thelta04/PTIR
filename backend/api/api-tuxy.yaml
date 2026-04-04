@@ -18,7 +18,7 @@ security:
 paths:
 
   # --- AUTENTICAÇÃO ---
-  /auth/login:
+  /auth/login/:
     post:
       summary: Autenticar utilizador
       tags: [Autenticação]
@@ -40,7 +40,7 @@ paths:
         '401':
           description: Credenciais inválidas
 
-  /auth/register/cliente:
+  /auth/register/client/:
     post:
       summary: Registar cliente
       tags: [Autenticação]
@@ -56,7 +56,7 @@ paths:
         '201':
           description: Utilizador criado com sucesso
 
-  /auth/register/motorista:
+  /auth/register/driver/:
     post:
       summary: Registar novo motorista
       tags: [Autenticação]
@@ -73,6 +73,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Driver'
+
+  /auth/register/manager/:
+    post:
+      summary: Registar novo gestor
+      tags: [Autenticação]
+      description: Registo de gestores. Operação restrita.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Gestor criado com sucesso
+        '403':
+          description: Sem permissão para realizar esta operação
 
   # --- GESTÃO DE UTILIZADORES ---
   /users:
@@ -127,7 +144,7 @@ paths:
         '403':
           description: Sem permissão para realizar esta operação
 
-  /users/{id}/toggle-status:
+  /user/{id}/toggle-status/:
     patch:
       summary: Ativar ou desativar conta de utilizador
       tags: [Utilizadores]
@@ -242,7 +259,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Trip'
 
-  /clients/{id}:
+  /client/{id}:
     get:
       summary: Obter detalhes de um cliente
       tags: [Clientes]
@@ -331,7 +348,7 @@ paths:
         '400':
           description: Dados inválidos (ex score fora do limite).
 
-  /drivers/{id}:
+  /driver/{id}:
     get:
       summary: Obter detalhes de um motorista
       tags: [Motoristas]
@@ -391,6 +408,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Taxi'
+
+  /taxi/register/:
     post:
       summary: Adicionar novo táxi
       tags: [Táxis]
@@ -432,17 +451,36 @@ paths:
                 items:
                   $ref: '#/components/schemas/Taxi'
 
-  /taxi/{id}:
+  /taxi/{license_plate}:
+    get:
+      summary: Obter detalhes de um táxi pela matrícula
+      tags: [Táxis]
+      parameters:
+        - name: license_plate
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Matrícula do táxi (ex. 12-AB-34)
+      responses:
+        '200':
+          description: Detalhes do táxi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Taxi'
+        '404':
+          description: Táxi não encontrado
     delete:
       summary: Remover um táxi
       tags: [Táxis]
       parameters:
-        - name: id
+        - name: license_plate
           in: path
           required: true
           schema:
-            type: integer
-          description: ID do Taxi
+            type: string
+          description: Matrícula do táxi
       responses:
         '200':
           description: Táxi Removido

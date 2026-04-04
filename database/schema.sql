@@ -52,7 +52,8 @@ CREATE TABLE shift (
     id SERIAL PRIMARY KEY,
     id_taxi VARCHAR(10) NOT NULL REFERENCES taxi(license_plate), 
     id_driver INTEGER NOT NULL REFERENCES driver(id_user),
-    id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
+    id_scheduled_interval INTEGER NOT NULL REFERENCES time_interval(id_interval),
+    id_real_interval INTEGER REFERENCES time_interval(id_interval)
 );
 
 -- REFUELING
@@ -79,14 +80,14 @@ CREATE TABLE trip (
     num_passengers INT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
-    id_client INTEGER NOT NULL REFERENCES client(id_user),
+    id_client INTEGER NOT NULL REFERENCES client(id_user) ON DELETE CASCADE,
     id_shift INTEGER NOT NULL REFERENCES shift(id),
     id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
 );
 
 -- RATING
 CREATE TABLE rating (
-    id_trip PRIMARY KEY INTEGER NOT NULL UNIQUE REFERENCES trip(id),
+    id_trip INTEGER PRIMARY KEY NOT NULL REFERENCES trip(id),
     score INT NOT NULL
 );
 
@@ -107,7 +108,7 @@ CREATE TABLE invoice (
 -- ==============================================================================
 
 ALTER TABLE user_account
-    ADD CONSTRAINT uq_user_email UNIQUE (email),
+    ADD CONSTRAINT uq_user_account_email UNIQUE (email),
     ADD CONSTRAINT chk_user_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
     ADD CONSTRAINT chk_user_gender CHECK (gender IN ('male', 'female', 'other')), -- RIA 13
     ADD CONSTRAINT chk_user_password CHECK (char_length(password) >= 6 AND password ~ '[A-Za-z]' AND password ~ '[0-9]'); -- RIA 15
@@ -128,8 +129,8 @@ ALTER TABLE time_interval
     ADD CONSTRAINT chk_interval_time CHECK (start_time < end_time); -- RIA 1
 
 ALTER TABLE shift
-    ADD CONSTRAINT uq_shift_taxi_interval UNIQUE (id_taxi, id_interval),
-    ADD CONSTRAINT uq_shift_driver_interval UNIQUE (id_driver, id_interval);
+    ADD CONSTRAINT uq_shift_taxi_interval UNIQUE (id_taxi, id_scheduled_interval),
+    ADD CONSTRAINT uq_shift_driver_interval UNIQUE (id_driver, id_scheduled_interval);
 
 ALTER TABLE refueling
     ADD CONSTRAINT chk_refueling_mileage CHECK (initial_mileage > 0), -- RIA 25
@@ -180,15 +181,22 @@ CREATE OR REPLACE FUNCTION fn_validate_shift() RETURNS TRIGGER AS $$DECLARE
     v_end_time TIMESTAMP;
     v_purchase_year INT;
 BEGIN
-    SELECT start_time, end_time INTO v_start_time, v_end_time FROM time_interval WHERE id_interval = NEW.id_interval;
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM time_interval WHERE id_interval = NEW.id_scheduled_interval;
     SELECT purchase_year INTO v_purchase_year FROM taxi WHERE license_plate = NEW.id_taxi;
 
     IF EXTRACT(EPOCH FROM (v_end_time - v_start_time))/3600 > 8 THEN
-        RAISE EXCEPTION 'RIA 2: A shift cannot last more than 8 hours.';
+        RAISE EXCEPTION 'RIA 2: A scheduled shift cannot last more than 8 hours.';
     END IF;
 
     IF v_purchase_year > EXTRACT(YEAR FROM v_start_time) THEN
         RAISE EXCEPTION 'RIA 5: The taxi purchase year cannot be later than the shift year.';
+    END IF;
+
+    IF NEW.id_real_interval IS NOT NULL THEN
+        SELECT start_time, end_time INTO v_start_time, v_end_time FROM time_interval WHERE id_interval = NEW.id_real_interval;
+        IF EXTRACT(EPOCH FROM (v_end_time - v_start_time))/3600 > 8 THEN
+            RAISE EXCEPTION 'RIA 2: A real shift cannot last more than 8 hours.';
+        END IF;
     END IF;
 
     RETURN NEW;
@@ -208,7 +216,7 @@ BEGIN
     SELECT start_time, end_time INTO v_trip_start, v_trip_end FROM time_interval WHERE id_interval = NEW.id_interval;
     
     SELECT ti.start_time, ti.end_time INTO v_shift_start, v_shift_end 
-    FROM shift s JOIN time_interval ti ON s.id_interval = ti.id_interval 
+    FROM shift s JOIN time_interval ti ON COALESCE(s.id_real_interval, s.id_scheduled_interval) = ti.id_interval 
     WHERE s.id = NEW.id_shift;
 
     IF v_trip_start < v_shift_start OR v_trip_end > v_shift_end THEN

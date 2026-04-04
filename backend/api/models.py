@@ -19,7 +19,7 @@ class Taxi(models.Model):
         db_table = 'taxi'
     
 
-class UserAccount(models.Model):
+class User(models.Model):
     nif = models.CharField(max_length=12)
     name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
@@ -35,7 +35,7 @@ class UserAccount(models.Model):
         db_table = 'user_account'
 
 class Driver(models.Model):
-    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
     license_number = models.CharField(max_length=12)
     birth_year = models.CharField(max_length=4)
 
@@ -43,13 +43,13 @@ class Driver(models.Model):
         db_table = 'driver'
 
 class Manager(models.Model):
-    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
 
     class Meta:
         db_table = 'manager'
 
 class Client(models.Model):
-    user = models.OneToOneField(UserAccount, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
     
     class Meta:
         db_table = 'client'
@@ -102,16 +102,23 @@ class Rating(models.Model):
         db_table = 'rating'
 
 class Trip(models.Model):
-    kilometers = models.IntegerField()
-    origin = models.CharField(max_length=255)
-    destination = models.CharField(max_length=255)
-    comfort_level = models.CharField(max_length=10, choices=[
-        ('basic', 'Basic'),
-        ('luxury', 'Luxury')
-    ])
-    price = models.IntegerField()
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
-    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
+    kilometers    = models.IntegerField()
+    origin        = models.CharField(max_length=255)
+    destination   = models.CharField(max_length=255)
+    comfort_level = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
+    price         = models.DecimalField(max_digits=10, decimal_places=2)  # era IntegerField
+    num_passengers = models.IntegerField()                                 # ← em falta
+    status        = models.CharField(max_length=20, choices=[             # ← em falta
+        ('PENDING',          'Pending'),
+        ('DRIVER_ACCEPTED',  'Driver Accepted'),
+        ('CLIENT_ACCEPTED',  'Client Accepted'),
+        ('IN_PROGRESS',      'In Progress'),
+        ('COMPLETED',        'Completed'),
+        ('CANCELED',         'Canceled'),
+    ], default='PENDING')
+    client        = models.ForeignKey(Client, on_delete=models.CASCADE)  
+    shift         = models.ForeignKey(Shift, on_delete=models.CASCADE)
+    interval      = models.ForeignKey(TimeInterval, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'trip'
