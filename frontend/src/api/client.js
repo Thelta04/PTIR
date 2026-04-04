@@ -15,15 +15,15 @@ export const refreshToken = (refresh) =>
 // ── Users ───────────────────────────────────────
 export const getClient = (id) => api.get(`client/${id}`);
 export const getDriver = (id) => api.get(`driver/${id}`);
-export const listDrivers = () => api.get('drivers/');
+export const listDrivers = () => api.get('driver/');
 
 // ── Taxis ───────────────────────────────────────
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
-export const listTaxis = () => api.get('taxis/');
+export const listTaxis = () => api.get('taxi/');
 
 // ── Shifts ──────────────────────────────────────
 export const listShifts = (driverId) => api.get(`shift/get/${driverId}/`);
-export const listAllShifts = () => api.get('shifts/');
+export const listAllShifts = () => api.get('shift/');
 export const startShift = (id) => api.patch(`shift/${id}/start`);
 export const endShift = (id) => api.patch(`shift/${id}/end`);
 

@@ -10,9 +10,9 @@ urlpatterns = [
     # Gets
     path('client/<int:id>', views.ClientDetailView.as_view(), name='client_detail'),
     path('driver/<int:id>', views.DriverDetailView.as_view(), name='driver_detail'),
-    path('drivers/', views.DriverListView.as_view(), name='list_drivers'),
+    path('driver/', views.DriverListView.as_view(), name='list_drivers'),
     path('taxi/<str:license_plate>', views.TaxiDetailView.as_view(), name='taxi_detail'),
-    path('taxis/', views.TaxiListView.as_view(), name='list_taxis'),
+    path('taxi/', views.TaxiListView.as_view(), name='list_taxis'),
 
     # Registration
     path('auth/create/client/', views.ClientCreateView.as_view(), name='create_client'),
@@ -25,7 +25,7 @@ urlpatterns = [
     # Shifts
     path('shift/create/', views.ShiftCreateView.as_view(), name='create_shift'),
     path('shift/get/<int:id>/', views.ShiftListView.as_view(), name='list_shifts_driver'),
-    path('shifts/', views.ShiftListViews.as_view(), name='list_shifts_all'),
+    path('shift/', views.ShiftListViews.as_view(), name='list_shifts_all'),
     path('shift/<int:id>/start', views.ShiftStartView.as_view(), name='start_shift'),
     path('shift/<int:id>/end', views.ShiftEndView.as_view(), name='end_shift'),
     path('shift/<int:id>/delete/', views.ShiftDeleteView.as_view(), name='delete_shift'),
