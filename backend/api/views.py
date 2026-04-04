@@ -12,16 +12,16 @@ from django.db import transaction
 
 class ClientCreateView(views.APIView):
     @extend_schema(
-        summary="Register a new Client",
+        summary="Create a new Client",
         description="Creates the base user and immediately associates the Client profile.",
-        request=RegisterClientSerializer,
+        request=CreateClientSerializer,
         responses={201: inline_serializer(
             name='ClientCreateResponse',
             fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegisterClientSerializer(data=request.data)
+        serializer = CreateClientSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
             
@@ -59,16 +59,16 @@ class ClientDetailView(views.APIView):
 
 class DriverCreateView(views.APIView):
     @extend_schema(
-        summary="Register a new Driver",
+        summary="Create a new Driver",
         description="Creates the base user, client profile, and associates the license number and birth year to the Driver profile.",
-        request=RegisterDriverSerializer,
+        request=CreateDriverSerializer,
         responses={201: inline_serializer(
             name='DriverCreateResponse',
             fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegisterDriverSerializer(data=request.data)
+        serializer = CreateDriverSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
             
@@ -108,17 +108,20 @@ class DriverDetailView(views.APIView):
 
 
 class ManagerCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
     @extend_schema(
-        summary="Register a new Manager",
+        summary="Create a new Manager",
         description="Creates the base user and associates the Manager profile.",
-        request=RegisterManagerSerializer,
+        request=CreateManagerSerializer,
         responses={201: inline_serializer(
             name='ManagerCreateResponse',
             fields={'message': serializers.CharField(), 'id': serializers.IntegerField()}
         )}
     )
     def post(self, request):
-        serializer = RegisterManagerSerializer(data=request.data)
+        serializer = CreateManagerSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
             
@@ -136,22 +139,22 @@ class TaxiCreateView(views.APIView):
     permission_classes = [IsManager]
 
     @extend_schema(
-        summary="Register a new Taxi (Manager only)",
+        summary="Create a new Taxi (Manager only)",
         description="Adds a new vehicle to the fleet. Requires a valid Manager JWT token.",
-        request=RegisterTaxiSerializer,
+        request=CreateTaxiSerializer,
         responses={201: inline_serializer(
             name='TaxiCreateResponse',
             fields={'message': serializers.CharField(), 'license_plate': serializers.CharField()}
         )}
     )
     def post(self, request):
-        serializer = RegisterTaxiSerializer(data=request.data)
+        serializer = CreateTaxiSerializer(data=request.data)
         
         if serializer.is_valid():
             serializer.save()
             
             return Response({
-                "message": "Taxi registered successfully in the fleet!",
+                "message": "Taxi createed successfully in the fleet!",
                 "license_plate": serializer.data['license_plate']
             }, status=status.HTTP_201_CREATED)
             
@@ -253,6 +256,57 @@ class ShiftDeleteView(views.APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Shift.DoesNotExist:
             return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class ShiftStartView(views.APIView):
+    @extend_schema(
+        summary="Start a shift (Clock-in)",
+        description="Driver starts a shift.",
+        responses={200: inline_serializer(name='ShiftStartResponse', fields={'message': serializers.CharField()})}
+    )
+    def patch(self, request, id):
+        try:
+            shift = Shift.objects.get(pk=id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if shift.real_interval is not None:
+            return Response({"error": "Shift has already started."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.utils import timezone
+        
+        interval = TimeInterval.objects.create(
+            start_time=timezone.now(),
+            end_time=None
+        )
+        
+        shift.real_interval = interval
+        shift.save()
+        return Response({"message": "Shift started successfully."}, status=status.HTTP_200_OK)
+
+class ShiftEndView(views.APIView):
+    @extend_schema(
+        summary="End a shift (Clock-out)",
+        description="Driver ends a shift.",
+        responses={200: inline_serializer(name='ShiftEndResponse', fields={'message': serializers.CharField()})}
+    )
+    def patch(self, request, id):
+        try:
+            shift = Shift.objects.get(pk=id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if shift.real_interval is None:
+            return Response({"error": "Shift hasn't started yet."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if shift.real_interval.end_time is not None:
+            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from django.utils import timezone
+        shift.real_interval.end_time = timezone.now()
+        shift.real_interval.save()
+        
+        return Response({"message": "Shift ended successfully."}, status=status.HTTP_200_OK)
+
 
 class LoginView(views.APIView):
     authentication_classes = []  # Public endpoint

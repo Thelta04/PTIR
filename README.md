@@ -77,7 +77,7 @@ Manager-only endpoints are protected with JWT. Clients and Drivers do **not** us
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| POST | `/api/taxi/register/` | Register a new taxi |
+| POST | `/api/taxi/create/` | Create a new taxi |
 | POST | `/api/shift/create/` | Create a new shift |
 | DELETE | `/api/shift/<id>/delete/` | Delete a shift |
 | PATCH | `/api/user/<id>/toggle-status/` | Ban / unban a user |
@@ -92,7 +92,7 @@ curl -X POST http://localhost:8000/api/auth/login/ \
 # Response includes: "access": "<token>", "refresh": "<token>"
 
 # 2. Use access token on a protected endpoint
-curl -X POST http://localhost:8000/api/taxi/register/ \
+curl -X POST http://localhost:8000/api/taxi/create/ \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <access_token>" \
   -d '{"license_plate": "XX-99-YY", ...}'

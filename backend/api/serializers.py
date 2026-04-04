@@ -13,7 +13,7 @@ class TimeIntervalSerializer(serializers.ModelSerializer):
 
 #PUT / POST
 
-class RegisterDriverSerializer(serializers.Serializer):
+class CreateDriverSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
@@ -22,21 +22,21 @@ class RegisterDriverSerializer(serializers.Serializer):
     license_number = serializers.CharField(max_length=12)
     birth_year = serializers.CharField(max_length=4)
 
-class RegisterClientSerializer(serializers.Serializer):
+class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
     gender = serializers.CharField(max_length=15)
     password = serializers.CharField(max_length=40)
 
-class RegisterManagerSerializer(serializers.Serializer):
+class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12)
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
     gender = serializers.CharField(max_length=15)
     password = serializers.CharField(max_length=40)
 
-class RegisterTaxiSerializer(serializers.ModelSerializer):
+class CreateTaxiSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(max_length=8)
     purchase_year = serializers.CharField(max_length=4)
     mileage = serializers.IntegerField()

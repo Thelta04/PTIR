@@ -44,7 +44,7 @@ CREATE TABLE client (
 CREATE TABLE time_interval (
     id_interval SERIAL PRIMARY KEY,
     start_time TIMESTAMP NOT NULL,
-    end_time TIMESTAMP NOT NULL
+    end_time TIMESTAMP
 );
 
 -- SHIFT

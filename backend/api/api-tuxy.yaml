@@ -40,7 +40,35 @@ paths:
         '401':
           description: Credenciais inválidas
 
-  /auth/register/client/:
+  /auth/token/refresh/:
+    post:
+      summary: Refresh JWT token
+      tags: [Autenticação]
+      description: Use a refresh token to get a new access token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh:
+                  type: string
+      responses:
+        '200':
+          description: Token renovado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+        '401':
+          description: Refresh token inválido ou expirado
+
+  /auth/create/client/:
     post:
       summary: Registar cliente
       tags: [Autenticação]
@@ -51,12 +79,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: '#/components/schemas/CreateRequest'
       responses:
         '201':
           description: Utilizador criado com sucesso
 
-  /auth/register/driver/:
+  /auth/create/driver/:
     post:
       summary: Registar novo motorista
       tags: [Autenticação]
@@ -74,17 +102,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Driver'
 
-  /auth/register/manager/:
+  /auth/create/manager/:
     post:
       summary: Registar novo gestor
       tags: [Autenticação]
       description: Registo de gestores. Operação restrita.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: '#/components/schemas/CreateRequest'
       responses:
         '201':
           description: Gestor criado com sucesso
@@ -409,7 +439,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Taxi'
 
-  /taxi/register/:
+  /taxi/create/:
     post:
       summary: Adicionar novo táxi
       tags: [Táxis]
@@ -486,20 +516,7 @@ paths:
           description: Táxi Removido
 
   # --- GESTÃO DE TURNOS ---
-  /shifts:
-    get:
-      summary: Listar Turnos
-      tags: [Turnos]
-      description: Listar todos os turnos registados.
-      responses:
-        '200':
-          description: Lista de turnos
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Shift'
+  /shift/create/:
     post:
       summary: Agendar um turno
       tags: [Turnos]
@@ -529,7 +546,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/Shift'
 
-  /shifts/{id}/start:
+  /shift/get/{id}/:
+    get:
+      summary: Listar Turnos
+      tags: [Turnos]
+      description: Listar todos os turnos registados.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de turnos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+
+  /shift/{id}/start:
     patch:
       summary: Começar um turno (Clock-in)
       tags: [Turnos]
@@ -544,7 +582,7 @@ paths:
         '200':
           description: Turno iniciado com sucesso
 
-  /shifts/{id}/end:
+  /shift/{id}/end:
     patch:
       summary: Terminar um turno (Clock-out)
       tags: [Turnos]
@@ -559,7 +597,7 @@ paths:
         '200':
           description: Turno finalizado com sucesso
 
-  /shifts/{id}:
+  /shift/{id}/delete/:
     delete:
       summary: Remover um turno
       tags: [Turnos]
@@ -575,7 +613,7 @@ paths:
           description: Turno Removido
 
   # --- GESTÃO DE VIAGENS ---
-  /trips:
+  /trip/:
     get:
       summary: Histórico geral de viagens
       tags: [Viagens]
@@ -594,6 +632,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Trip'
+
+  /trip/create/:
     post:
       summary: Solicitar uma viagem (Cliente)
       tags: [Viagens]
@@ -611,7 +651,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Trip'
 
-  /trips/{id}/accept:
+  /trip/{id}/accept/:
     patch:
       summary: Motorista aceita a viagem
       tags: [Viagens]
@@ -634,7 +674,7 @@ paths:
         '200':
           description: Viagem aceite
 
-  /trips/{id}/cancel:
+  /trip/{id}/cancel/:
     patch:
       summary: Cliente cancela o pedido de viagem
       tags: [Viagens]
@@ -657,7 +697,7 @@ paths:
         '200':
           description: Pedido cancelado
 
-  /trips/{id}/complete:
+  /trip/{id}/complete/:
     patch:
       summary: Finalizar viagem e processar pagamento
       tags: [Viagens]
@@ -1090,7 +1130,7 @@ components:
           enum: [CLIENT, DRIVER]
           description: Papel do utilizador no sistema.
 
-    RegisterRequest:
+    CreateRequest:
       type: object
       required: [name, nif, gender, email, password]
       properties:

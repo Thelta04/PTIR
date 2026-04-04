@@ -56,7 +56,7 @@ class Client(models.Model):
 
 class TimeInterval(models.Model):
     start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'time_interval'
