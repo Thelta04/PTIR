@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
+import { PDisplay, PInputEmail, PInputPassword, PButton } from '@porsche-design-system/components-react';
+
 
 const ROLE_ROUTES = {
   MANAGER: '/manager',
@@ -9,7 +11,7 @@ const ROLE_ROUTES = {
   CLIENT: '/client',
 };
 
-export default function LoginPage() {
+export default function LoginUser() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,7 +27,7 @@ export default function LoginPage() {
 
     try {
       const user = await login(email, password);
-      navigate(ROLE_ROUTES[user.type] || '/login');
+      navigate(ROLE_ROUTES[user.type] || '/login-client');
     } catch (err) {
       const msg =
         err.response?.data?.error || 'Connection failed. Please try again.';
@@ -36,27 +38,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-page">
-      <motion.div
-        className="login-card"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-      >
+    <div className="login-page-user">
+      
         {/* Brand */}
-        <div className="login-brand">
-          <span className="login-brand-name">TUXY</span>
-          <span className="login-brand-sub">Fleet Manager</span>
+          <div className="tuxy-header-div">
+          <span className="tuxy-header-title">TUXY</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>User</span>
         </div>
 
-        <p className="login-subtitle">Sign in to your account</p>
+        <p className="login-subtitle">Bem vindo!</p>
+        <p className="login-subtitle">Entre na sua conta para aceder à aplicação</p>
+
 
         <form onSubmit={handleSubmit} className="login-form">
-          <label className="login-label" htmlFor="login-email">Email</label>
-          <input
+          
+          <PInputEmail
             id="login-email"
+            label="Email" 
             type="email"
-            className="login-input"
+            className="session-input"
             placeholder="your@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -64,15 +64,16 @@ export default function LoginPage() {
             autoFocus
           />
 
-          <label className="login-label" htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            type="password"
-            className="login-input"
-            placeholder="••••••••"
+          
+          <PInputPassword 
+          id="login-email"
+            className="session-input" 
+            label="Password" 
+            name="password" 
+            toggle={true}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            required={true}
           />
 
           {error && (
@@ -93,7 +94,8 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-      </motion.div>
     </div>
+    
   );
 }
+

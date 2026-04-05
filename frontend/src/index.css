@@ -70,7 +70,7 @@ img { max-width: 100%; display: block; }
 /* ── Login Page ────────────────────────────────── */
 .login-page {
   min-height: 100vh;
-  display: flex;
+  /* display: flex; */
   align-items: center;
   justify-content: center;
   background:
@@ -545,4 +545,40 @@ img { max-width: 100%; display: block; }
 
 .btn--danger:hover {
   box-shadow: 0 2px 10px rgba(239,68,68,0.2);
+}
+
+/* Pagia login user ---------------------------- */
+.login-page-user {
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(242,228,160,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(217,184,74,0.15) 0%, transparent 60%),
+    var(--gray-100);
+  padding: 1rem;
+}
+
+.tuxy-header-div {
+  display: block;
+  height: 70px;
+  background-color: #ffbb29;
+
+}
+
+.tuxy-header-title {
+  padding: 10px 0px 10px 30px;
+  font-weight: 900;
+  font-size: 2.2em;
+}
+
+.general-confirm-button {
+  display:flex;
+  width: 95%;
+  margin: 40px auto;
+}
+
+.session-input {
+  width: 95%;
+  margin: 20px auto;
 }

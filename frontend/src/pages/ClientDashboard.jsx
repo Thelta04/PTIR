@@ -37,7 +37,7 @@ export default function ClientDashboard() {
     })();
   }, [user.id]);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/login-client'); };
 
   return (
     <div className="dashboard">

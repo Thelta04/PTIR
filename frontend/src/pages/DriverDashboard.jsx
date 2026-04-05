@@ -57,7 +57,7 @@ export default function DriverDashboard() {
     }
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/login-manager'); };
 
   return (
     <div className="dashboard">

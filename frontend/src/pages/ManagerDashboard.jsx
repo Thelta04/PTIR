@@ -100,7 +100,7 @@ export default function ManagerDashboard() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/login-manager');
   };
 
   const handleInputChange = (e) => {
