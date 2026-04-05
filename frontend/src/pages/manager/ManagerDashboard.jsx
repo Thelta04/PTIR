@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,7 +14,7 @@ import {
   User
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient } from '../api/client';
+import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient } from '../../api/client';
 
 const sidebarItems = [
   { key: 'clients', label: 'Clients', icon: User },

@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import LoginManager from './pages/LoginManager';
+import LoginManager from './pages/manager/LoginManager';
 import LoginUser from './pages/LoginUser';
-import ManagerDashboard from './pages/ManagerDashboard';
-import DriverDashboard from './pages/DriverDashboard';
-import ClientDashboard from './pages/ClientDashboard';
+import ManagerDashboard from './pages/manager/ManagerDashboard';
+import DriverMain from './pages/driver/DriverMain';
+import ClientDashboard from './pages/client/ClientDashboard';
+import Signup from './pages/Signup';
+import SignupDriver from './pages/SignupDriver';
 import './App.css';
 
 const ROLE_ROUTES = {
@@ -28,6 +30,8 @@ function App() {
         <Routes>
           <Route path="/login-client" element={<LoginUser />} />
           <Route path="/login-manager" element={<LoginManager />} />
+          <Route path="/register" element={<Signup />} />
+          <Route path="/signup-driver" element={<SignupDriver />} />
 
           <Route path="/manager" element={
             <ProtectedRoute allowedRoles={['MANAGER']}>
@@ -37,7 +41,7 @@ function App() {
 
           <Route path="/driver" element={
             <ProtectedRoute allowedRoles={['DRIVER']}>
-              <DriverDashboard />
+              <DriverMain />
             </ProtectedRoute>
           } />
 

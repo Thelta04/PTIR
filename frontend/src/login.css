@@ -1,0 +1,39 @@
+
+.tuxy-header-div {
+  display: block;
+  height: 70px;
+  background-color: #ffbb29;
+
+}
+
+.tuxy-header-title {
+  padding: 20px 0px 20px 20px;
+  font-weight: 900;
+  font-size: 2.7em;
+}
+
+.general-confirm-button {
+  display:flex;
+  width: 85%;
+  margin: 40px auto;
+}
+
+.session-input {
+  font-family: system-ui, -apple-system,  sans-serif;
+  width: 95%;
+  text-align: left;
+  margin: 10px auto;
+}
+
+.login-form-container {
+  text-align: center;
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.login-welcome {
+  font-size: 2em;
+  font-weight: 600;
+  margin-bottom: 10px;
+}

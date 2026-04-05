@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { listTrips } from '../api/client';
+import { listTrips } from '../../api/client';
 import { motion } from 'framer-motion';
 import { LogOut, MapPin, ArrowRight } from 'lucide-react';
 

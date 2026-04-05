@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { PDisplay, PInputEmail, PInputPassword, PButton } from '@porsche-design-system/components-react';
+import { PSelect, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 
 
 const ROLE_ROUTES = {
@@ -11,7 +11,7 @@ const ROLE_ROUTES = {
   CLIENT: '/client',
 };
 
-export default function LoginUser() {
+export default function Signup() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -19,6 +19,10 @@ export default function LoginUser() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [opcao, setGender] = useState("");
+  const [name, setName] = useState("");
+  const [nif, setNif] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,15 +47,54 @@ export default function LoginUser() {
         {/* Brand */}
           <div className="tuxy-header-div">
           <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>User</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Client</span>
         </div>
         <div className="login-form-container">
-          <p className="login-welcome">Welcome Back!</p>
-          <p className="login-subtitle">Sign in to access the app</p>
+          <p className="login-welcome">Welcome</p>
+          <p className="login-subtitle">Sign up to access the app</p>
 
 
           <form onSubmit={handleSubmit} className="login-form">
-            
+
+            <PInputText 
+            label="Name" 
+            className="session-input"
+            onChange={(e) => setName(e.target.value)}
+            required
+            />
+
+            <PInputNumber 
+            label="NIF" 
+            className="session-input"
+            name="some-name" 
+            placeholder="NNN NNN NNN"
+            onChange={(e) => setNif(e.target.value)}
+            required
+            />
+
+            <PSelect
+                id="login-opcao"
+                name="options"
+                label="Gender"
+                className="session-input"
+                value={opcao}
+                onChange={(e) => setGender(e.target.value)}
+                required
+                >
+                <PSelectOption value="female">
+                    Female
+                </PSelectOption>
+                
+                <PSelectOption value="male">
+                    Male
+                </PSelectOption>
+
+                <PSelectOption value="other">
+                    Other
+                </PSelectOption>
+            </PSelect>
+
+
             <PInputEmail
               id="login-email"
               label="Email" 
@@ -95,7 +138,9 @@ export default function LoginUser() {
 
             
             </button>
-            <p className="login-subtitle">Don't have an account? <a href="/register">Register</a></p>
+            <p className="login-subtitle">Already have an account? <a href="/login-user">Log In</a></p>
+            <hr></hr>
+            <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
           </form>
         </div>
     </div>

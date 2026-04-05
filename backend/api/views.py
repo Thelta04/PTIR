@@ -210,11 +210,11 @@ class TaxiListView(views.APIView):
 
 class ShiftCreateView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Create a new Shift (Manager only)",
-        description="Creates a new shift for a driver and a taxi within a specific time interval. Requires a valid Manager JWT token.",
+        summary="Create a new Shift (Manager or Driver)",
+        description="Creates a new shift for a driver and a taxi within a specific time interval. Managers can schedule for any driver, while Drivers can only schedule for themselves.",
         request=ShiftCreateSerializer,
         responses={201: inline_serializer(
             name='ShiftCreateResponse',
@@ -226,8 +226,21 @@ class ShiftCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            driver = Driver.objects.get(pk=data['driver_id'])
-            taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+            user = request.user
+            is_manager = Manager.objects.filter(user=user).exists()
+            is_driver = Driver.objects.filter(user=user).exists()
+            
+            if not is_manager:
+                if not is_driver or data['driver_id'] != user.id:
+                    return Response({"error": "You can only schedule shifts for yourself."}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                driver = Driver.objects.get(pk=data['driver_id'])
+                taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+            except Driver.DoesNotExist:
+                return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+            except Taxi.DoesNotExist:
+                return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
 
             try:
                 with transaction.atomic():
