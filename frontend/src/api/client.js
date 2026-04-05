@@ -18,6 +18,44 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response && (error.response.status === 401 || error.response.status === 403) && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const stored = localStorage.getItem('tuxy_user');
+      
+      if (stored) {
+        try {
+          const userData = JSON.parse(stored);
+          const { refresh } = userData;
+          
+          if (refresh) {
+            const res = await axios.post('/api/auth/token/refresh/', { refresh });
+            
+            if (res.data && res.data.access) {
+              userData.access = res.data.access;
+              if (res.data.refresh) {
+                userData.refresh = res.data.refresh;
+              }
+              localStorage.setItem('tuxy_user', JSON.stringify(userData));
+              
+              originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+              return api(originalRequest);
+            }
+          }
+        } catch {
+          localStorage.removeItem('tuxy_user');
+          window.location.href = '/'; 
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Auth ────────────────────────────────────────
 export const login = (email, password) =>
   api.post('auth/login/', { email, password });

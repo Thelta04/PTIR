@@ -38,6 +38,8 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      target: prod
+    image: ptir-nginx
     container_name: tuxy_nginx
     volumes:
       - ./frontend:/app             # Espelha a pasta local para /app no container

@@ -240,3 +240,65 @@
 .schedule-submit-btn:hover {
   background-color: #e6a71e;
 }
+
+/* Schedule Step 2 */
+.schedule-step2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.schedule-preferred-banner {
+  background: #fff8e1;
+  border: 1px solid #f0c14b;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.schedule-preferred-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.schedule-shifts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.schedule-shift-item {
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fafafa;
+}
+
+.schedule-shift-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+  color: #333;
+}
+
+.schedule-shift-taxi {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auto-label {
+  color: #2e7d32;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.schedule-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}

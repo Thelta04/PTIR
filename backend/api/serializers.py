@@ -148,6 +148,24 @@ class ShiftCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("The taxi purchase year cannot be later than the shift year.")
         except ValueError:
             pass
+
+        # Check for driver overlap
+        driver_overlap = Shift.objects.filter(
+            driver_id=data['driver_id'],
+            scheduled_interval__start_time__lt=data['end_time'],
+            scheduled_interval__end_time__gt=data['start_time']
+        ).exists()
+        if driver_overlap:
+             raise serializers.ValidationError("Driver already has a shift in this time period.")
+
+        # Check for taxi overlap
+        taxi_overlap = Shift.objects.filter(
+            taxi__license_plate=data['taxi_license_plate'],
+            scheduled_interval__start_time__lt=data['end_time'],
+            scheduled_interval__end_time__gt=data['start_time']
+        ).exists()
+        if taxi_overlap:
+             raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
         return data
 
