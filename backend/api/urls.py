@@ -1,5 +1,3 @@
-# Define the API routes (/api/taxis/ or /api/trips/) 
-
 from django.contrib import admin
 from django.urls import path, include
 from api import views
@@ -34,11 +32,14 @@ urlpatterns = [
     # Account Management (Ban - Manager only)
     path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
     
-    
     # # Trips (viagens)
     path('trip/', views.TripListView.as_view(), name='list_trips'),
     path('trip/create/', views.TripCreateView.as_view(), name='create_trip'),
     path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip'),
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
-    path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip')
+    path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
+
+    # Ratings
+    path('rating/create/<int:trip_id>/', views.RatingCreateView.as_view(), name='rate_trip'),
+    path('rating/<int:driver_id>/', views.RatingListView.as_view(), name='list_ratings'),
 ]

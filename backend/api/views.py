@@ -499,6 +499,43 @@ class TripCreateView(views.APIView):
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+class RatingListView(views.APIView):
+    @extend_schema(
+        summary="List all ratings of a driver",
+        description="Returns all ratings of a driver.",
+        responses={200: RatingListSerializer(many=True)}
+    )
+    def get(self, request, driver_id):
+        ratings = Rating.objects.filter(trip__shift__driver__user=driver_id)
+        serializer = RatingListSerializer(ratings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class RatingCreateView(views.APIView):
+    @extend_schema(
+        summary="Rate a trip",
+        description="Client rates a trip that he was a passenger in and has been completed.",
+        request=RatingCreateSerializer,
+        responses={201: RatingListSerializer}
+    )
+    def post(self, request):
+        serializer = RatingCreateSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        
+        try:
+            #The Serializer already verifies if the trip exist and the client is part of it
+            trip = Trip.objects.get(id=trip_id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create the rating
+        rating = Rating.objects.create(trip=trip, score=data['score'])
+        
+        response_serializer = RatingListSerializer(rating)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 
 class TripAcceptView(views.APIView):
     @extend_schema(
@@ -622,3 +659,6 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        
+        
