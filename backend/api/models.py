@@ -23,13 +23,12 @@ class User(models.Model):
     nif = models.CharField(max_length=12)
     name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
-    gender = models.CharField(max_length=15, choices=[
-        ('Female', 'Female'),
-        ('Male', 'Male'),
-        ('Other', 'Other'),
-    ])
+    gender = models.CharField(max_length=15, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')])
     password = models.CharField(max_length=40)
-    is_banned = models.BooleanField(default=False)
+    is_banned = models.BooleanField(default=False)                                                                                
+    @property                                                                                                                    
+    def is_authenticated(self):                                                                                                  
+        return True  
 
     class Meta:
         db_table = 'user_account'
@@ -63,8 +62,8 @@ class TimeInterval(models.Model):
         db_table = 'time_interval'
 
 class Shift(models.Model):
-    taxi = models.ForeignKey(Taxi, on_delete=models.CASCADE, db_column='id_taxi')
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, db_column='id_driver')
+    taxi = models.ForeignKey(Taxi,db_column='id_taxi', on_delete=models.CASCADE)
+    driver = models.ForeignKey(Driver,db_column='id_driver', on_delete=models.CASCADE)
     scheduled_interval = models.ForeignKey(
         TimeInterval,
         on_delete=models.CASCADE,
@@ -96,19 +95,12 @@ class Refueling(models.Model):
     class Meta:
         db_table = 'refueling'
 
-class Rating(models.Model):
-    id_trip = models.OneToOneField('Trip', on_delete=models.CASCADE, primary_key=True, db_column='id_trip')
-    score = models.IntegerField()
-
-    class Meta:
-        db_table = 'rating'
-
 class Trip(models.Model):
     kilometers     = models.IntegerField()
-    origin_coords  = models.CharField(max_length=255, db_column='origin_coords')
-    dest_coords    = models.CharField(max_length=255, db_column='dest_coords')
-    origin         = models.CharField(max_length=255, db_column='origin_address')
-    destination    = models.CharField(max_length=255, db_column='dest_address')
+    originCoords   = models.CharField(max_length=255, db_column='origin_coords')
+    destCoords     = models.CharField(max_length=255, db_column='dest_coords')
+    originAddress  = models.CharField(max_length=255, db_column='origin_address')
+    destAddress    = models.CharField(max_length=255, db_column='dest_address')
     comfort_level  = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
     price          = models.DecimalField(max_digits=10, decimal_places=2)
     num_passengers = models.IntegerField()
@@ -126,6 +118,13 @@ class Trip(models.Model):
 
     class Meta:
         db_table = 'trip'
+
+class Rating(models.Model):
+    trip = models.OneToOneField(Trip, on_delete=models.CASCADE, db_column='id_trip', primary_key=True)
+    score = models.IntegerField()
+
+    class Meta:
+        db_table = 'rating'
 
 class Invoice(models.Model):
     trip = models.OneToOneField(Trip, on_delete=models.CASCADE, primary_key=True, db_column='id_trip')

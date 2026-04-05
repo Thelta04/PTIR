@@ -9,3 +9,10 @@
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Django migrations
+backend/api/migrations/*
+
+# Django static files
+backend/staticfiles/*
+docker-compose.override.yml
