@@ -1,9 +1,9 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip
 from .serializers import *
-from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from django.db import transaction
@@ -90,6 +90,7 @@ class DriverDetailView(views.APIView):
     @extend_schema(
         summary="Get Driver details",
         description="Returns the detailed information of a specific driver based on the user ID.",
+        responses={200: DriverSerializer}
     )
     def get(self, request, id):
         try:
@@ -261,6 +262,7 @@ class ShiftStartView(views.APIView):
     @extend_schema(
         summary="Start a shift (Clock-in)",
         description="Driver starts a shift.",
+        request=None,
         responses={200: inline_serializer(name='ShiftStartResponse', fields={'message': serializers.CharField()})}
     )
     def patch(self, request, id):
@@ -287,6 +289,7 @@ class ShiftEndView(views.APIView):
     @extend_schema(
         summary="End a shift (Clock-out)",
         description="Driver ends a shift.",
+        request=None,
         responses={200: inline_serializer(name='ShiftEndResponse', fields={'message': serializers.CharField()})}
     )
     def patch(self, request, id):
@@ -367,11 +370,9 @@ class LoginView(views.APIView):
             "type": user_type,
         }
 
-        # Only managers receive JWT tokens
-        if user_type == "MANAGER":
-            access, refresh = generate_tokens(user)
-            response_data["access"] = access
-            response_data["refresh"] = refresh
+        access, refresh = generate_tokens(user)
+        response_data["access"] = access
+        response_data["refresh"] = refresh
 
         return Response(response_data, status=status.HTTP_200_OK)
     
@@ -511,6 +512,9 @@ class RatingListView(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class RatingCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(
         summary="Rate a trip",
         description="Client rates a trip that he was a passenger in and has been completed.",
@@ -526,7 +530,7 @@ class RatingCreateView(views.APIView):
         
         try:
             #The Serializer already verifies if the trip exist and the client is part of it
-            trip = Trip.objects.get(id=trip_id)
+            trip = Trip.objects.get(id=data['trip_id'])
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
         
@@ -617,6 +621,7 @@ class TripCompleteView(views.APIView):
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
+        request=None,
         responses={200: TripCompleteSerializer}
     )
     def patch(self, request, id):
@@ -659,6 +664,3 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-        
-        

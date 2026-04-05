@@ -40,6 +40,6 @@ urlpatterns = [
     path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
 
     # Ratings
-    path('rating/create/<int:trip_id>/', views.RatingCreateView.as_view(), name='rate_trip'),
+    path('rating/create/', views.RatingCreateView.as_view(), name='rate_trip'),
     path('rating/<int:driver_id>/', views.RatingListView.as_view(), name='list_ratings'),
 ]

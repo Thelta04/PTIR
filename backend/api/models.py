@@ -23,13 +23,12 @@ class User(models.Model):
     nif = models.CharField(max_length=12)
     name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
-    gender = models.CharField(max_length=15, choices=[
-        ('female', 'Female'),
-        ('male', 'Male'),
-        ('other', 'Other'),
-    ])
+    gender = models.CharField(max_length=15, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')])
     password = models.CharField(max_length=40)
-    is_banned = models.BooleanField(default=False)
+    is_banned = models.BooleanField(default=False)                                                                                
+    @property                                                                                                                    
+    def is_authenticated(self):                                                                                                  
+        return True  
 
     class Meta:
         db_table = 'user_account'
@@ -95,8 +94,10 @@ class Refueling(models.Model):
 
 class Trip(models.Model):
     kilometers     = models.IntegerField()
-    origin         = models.CharField(max_length=255)
-    destination    = models.CharField(max_length=255)
+    originCoords   = models.CharField(max_length=255, db_column='origin_coords')
+    destCoords     = models.CharField(max_length=255, db_column='dest_coords')
+    originAddress  = models.CharField(max_length=255, db_column='origin_address')
+    destAddress    = models.CharField(max_length=255, db_column='dest_address')
     comfort_level  = models.CharField(max_length=10, choices=[('basic','Basic'),('luxury','Luxury')])
     price          = models.DecimalField(max_digits=10, decimal_places=2)
     num_passengers = models.IntegerField()

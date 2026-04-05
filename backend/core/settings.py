@@ -83,6 +83,9 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Official API documentation for taxi fleet management.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'ENUM_NAME_OVERRIDES': {
+        'ComfortLevelEnum': ['basic', 'luxury'],
+    },
 }
 
 

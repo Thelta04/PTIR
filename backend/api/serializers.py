@@ -156,23 +156,20 @@ class RatingCreateSerializer(serializers.Serializer):
     score = serializers.IntegerField(min_value=1, max_value=5)
 
     def validate(self, data):
-        client_id = self.context.get('client_id') or data.get('client_id')
-        if not client_id:
-            try:
-                client_id = self.context['request'].user.id
-            except (KeyError, AttributeError):
-                raise serializers.ValidationError("Client not identified.")
-
+        client_id = self.context['request'].user.id
         trip = Trip.objects.filter(pk=data['trip_id'], client__user__id=client_id).first()
+
         if not trip:
             raise serializers.ValidationError("Trip not found or does not belong to the client.")
-        
+
+        if Rating.objects.filter(trip=trip).exists():
+            raise serializers.ValidationError("A client can only rate a trip once.")
+
         # RIA: A client can only rate a trip when its status is COMPLETED.
         if trip.status != 'COMPLETED':
             raise serializers.ValidationError("A client can only rate a trip when its status is COMPLETED.")
-            
-        return data
 
+        return data
 #GETS
 class UserSerializer(serializers.ModelSerializer):
     nif   = serializers.CharField(source='user.nif',   read_only=True)
@@ -223,7 +220,7 @@ class TripListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip    
-        fields = ['id', 'status', 'origin', 'destination', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'interval']
 
 class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
@@ -264,4 +261,4 @@ class TripCompleteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip
-        fields = ['id', 'status', 'origin', 'destination', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_name', 'driver_name', 'taxi_plate', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_name', 'driver_name', 'taxi_plate', 'interval']

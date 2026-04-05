@@ -79,3 +79,33 @@ class IsManager(BasePermission):
         if not isinstance(request.user, User):
             return False
         return Manager.objects.filter(user=request.user).exists()
+
+
+class IsTripParticipant(BasePermission):
+    """Only allows access if the authenticated user is the client who took the trip."""
+    message = 'Forbidden. You are not a participant in this trip.'
+
+    def has_permission(self, request, view):
+        if not hasattr(request, 'user') or not request.user:
+            return False
+            
+        trip_id = request.data.get('trip_id')
+        if not trip_id:
+            return False
+            
+        from .models import Trip
+        return Trip.objects.filter(id=trip_id, client__user=request.user).exists()
+
+
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
+
+class JWTAuthenticationScheme(OpenApiAuthenticationExtension):
+    target_class = 'api.authentication.JWTAuthentication'
+    name = 'JWTAuthentication'
+    
+    def get_security_definition(self, auto_schema):
+        return {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
