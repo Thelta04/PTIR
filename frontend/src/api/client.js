@@ -5,12 +5,26 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+api.interceptors.request.use((config) => {
+  const stored = localStorage.getItem('tuxy_user');
+  if (stored) {
+    const { access } = JSON.parse(stored);
+    if (access) {
+      config.headers.Authorization = `Bearer ${access}`;
+    }
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 // ── Auth ────────────────────────────────────────
 export const login = (email, password) =>
   api.post('auth/login/', { email, password });
 
 export const refreshToken = (refresh) =>
   api.post('auth/token/refresh/', { refresh });
+
 
 // ── Users ───────────────────────────────────────
 export const getClient = (id) => api.get(`client/${id}`);

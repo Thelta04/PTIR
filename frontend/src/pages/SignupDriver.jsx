@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { PSelect, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
+import { PSelect, PInputDate, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 
 
 const ROLE_ROUTES = {
@@ -23,6 +23,8 @@ export default function SignupDriver() {
   const [opcao, setGender] = useState("");
   const [name, setName] = useState("");
   const [nif, setNif] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,16 +69,16 @@ export default function SignupDriver() {
             label="NIF" 
             className="session-input"
             name="some-name" 
-            placeholder="NNN NNN NNN"
             onChange={(e) => setNif(e.target.value)}
             required
             />
 
-            <PSelect
+            <div style={{ display: "flex" }}>
+              <PSelect
                 id="login-opcao"
                 name="options"
                 label="Gender"
-                className="session-input"
+                className="session-input half-width"
                 value={opcao}
                 onChange={(e) => setGender(e.target.value)}
                 required
@@ -92,7 +94,20 @@ export default function SignupDriver() {
                 <PSelectOption value="other">
                     Other
                 </PSelectOption>
-            </PSelect>
+              </PSelect>
+
+              <PInputDate
+                id="login-data"
+                name="some-name"
+                label="Birth Date"
+                className="session-input half-width"
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                locale="pt-PT" /* Força o formato de Portugal (dd/mm/yyyy) */
+                required
+              />
+
+            </div>
+
 
 
             <PInputEmail
@@ -117,6 +132,14 @@ export default function SignupDriver() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={true}
+            />
+
+            <PInputNumber 
+            label="Drivers License Number" 
+            className="session-input"
+            name="some-name" 
+            onChange={(e) => setNif(e.target.value)}
+            required
             />
 
             {error && (

@@ -37,3 +37,8 @@
   font-weight: 600;
   margin-bottom: 10px;
 }
+
+.half-width {
+  width: 50%;
+  margin: 0 auto;
+}

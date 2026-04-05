@@ -50,7 +50,7 @@ CREATE TABLE time_interval (
 -- SHIFT
 CREATE TABLE shift (
     id SERIAL PRIMARY KEY,
-    id_taxi VARCHAR(10) NOT NULL REFERENCES taxi(license_plate), 
+    id_taxi VARCHAR(10) REFERENCES taxi(license_plate), 
     id_driver INTEGER NOT NULL REFERENCES driver(id_user),
     id_scheduled_interval INTEGER NOT NULL REFERENCES time_interval(id_interval),
     id_real_interval INTEGER REFERENCES time_interval(id_interval)
