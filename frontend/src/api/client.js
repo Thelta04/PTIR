@@ -67,10 +67,15 @@ export const refreshToken = (refresh) =>
 // ── Users ───────────────────────────────────────
 export const getClient = (id) => api.get(`client/${id}`);
 export const listClients = () => api.get('client/');
-export const createClient = (data) => api.post('auth/create/client/', data);
+
+export const createClient = (data) => 
+  api.post('auth/create/client/', data);
+
 export const getDriver = (id) => api.get(`driver/${id}`);
 export const listDrivers = () => api.get('driver/');
-export const createDriver = (data) => api.post('auth/create/driver/', data);
+
+export const createDriver = (data) => 
+  api.post('auth/create/driver/', data);
 
 // ── Taxis ───────────────────────────────────────
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);

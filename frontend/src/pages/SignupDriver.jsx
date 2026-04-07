@@ -12,7 +12,7 @@ const ROLE_ROUTES = {
 };
 
 export default function SignupDriver() {
-  const { login } = useAuth();
+  const { signupDriver } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -23,7 +23,8 @@ export default function SignupDriver() {
   const [opcao, setGender] = useState("");
   const [name, setName] = useState("");
   const [nif, setNif] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [birth_date, setDateOfBirth] = useState("");
+  const [license_number, setLicenseNumber] = useState("");
 
 
   const handleSubmit = async (e) => {
@@ -32,8 +33,26 @@ export default function SignupDriver() {
     setLoading(true);
 
     try {
-      const user = await login(email, password);
-      navigate(ROLE_ROUTES[user.type] || '/login-client');
+      // Extract year from birth_date (format can be YYYY-MM-DD or DD/MM/YYYY)
+      let birth_year = '';
+      if (birth_date) {
+        if (birth_date.includes('-')) {
+          birth_year = birth_date.split('-')[0];
+        } else if (birth_date.includes('/')) {
+          birth_year = birth_date.split('/').pop();
+        }
+      }
+
+      const user = await signupDriver({
+        email,
+        password,
+        name,
+        nif,
+        gender: opcao,
+        license_number,
+        birth_year
+      });
+      navigate(ROLE_ROUTES[user.type] || '/driver');
     } catch (err) {
       const msg =
         err.response?.data?.error || 'Connection failed. Please try again.';
@@ -49,7 +68,7 @@ export default function SignupDriver() {
         {/* Brand */}
           <div className="tuxy-header-div">
           <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Client</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Driver</span>
         </div>
         <div className="login-form-container">
           <p className="login-welcome">New Driver</p>
@@ -73,7 +92,7 @@ export default function SignupDriver() {
             required
             />
 
-            <div style={{ display: "flex" }}>
+            <div style={{ display: "flex", padding: "0 5px"}}>
               <PSelect
                 id="login-opcao"
                 name="options"
@@ -83,15 +102,15 @@ export default function SignupDriver() {
                 onChange={(e) => setGender(e.target.value)}
                 required
                 >
-                <PSelectOption value="female">
+                <PSelectOption value="Female">
                     Female
                 </PSelectOption>
                 
-                <PSelectOption value="male">
+                <PSelectOption value="Male">
                     Male
                 </PSelectOption>
 
-                <PSelectOption value="other">
+                <PSelectOption value="Other">
                     Other
                 </PSelectOption>
               </PSelect>
@@ -124,7 +143,7 @@ export default function SignupDriver() {
 
             
             <PInputPassword 
-            id="login-email"
+              id="login-password"
               className="session-input" 
               label="Password" 
               name="password" 
@@ -138,7 +157,7 @@ export default function SignupDriver() {
             label="Drivers License Number" 
             className="session-input"
             name="some-name" 
-            onChange={(e) => setNif(e.target.value)}
+            onChange={(e) => setLicenseNumber(e.target.value)}
             required
             />
 
@@ -157,7 +176,7 @@ export default function SignupDriver() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Signing up…' : 'Sign Up'}
 
             
             </button>

@@ -23,7 +23,7 @@ class User(models.Model):
     nif = models.CharField(max_length=12)
     name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
-    gender = models.CharField(max_length=15, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')])
+    gender = models.CharField(max_length=15, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
     password = models.CharField(max_length=40)
     is_banned = models.BooleanField(default=False)                                                                                
     @property                                                                                                                    

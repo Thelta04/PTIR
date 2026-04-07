@@ -27,7 +27,11 @@ export default function LoginUser() {
 
     try {
       const user = await login(email, password);
-      navigate(ROLE_ROUTES[user.type] || '/login-client');
+      if (user.type === 'DRIVER') {
+        navigate('/decision-driver');
+      } else {
+        navigate(ROLE_ROUTES[user.type] || '/login-client');
+      }
     } catch (err) {
       const msg =
         err.response?.data?.error || 'Connection failed. Please try again.';
@@ -96,6 +100,9 @@ export default function LoginUser() {
             
             </button>
             <p className="login-subtitle">Don't have an account? <a href="/register">Register</a></p>
+            <hr></hr>
+            <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
+          
           </form>
         </div>
     </div>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin } from '../api/client';
+import { login as apiLogin, createClient, createDriver } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -31,6 +31,18 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  const signup = async (signupData) => {
+    await createClient(signupData);
+    // After successful signup, we log the user in
+    return await login(signupData.email, signupData.password);
+  };
+
+  const signupDriver = async (signupData) => {
+    await createDriver(signupData);
+    // After successful signup, we log the user in
+    return await login(signupData.email, signupData.password);
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('tuxy_user');
@@ -40,6 +52,8 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    signup,
+    signupDriver,
     logout,
     isManager: user?.type === 'MANAGER',
     isDriver: user?.type === 'DRIVER',

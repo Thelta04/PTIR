@@ -5,6 +5,7 @@ import LoginManager from './pages/manager/LoginManager';
 import LoginUser from './pages/LoginUser';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 import DriverMain from './pages/driver/DriverMain';
+import DecisionDriver from './pages/driver/DecisionDriver';
 import ClientDashboard from './pages/client/ClientDashboard';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
@@ -36,6 +37,12 @@ function App() {
           <Route path="/manager" element={
             <ProtectedRoute allowedRoles={['MANAGER']}>
               <ManagerDashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/decision-driver" element={
+            <ProtectedRoute allowedRoles={['DRIVER']}>
+              <DecisionDriver />
             </ProtectedRoute>
           } />
 

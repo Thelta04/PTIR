@@ -12,7 +12,7 @@ const ROLE_ROUTES = {
 };
 
 export default function Signup() {
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -30,8 +30,14 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      const user = await login(email, password);
-      navigate(ROLE_ROUTES[user.type] || '/login-client');
+      const user = await signup({
+        email,
+        password,
+        name,
+        nif,
+        gender: opcao
+      });
+      navigate(ROLE_ROUTES[user.type] || '/client');
     } catch (err) {
       const msg =
         err.response?.data?.error || 'Connection failed. Please try again.';
@@ -81,15 +87,15 @@ export default function Signup() {
                 onChange={(e) => setGender(e.target.value)}
                 required
                 >
-                <PSelectOption value="female">
+                <PSelectOption value="Female">
                     Female
                 </PSelectOption>
                 
-                <PSelectOption value="male">
+                <PSelectOption value="Male">
                     Male
                 </PSelectOption>
 
-                <PSelectOption value="other">
+                <PSelectOption value="Other">
                     Other
                 </PSelectOption>
             </PSelect>
@@ -134,11 +140,11 @@ export default function Signup() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Signing up…' : 'Sign Up'}
 
             
             </button>
-            <p className="login-subtitle">Already have an account? <a href="/login-user">Log In</a></p>
+            <p className="login-subtitle">Already have an account? <a href="/login-client">Log In</a></p>
             <hr></hr>
             <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
           </form>

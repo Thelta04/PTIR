@@ -39,6 +39,84 @@
 }
 
 .half-width {
-  width: 50%;
+  width: 48%;
   margin: 0 auto;
+}
+
+/* Decision Page Driver */
+.decision-page {
+  min-height: 100vh;
+  background-color: #fef9e7; /* Beige background */
+  display: flex;
+  flex-direction: column;
+}
+
+.decision-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 80px;
+  text-align: center;
+}
+
+.decision-welcome {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 40px;
+  color: #333;
+}
+
+.decision-subtitle {
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.decision-options {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 40px;
+  width: 90%;
+  max-width: 400px;
+}
+
+.decision-option {
+  flex: 1;
+  background-color: #f2e4a0; /* Deeper beige/yellow */
+  padding: 30px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.decision-option.active {
+  background-color: #ffcc33; /* Selected gold */
+  border-color: #ffbb29;
+}
+
+.confirm-btn {
+  background-color: #f3b11e; /* Confirm button gold */
+  color: white;
+  border: none;
+  padding: 12px 60px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: background 0.2s;
+}
+
+.confirm-btn:hover {
+  background-color: #e4a316;
 }

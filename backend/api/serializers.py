@@ -33,7 +33,7 @@ class CreateDriverSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
     license_number = serializers.CharField(max_length=12)
     birth_year = serializers.CharField(max_length=4)
@@ -54,14 +54,14 @@ class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
 class CreateTaxiSerializer(serializers.ModelSerializer):
