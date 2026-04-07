@@ -16,3 +16,8 @@ backend/api/migrations/*
 # Django static files
 backend/staticfiles/*
 docker-compose.override.yml
+
+venv/
+__pycache__/
+db.sqlite3
+.env

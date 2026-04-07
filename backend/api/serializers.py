@@ -2,6 +2,8 @@ import re
 from datetime import date
 from rest_framework import serializers
 from .models import *
+from django.utils import timezone as tz
+
 
 #Validators that are commomn to multiple serializers
 def validate_password(value):
@@ -93,31 +95,41 @@ class TripCreateSerializer(serializers.Serializer):
     start_time     = serializers.DateTimeField()
     end_time       = serializers.DateTimeField()
 
-    def validate(self, data):
-        # RIA: origin != destination
-        if data['origin'] == data['destination']:
-            raise serializers.ValidationError("Origin and destination cannot be the same.")
+
+def validate(self, data):
+    # RIA: origin != destination
+    if data['origin'] == data['destination']:
+        raise serializers.ValidationError("Origin and destination cannot be the same.")
+    
+    # RIA: interval valid
+    if data['start_time'] >= data['end_time']:
+        raise serializers.ValidationError("start_time must be before end_time.")
+    
+    # Validate if client exists
+    if not Client.objects.filter(user__id=data['client_id']).exists():
+        raise serializers.ValidationError("Client not found.")
+    
+    # Validate if shift exists
+    shift = Shift.objects.filter(id=data['shift_id']).first()
+    if not shift:
+        raise serializers.ValidationError("Shift not found.")
         
-        # RIA: interval valid
-        if data['start_time'] >= data['end_time']:
-            raise serializers.ValidationError("start_time must be before end_time.")
-        
-        # Validate if client exists
-        if not Client.objects.filter(user__id=data['client_id']).exists():
-            raise serializers.ValidationError("Client not found.")
-        
-        # Validate if shift exists
-        shift = Shift.objects.filter(id=data['shift_id']).first()
-        if not shift:
-            raise serializers.ValidationError("Shift not found.")
-            
-        # RIA: Trip must be contained within the Shift
-        shift_interval = shift.real_interval if shift.real_interval else shift.scheduled_interval
-        if shift_interval:
-            if data['start_time'] < shift_interval.start_time or data['end_time'] > shift_interval.end_time:
-                raise serializers.ValidationError("The trip period must be contained within the corresponding shift period.")
-        
-        return data
+    # RIA: Trip must be contained within the Shift
+    shift_interval = shift.real_interval if shift.real_interval else shift.scheduled_interval
+    if shift_interval:
+        shift_start = shift_interval.start_time
+        shift_end   = shift_interval.end_time
+
+        # Normalize: make both aware or both naive
+        if tz.is_naive(shift_start):
+            shift_start = tz.make_aware(shift_start)
+        if shift_end and tz.is_naive(shift_end):
+            shift_end = tz.make_aware(shift_end)
+
+        if data['start_time'] < shift_start or (shift_end and data['end_time'] > shift_end):
+            raise serializers.ValidationError("The trip period must be contained within the corresponding shift period.")
+    
+    return data
 
 class ShiftCreateSerializer(serializers.Serializer):
     driver_id          = serializers.IntegerField()

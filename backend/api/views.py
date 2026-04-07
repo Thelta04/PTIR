@@ -488,12 +488,14 @@ class TripCreateView(views.APIView):
         trip = Trip.objects.create(client=client,
             shift=shift,
             interval=interval,
-            origin=data['origin'],
-            destination=data['destination'],
+            originAddress=data['origin'],           # origin from serializer → originAddress in model            destination=data['destination'],
+            destAddress=data['destination'],        # destination from serializer → destAddress in model
+            originCoords='0,2',       # placeholder — não tens coords no serializer
+            destCoords='0,0',  
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=0,   # ainda não conhecido no momento do pedido
-            price=0,        # ainda não conhecido no momento do pedido
+            kilometers=1,   # ainda não conhecido no momento do pedido
+            price=1,        # ainda não conhecido no momento do pedido
             status='PENDING'
         )
         
