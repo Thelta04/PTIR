@@ -1,0 +1,112 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { motion } from 'framer-motion';
+import { PDisplay, PInputEmail, PInputPassword, PButton } from '@porsche-design-system/components-react';
+
+
+const ROLE_ROUTES = {
+  MANAGER: '/manager',
+  DRIVER: '/driver',
+  CLIENT: '/client',
+};
+
+export default function LoginUser() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const user = await login(email, password);
+      if (user.type === 'DRIVER') {
+        navigate('/decision-driver');
+      } else {
+        navigate(ROLE_ROUTES[user.type] || '/login-client');
+      }
+    } catch (err) {
+      const msg =
+        err.response?.data?.error || 'Connection failed. Please try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-page-user">
+      
+        {/* Brand */}
+          <div className="tuxy-header-div">
+          <span className="tuxy-header-title">TUXY</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>User</span>
+        </div>
+        <div className="login-form-container">
+          <p className="login-welcome">Welcome Back!</p>
+          <p className="login-subtitle">Sign in to access the app</p>
+
+
+          <form onSubmit={handleSubmit} className="login-form">
+            
+            <PInputEmail
+              id="login-email"
+              label="Email" 
+              type="email"
+              className="session-input"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+            />
+
+            
+            <PInputPassword 
+            id="login-email"
+              className="session-input" 
+              label="Password" 
+              name="password" 
+              toggle={true}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required={true}
+            />
+
+            {error && (
+              <motion.div
+                className="login-error"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <button
+              type="submit"
+              className="login-btn"
+              disabled={loading}
+            >
+              {loading ? 'Signing in…' : 'Sign In'}
+
+            
+            </button>
+            <p className="login-subtitle">Don't have an account? <a href="/register">Register</a></p>
+            <hr></hr>
+            <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
+          
+          </form>
+        </div>
+    </div>
+    
+  );
+}
+

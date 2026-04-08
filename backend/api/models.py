@@ -22,7 +22,7 @@ class User(models.Model):
     nif = models.CharField(max_length=9)
     name = models.CharField(max_length=60)
     email = models.CharField(max_length=60)
-    gender = models.CharField(max_length=15, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')])
+    gender = models.CharField(max_length=15, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
     password = models.CharField(max_length=255)
     is_banned = models.BooleanField(default=False)
 
@@ -58,7 +58,7 @@ class Client(models.Model):
 
 
 class TimeInterval(models.Model):
-    id_interval = models.AutoField(primary_key=True)
+    id_interval = models.AutoField(primary_key=True, db_column='id_interval')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
 
@@ -117,8 +117,8 @@ class Trip(models.Model):
         ('COMPLETED',       'Completed'),
         ('CANCELED',        'Canceled'),
     ], default='PENDING')
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
+    client   = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')
+    shift    = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
     interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')
 
     class Meta:
@@ -134,7 +134,7 @@ class Rating(models.Model):
 
 
 class Invoice(models.Model):
-    trip = models.OneToOneField(Trip, on_delete=models.CASCADE, db_column='id_trip', primary_key=True)
+    trip = models.OneToOneField(Trip, on_delete=models.CASCADE, primary_key=True, db_column='id_trip')
     number = models.IntegerField()
     date = models.DateField()
     amount_total = models.DecimalField(max_digits=10, decimal_places=2)

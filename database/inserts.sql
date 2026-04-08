@@ -6,11 +6,11 @@ INSERT INTO taxi (license_plate, purchase_year, mileage, brand, model, comfort_l
 
 -- USER ACCOUNT
 INSERT INTO user_account (nif, name, email, gender, password, is_banned) VALUES
-('123456789', 'Joao Silva',    'joao@email.com',   'male', 'Joao123', false),
-('987654321', 'Maria Costa',   'maria@email.com',  'female',  'Maria123', false),
-('456789123', 'Pedro Santos',  'pedro@email.com',  'male', 'Pedro123', false),
-('321654987', 'Ana Ferreira',  'ana@email.com',    'female',  'Ana123', false),
-('741852963', 'Carlos Mendes', 'carlos@email.com', 'male', 'Carlos123', false);
+('123456789', 'Joao Silva',    'joao@email.com',   'Male', 'Joao123', false),
+('987654321', 'Maria Costa',   'maria@email.com',  'Female',  'Maria123', false),
+('456789123', 'Pedro Santos',  'pedro@email.com',  'Male', 'Pedro123', false),
+('321654987', 'Ana Ferreira',  'ana@email.com',    'Female',  'Ana123', false),
+('741852963', 'Carlos Mendes', 'carlos@email.com', 'Male', 'Carlos123', false);
 
 -- DRIVER
 INSERT INTO driver (id_user, license_number, birth_year) VALUES

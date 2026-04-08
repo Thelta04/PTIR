@@ -35,7 +35,7 @@ class CreateDriverSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
     license_number = serializers.CharField(max_length=12)
     birth_year = serializers.CharField(max_length=4)
@@ -56,14 +56,14 @@ class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
-    gender = serializers.ChoiceField(choices=['male', 'female', 'other'])
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
 class CreateTaxiSerializer(serializers.ModelSerializer):
@@ -160,6 +160,24 @@ class ShiftCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("The taxi purchase year cannot be later than the shift year.")
         except ValueError:
             pass
+
+        # Check for driver overlap
+        driver_overlap = Shift.objects.filter(
+            driver_id=data['driver_id'],
+            scheduled_interval__start_time__lt=data['end_time'],
+            scheduled_interval__end_time__gt=data['start_time']
+        ).exists()
+        if driver_overlap:
+             raise serializers.ValidationError("Driver already has a shift in this time period.")
+
+        # Check for taxi overlap
+        taxi_overlap = Shift.objects.filter(
+            taxi__license_plate=data['taxi_license_plate'],
+            scheduled_interval__start_time__lt=data['end_time'],
+            scheduled_interval__end_time__gt=data['start_time']
+        ).exists()
+        if taxi_overlap:
+             raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
         return data
 
@@ -184,6 +202,7 @@ class RatingCreateSerializer(serializers.Serializer):
         return data
 #GETS
 class UserSerializer(serializers.ModelSerializer):
+    id    = serializers.IntegerField(source='user_id', read_only=True)
     nif   = serializers.CharField(source='user.nif',   read_only=True)
     name  = serializers.CharField(source='user.name',  read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
@@ -192,10 +211,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = ['nif', 'name', 'email', 'gender', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned"]
 
 
 class DriverSerializer(serializers.ModelSerializer):
+    id    = serializers.IntegerField(source='user_id', read_only=True)
     nif   = serializers.CharField(source='user.nif',   read_only=True)
     name  = serializers.CharField(source='user.name',  read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
@@ -206,7 +226,7 @@ class DriverSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Driver
-        fields = ['nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)

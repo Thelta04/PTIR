@@ -1,0 +1,304 @@
+/* Driver Layout & Navigation */
+.driver-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background-color: #f8f9fa;
+  position: relative;
+}
+
+.driver-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: #fff;
+  border-bottom: 1px solid #eaeaea;
+  z-index: 10;
+}
+
+.menu-btn, .bell-btn {
+  background: #fdf2d5;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+}
+
+.driver-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.driver-brand-name {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  
+}
+
+.driver-brand-sub {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.driver-main-content {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Sidebar Drawer */
+.drawer-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.drawer-menu {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 280px;
+  max-width: 80%;
+  background: #fdfdf5;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  border-right: 1px solid #f0c14b;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid #d4cbb8;
+}
+
+.drawer-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #555;
+}
+
+.drawer-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #555;
+}
+
+.drawer-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.drawer-link {
+  padding: 1rem 1.5rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #eaeaea;
+  font-size: 1rem;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.drawer-link:hover, .drawer-link.active {
+  background: #fcf6e3;
+  font-weight: 600;
+}
+
+.drawer-footer {
+  padding: 1.5rem;
+}
+
+.drawer-logout {
+  background: transparent;
+  border: none;
+  color: #555;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+/* Driver Home View (Map Placeholder) */
+.driver-home-view {
+  width: 100%;
+  height: 100%;
+}
+
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #e5e3df;
+  position: relative;
+  overflow: hidden;
+}
+
+/* A simple CSS pattern to vaguely resemble streets/map */
+.map-pattern {
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff),
+    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff);
+  background-color: #e5e3df;
+  background-size: 100px 100px;
+  background-position: 0 0, 50px 50px;
+  opacity: 0.5;
+}
+
+/* Driver Schedule View */
+.schedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.schedule-card {
+  border: 1px solid #f0c14b;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.schedule-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1rem;
+  min-width: 60px;
+}
+
+.schedule-sublabel {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.schedule-input {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font-size: 1rem;
+  outline: none;
+  flex: 1;
+  min-width: 100px;
+}
+
+.schedule-input:focus {
+  border-color: #f0c14b;
+}
+
+.schedule-days-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.schedule-day-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  color: #444;
+  cursor: pointer;
+}
+
+.schedule-day-checkbox input {
+  accent-color: #f0c14b;
+  transform: scale(1.2);
+}
+
+.schedule-submit-btn {
+  background-color: #f0c14b;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.schedule-submit-btn:hover {
+  background-color: #e6a71e;
+}
+
+/* Schedule Step 2 */
+.schedule-step2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.schedule-preferred-banner {
+  background: #fff8e1;
+  border: 1px solid #f0c14b;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.schedule-preferred-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.schedule-shifts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.schedule-shift-item {
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fafafa;
+}
+
+.schedule-shift-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+  color: #333;
+}
+
+.schedule-shift-taxi {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auto-label {
+  color: #2e7d32;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.schedule-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
