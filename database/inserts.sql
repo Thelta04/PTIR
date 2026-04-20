@@ -6,11 +6,11 @@ INSERT INTO taxi (license_plate, purchase_year, mileage, brand, model, comfort_l
 
 -- USER ACCOUNT
 INSERT INTO user_account (nif, name, email, gender, password, is_banned) VALUES
-('123456789', 'Joao Silva',    'joao@email.com',   'male', 'Joao123', false),
-('987654321', 'Maria Costa',   'maria@email.com',  'female',  'Maria123', false),
-('456789123', 'Pedro Santos',  'pedro@email.com',  'male', 'Pedro123', false),
-('321654987', 'Ana Ferreira',  'ana@email.com',    'female',  'Ana123', false),
-('741852963', 'Carlos Mendes', 'carlos@email.com', 'male', 'Carlos123', false);
+('123456789', 'Joao Silva',    'joao@email.com',   'Male', 'Joao123', false),
+('987654321', 'Maria Costa',   'maria@email.com',  'Female',  'Maria123', false),
+('456789123', 'Pedro Santos',  'pedro@email.com',  'Male', 'Pedro123', false),
+('321654987', 'Ana Ferreira',  'ana@email.com',    'Female',  'Ana123', false),
+('741852963', 'Carlos Mendes', 'carlos@email.com', 'Male', 'Carlos123', false);
 
 -- DRIVER
 INSERT INTO driver (id_user, license_number, birth_year) VALUES
@@ -35,7 +35,8 @@ INSERT INTO time_interval (start_time, end_time) VALUES
 ('2025-01-01 11:00:00', '2025-01-01 11:30:00'),
 ('2025-01-01 19:00:00', '2025-01-01 19:40:00'),
 ('2025-01-01 08:05:00', '2025-01-01 16:05:00'),
-('2025-01-01 16:02:00', '2025-01-02 00:05:00');
+('2025-01-01 16:02:00', '2025-01-02 00:05:00'),
+('2025-01-01 14:00:00', '2025-01-01 14:30:00');
 
 -- SHIFT
 INSERT INTO shift (id_taxi, id_driver, id_scheduled_interval, id_real_interval) VALUES
@@ -45,7 +46,8 @@ INSERT INTO shift (id_taxi, id_driver, id_scheduled_interval, id_real_interval) 
 -- TRIP
 INSERT INTO trip(id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval) VALUES
 (2, 12, '38.7223,-9.1393', '38.6970,-9.3017', 'Marquês de Pombal, Lisboa', 'Estação, Oeiras', 'basic', 15.00, 2, 'COMPLETED', 1, 5),
-(4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais', 'Saldanha, Lisboa', 'luxury', 35.00, 3, 'COMPLETED', 2, 6);
+(4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais', 'Saldanha, Lisboa', 'luxury', 35.00, 3, 'COMPLETED', 2, 6),
+(4, 15, '38.1111,-9.1111', '38.2222,-9.2222', 'Address A', 'Address B', 'basic', 20.00, 1, 'COMPLETED', 1, 9);
 
 -- REFUELING
 INSERT INTO refueling (cost, kwh, liters, initial_mileage, id_shift, id_interval) VALUES
@@ -60,4 +62,5 @@ INSERT INTO rating (score, id_trip) VALUES
 -- INVOICE
 INSERT INTO invoice (id_trip, number, date, amount_total, amount_paid, nif) VALUES
 (1, 1, '2025-01-02', 15.00, 15.00, '987654321'),
-(2, 2, '2025-01-03', 35.00, 35.00, '321654987');
+(2, 2, '2025-01-03', 35.00, 35.00, '321654987'),
+(3, 3, '2025-01-04', 20.00, 20.00, '321654987');

@@ -1,9 +1,9 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip
 from .serializers import *
-from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from django.db import transaction
@@ -57,6 +57,18 @@ class ClientDetailView(views.APIView):
         serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class ClientListView(views.APIView):
+    @extend_schema(
+        summary="List all Clients",
+        description="Returns a list of all clients in the system.",
+        responses=UserSerializer(many=True)
+    )
+    def get(self, request):
+        clients = Client.objects.all()
+        from .serializers import UserSerializer
+        serializer = UserSerializer(clients, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class DriverCreateView(views.APIView):
     @extend_schema(
         summary="Create a new Driver",
@@ -90,6 +102,7 @@ class DriverDetailView(views.APIView):
     @extend_schema(
         summary="Get Driver details",
         description="Returns the detailed information of a specific driver based on the user ID.",
+        responses={200: DriverSerializer}
     )
     def get(self, request, id):
         try:
@@ -104,6 +117,18 @@ class DriverDetailView(views.APIView):
         # 2. Serialize and return the data
         from .serializers import DriverSerializer
         serializer = DriverSerializer(driver)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class DriverListView(views.APIView):
+    @extend_schema(
+        summary="List all Drivers",
+        description="Returns a list of all drivers in the system.",
+        responses=DriverSerializer(many=True)
+    )
+    def get(self, request):
+        drivers = Driver.objects.all()
+        from .serializers import DriverSerializer
+        serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -163,25 +188,33 @@ class TaxiCreateView(views.APIView):
 class TaxiDetailView(views.APIView):
     @extend_schema(
         summary="Get Taxi details",
-        description="Returns the detailed information of a specific taxi based on its license plate.",
-        responses={200: TaxiDetailSerializer}
+        description="Returns the detailed information of a specific taxi based on the license plate.",
     )
     def get(self, request, license_plate):
         try:
             taxi = Taxi.objects.get(license_plate=license_plate)
         except Taxi.DoesNotExist:
             return Response({"error": "Taxi not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(TaxiDetailSerializer(taxi).data)
 
-        serializer = TaxiDetailSerializer(taxi)
+class TaxiListView(views.APIView):
+    @extend_schema(
+        summary="List all Taxis",
+        description="Returns a list of all taxis in the system.",
+        responses=TaxiDetailSerializer(many=True)
+    )
+    def get(self, request):
+        taxis = Taxi.objects.all()
+        serializer = TaxiDetailSerializer(taxis, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ShiftCreateView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Create a new Shift (Manager only)",
-        description="Creates a new shift for a driver and a taxi within a specific time interval. Requires a valid Manager JWT token.",
+        summary="Create a new Shift (Manager or Driver)",
+        description="Creates a new shift for a driver and a taxi within a specific time interval. Managers can schedule for any driver, while Drivers can only schedule for themselves.",
         request=ShiftCreateSerializer,
         responses={201: inline_serializer(
             name='ShiftCreateResponse',
@@ -193,8 +226,21 @@ class ShiftCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            driver = Driver.objects.get(pk=data['driver_id'])
-            taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+            user = request.user
+            is_manager = Manager.objects.filter(user=user).exists()
+            is_driver = Driver.objects.filter(user=user).exists()
+            
+            if not is_manager:
+                if not is_driver or data['driver_id'] != user.id:
+                    return Response({"error": "You can only schedule shifts for yourself."}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                driver = Driver.objects.get(pk=data['driver_id'])
+                taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+            except Driver.DoesNotExist:
+                return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+            except Taxi.DoesNotExist:
+                return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
 
             try:
                 with transaction.atomic():
@@ -216,17 +262,28 @@ class ShiftCreateView(views.APIView):
 
 class ShiftListView(views.APIView):
     @extend_schema(
-        summary="List all shifts for a Driver",
-        description="Returns a list of all shifts (past, present, and future) for a specific driver, identified by their user ID.",
-        responses={200: ShiftDetailSerializer(many=True)}
+        summary="List Driver Shifts",
+        description="Returns a list of shifts assigned to a specific driver.",
+        responses=ShiftDetailSerializer(many=True)
     )
     def get(self, request, id):
         try:
-            driver = Driver.objects.get(pk=id)
+            driver = Driver.objects.get(user__id=id)
         except Driver.DoesNotExist:
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        shifts = Shift.objects.filter(driver=driver).order_by('-scheduled_interval__start_time')
+        shifts = Shift.objects.filter(driver=driver)
+        serializer = ShiftDetailSerializer(shifts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ShiftListViews(views.APIView):
+    @extend_schema(
+        summary="List all Shifts",
+        description="Returns a list of all shifts in the system for managers.",
+        responses=ShiftDetailSerializer(many=True)
+    )
+    def get(self, request):
+        shifts = Shift.objects.all()
         serializer = ShiftDetailSerializer(shifts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -261,6 +318,7 @@ class ShiftStartView(views.APIView):
     @extend_schema(
         summary="Start a shift (Clock-in)",
         description="Driver starts a shift.",
+        request=None,
         responses={200: inline_serializer(name='ShiftStartResponse', fields={'message': serializers.CharField()})}
     )
     def patch(self, request, id):
@@ -287,6 +345,7 @@ class ShiftEndView(views.APIView):
     @extend_schema(
         summary="End a shift (Clock-out)",
         description="Driver ends a shift.",
+        request=None,
         responses={200: inline_serializer(name='ShiftEndResponse', fields={'message': serializers.CharField()})}
     )
     def patch(self, request, id):
@@ -367,11 +426,9 @@ class LoginView(views.APIView):
             "type": user_type,
         }
 
-        # Only managers receive JWT tokens
-        if user_type == "MANAGER":
-            access, refresh = generate_tokens(user)
-            response_data["access"] = access
-            response_data["refresh"] = refresh
+        access, refresh = generate_tokens(user)
+        response_data["access"] = access
+        response_data["refresh"] = refresh
 
         return Response(response_data, status=status.HTTP_200_OK)
     
@@ -487,16 +544,58 @@ class TripCreateView(views.APIView):
         trip = Trip.objects.create(client=client,
             shift=shift,
             interval=interval,
-            origin=data['origin'],
-            destination=data['destination'],
+            originAddress=data['origin'],           # origin from serializer → originAddress in model            destination=data['destination'],
+            destAddress=data['destination'],        # destination from serializer → destAddress in model
+            originCoords='0,2',       # placeholder — não tens coords no serializer
+            destCoords='0,0',  
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=0,   # ainda não conhecido no momento do pedido
-            price=0,        # ainda não conhecido no momento do pedido
+            kilometers=1,   # ainda não conhecido no momento do pedido
+            price=1,        # ainda não conhecido no momento do pedido
             status='PENDING'
         )
         
         response_serializer = TripListSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+class RatingListView(views.APIView):
+    @extend_schema(
+        summary="List all ratings of a driver",
+        description="Returns all ratings of a driver.",
+        responses={200: RatingListSerializer(many=True)}
+    )
+    def get(self, request, driver_id):
+        ratings = Rating.objects.filter(trip__shift__driver__user=driver_id)
+        serializer = RatingListSerializer(ratings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class RatingCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Rate a trip",
+        description="Client rates a trip that he was a passenger in and has been completed.",
+        request=RatingCreateSerializer,
+        responses={201: RatingListSerializer}
+    )
+    def post(self, request):
+        serializer = RatingCreateSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        
+        try:
+            #The Serializer already verifies if the trip exist and the client is part of it
+            trip = Trip.objects.get(id=data['trip_id'])
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create the rating
+        rating = Rating.objects.create(trip=trip, score=data['score'])
+        
+        response_serializer = RatingListSerializer(rating)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -580,6 +679,7 @@ class TripCompleteView(views.APIView):
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
+        request=None,
         responses={200: TripCompleteSerializer}
     )
     def patch(self, request, id):

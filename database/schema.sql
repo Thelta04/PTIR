@@ -50,7 +50,7 @@ CREATE TABLE time_interval (
 -- SHIFT
 CREATE TABLE shift (
     id SERIAL PRIMARY KEY,
-    id_taxi VARCHAR(10) NOT NULL REFERENCES taxi(license_plate), 
+    id_taxi VARCHAR(10) REFERENCES taxi(license_plate), 
     id_driver INTEGER NOT NULL REFERENCES driver(id_user),
     id_scheduled_interval INTEGER NOT NULL REFERENCES time_interval(id_interval),
     id_real_interval INTEGER REFERENCES time_interval(id_interval)
@@ -110,7 +110,7 @@ CREATE TABLE invoice (
 ALTER TABLE user_account
     ADD CONSTRAINT uq_user_account_email UNIQUE (email),
     ADD CONSTRAINT chk_user_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
-    ADD CONSTRAINT chk_user_gender CHECK (gender IN ('male', 'female', 'other')), -- RIA 13
+    ADD CONSTRAINT chk_user_gender CHECK (gender IN ('Male', 'Female', 'Other')), -- RIA 13
     ADD CONSTRAINT chk_user_password CHECK (char_length(password) >= 6 AND password ~ '[A-Za-z]' AND password ~ '[0-9]'); -- RIA 15
 
 ALTER TABLE driver
