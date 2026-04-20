@@ -28,15 +28,13 @@ jobs:
 
       - name: Build and Push Frontend
         run: |
-          # Limpar e converter para minúsculas
           CLEAN_ID=$(echo "${{ env.PROJECT_ID }}" | tr '[:upper:]' '[:lower:]' | xargs)
           TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${CLEAN_ID}/${{ env.REPOSITORY }}/frontend:latest"
-          docker build -t "$TAG" ./frontend
+          docker build --target prod -t "$TAG" -f nginx/Dockerfile .
           docker push "$TAG"
 
       - name: Build and Push Backend
         run: |
-          # Limpar e converter para minúsculas
           CLEAN_ID=$(echo "${{ env.PROJECT_ID }}" | tr '[:upper:]' '[:lower:]' | xargs)
           TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${CLEAN_ID}/${{ env.REPOSITORY }}/backend:latest"
           docker build -t "$TAG" ./backend
