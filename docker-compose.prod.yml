@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Servidor Backend (Django/Gunicorn)
   backend:
-    image: europe-southwest1-docker.pkg.dev/${GCP_PROJECT_ID}/tuxy-repo/backend:latest
+    image: europe-southwest1-docker.pkg.dev/ptir-11/tuxy-repo/backend:latest
     container_name: tuxy_backend
     restart: always
     env_file:
@@ -14,7 +14,7 @@ services:
 
   # Nginx para Servir Frontend e atuar como Reverse Proxy Interno
   nginx:
-    image: europe-southwest1-docker.pkg.dev/${GCP_PROJECT_ID}/tuxy-repo/frontend:latest
+    image: europe-southwest1-docker.pkg.dev/ptir-11/tuxy-repo/frontend:latest
     container_name: tuxy_nginx
     restart: always
     depends_on:
