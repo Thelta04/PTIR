@@ -28,13 +28,15 @@ jobs:
 
       - name: Build and Push Frontend
         run: |
-          docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:latest ./frontend
-          docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:latest
+          TAG="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/frontend:latest"
+          docker build -t "$TAG" ./frontend
+          docker push "$TAG"
 
       - name: Build and Push Backend
         run: |
-          docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/backend:latest ./backend
-          docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/backend:latest
+          TAG="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/backend:latest"
+          docker build -t "$TAG" ./backend
+          docker push "$TAG"
 
   deploy:
     needs: build-and-push
