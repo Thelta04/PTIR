@@ -722,3 +722,20 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+import socket
+class CheckHealthView(views.APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    
+    @extend_schema(
+        summary="Health Check",
+        description="Returns the internal IP of the machine.",
+        responses={200: inline_serializer(
+            name='CheckHealthResponse',
+            fields={'ip': serializers.CharField()}
+        )}
+    )
+    def get(self, request):
+        hostname = socket.gethostname()
+        ip_address = socket.gethostbyname(hostname)
+        return Response({"ip": ip_address}, status=status.HTTP_200_OK)

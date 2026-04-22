@@ -46,4 +46,7 @@ urlpatterns = [
     # Ratings
     path('rating/create/', views.RatingCreateView.as_view(), name='rate_trip'),
     path('rating/<int:driver_id>/', views.RatingListView.as_view(), name='list_ratings'),
+
+    # Health Check
+    path('check/', views.CheckHealthView.as_view(), name='check_health'),
 ]
