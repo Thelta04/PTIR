@@ -11,16 +11,18 @@ import {
   CalendarClock,
   BarChart3,
   X,
-  User
+  User,
+  MapPin
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient } from '../../api/client';
+import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient, listTrips } from '../../api/client';
 
 const sidebarItems = [
   { key: 'clients', label: 'Clients', icon: User },
   { key: 'drivers', label: 'Drivers', icon: Users },
   { key: 'taxis', label: 'Taxis', icon: Car },
   { key: 'shifts', label: 'Shifts', icon: CalendarClock },
+  { key: 'trips', label: 'Trips', icon: MapPin },
   { key: 'reports', label: 'Reports', icon: BarChart3 },
 ];
 
@@ -29,7 +31,7 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('clients');
-  const [data, setData] = useState({ clients: [], drivers: [], taxis: [], shifts: [] });
+  const [data, setData] = useState({ clients: [], drivers: [], taxis: [], shifts: [], trips: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apiStatus, setApiStatus] = useState('');
@@ -76,6 +78,15 @@ export default function ManagerDashboard() {
         .then(res => {
           setData(d => ({ ...d, shifts: res.data }));
           setApiStatus(`Fetched ${res.data.length} shift records from API`);
+          setTimeout(() => setApiStatus(''), 4000);
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    } else if (activeSection === 'trips') {
+      listTrips()
+        .then(res => {
+          setData(d => ({ ...d, trips: res.data }));
+          setApiStatus(`Fetched ${res.data.length} trip records from API`);
           setTimeout(() => setApiStatus(''), 4000);
         })
         .catch(err => setError(err.message))
@@ -544,6 +555,38 @@ export default function ManagerDashboard() {
                       </tr>
                     ))}
                     {data.shifts.length === 0 && <tr><td colSpan="4" style={{ padding: '16px' }}>No shifts found.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            ) : activeSection === 'trips' ? (
+              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                      <th style={{ padding: '12px 16px' }}>ID</th>
+                      <th style={{ padding: '12px 16px' }}>Status</th>
+                      <th style={{ padding: '12px 16px' }}>Client</th>
+                      <th style={{ padding: '12px 16px' }}>Driver</th>
+                      <th style={{ padding: '12px 16px' }}>Origin</th>
+                      <th style={{ padding: '12px 16px' }}>Destination</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.trips.map((t, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                        <td style={{ padding: '12px 16px' }}>{t.id}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>{t.client_name}</td>
+                        <td style={{ padding: '12px 16px' }}>{t.driver_name || '-'}</td>
+                        <td style={{ padding: '12px 16px' }}>{t.originAddress}</td>
+                        <td style={{ padding: '12px 16px' }}>{t.destAddress}</td>
+                      </tr>
+                    ))}
+                    {data.trips.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No trips found.</td></tr>}
                   </tbody>
                 </table>
               </div>
