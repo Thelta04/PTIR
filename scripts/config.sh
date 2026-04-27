@@ -21,6 +21,9 @@ DB_USER_DEFAULT="tuxy_user"
 DB_PRIMARY_IP="10.10.10.30"
 DB_PORT="5432"
 
+# Load Balancer defaults
+LB_VIP="10.10.10.100"
+
 # Tagging (for dynamic discovery)
 TAG_WEB="webapp-server"
 TAG_DB="db-server"

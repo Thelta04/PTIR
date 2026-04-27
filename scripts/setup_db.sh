@@ -113,4 +113,15 @@ else
     fi
 fi
 
+# Setup Automated Failover Healthcheck
+if [ -f "/tmp/db_healthcheck.sh" ]; then
+    echo "Installing database healthcheck script..."
+    sudo cp /tmp/db_healthcheck.sh /usr/local/bin/db_healthcheck.sh
+    sudo chmod +x /usr/local/bin/db_healthcheck.sh
+    
+    # Schedule cron job (runs every minute)
+    echo "* * * * * root /usr/local/bin/db_healthcheck.sh $PRIMARY_IP >> /var/log/db_healthcheck.log 2>&1" | sudo tee /etc/cron.d/db_healthcheck
+    echo "Healthcheck scheduled for primary $PRIMARY_IP."
+fi
+
 echo "Database setup complete ($MODE)!"

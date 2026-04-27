@@ -724,6 +724,7 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
 class CheckHealthView(views.APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -740,6 +741,7 @@ class CheckHealthView(views.APIView):
         health = {
             "status": "OK",
             "hostname": socket.gethostname(),
+            "ip": socket.gethostbyname(socket.gethostname()),
             "database": "OK"
         }
         try:

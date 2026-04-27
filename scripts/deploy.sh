@@ -42,6 +42,16 @@ echo "Building frontend..."
 
 echo "Packaging artifacts..."
 cp .env backend/.env
+
+# Dynamically discover all DB IPs for failover support
+DB_IPS=""
+for INST in $DB_INSTANCES; do
+    IP=$(gcloud compute instances describe "$INST" --project="$PROJECT_ID" --zone="$ZONE" --format='get(networkInterfaces[0].networkIP)')
+    DB_IPS+="$IP,"
+done
+DB_IPS=${DB_IPS%,}
+sed -i "s|^DB_HOST=.*|DB_HOST=$DB_IPS|" backend/.env
+
 tar -czf /tmp/webapp_artifacts.tar.gz --exclude='backend/venv' --exclude='__pycache__' backend/ frontend/dist/ scripts/ database/
 rm backend/.env
 
@@ -57,8 +67,8 @@ for DB_INSTANCE in $DB_INSTANCES; do
     echo "Setting up database: $DB_INSTANCE"
     echo "=================================================="
 
-    # Upload setup script, config, utils and SQL files
-    remote_scp "$DB_INSTANCE" scripts/setup_db.sh scripts/config.sh scripts/utils.sh database/schema.sql database/inserts.sql
+    # Upload setup script, config, utils, SQL files and healthcheck script
+    remote_scp "$DB_INSTANCE" scripts/setup_db.sh scripts/config.sh scripts/utils.sh database/schema.sql database/inserts.sql scripts/db_healthcheck.sh
 
     # Run setup on the remote VM
     remote_exec "$DB_INSTANCE" "
@@ -143,15 +153,23 @@ for LB_INSTANCE in $LB_INSTANCES; do
     echo "Updating Load Balancer: $LB_INSTANCE"
     echo "=================================================="
 
-    remote_scp "$LB_INSTANCE" scripts/setup_lb.sh scripts/lb_healthcheck.sh scripts/config.sh scripts/utils.sh
+    # Determine Peer IP for Keepalived unicast
+    if [[ "$LB_INSTANCE" == *"-01"* ]]; then
+        PEER_NAME=$(echo $LB_INSTANCES | tr ' ' '\n' | grep -- "-02" | head -n 1)
+    else
+        PEER_NAME=$(echo $LB_INSTANCES | tr ' ' '\n' | grep -- "-01" | head -n 1)
+    fi
+    PEER_IP=$(gcloud compute instances describe "$PEER_NAME" --project="$PROJECT_ID" --zone="$ZONE" --format='get(networkInterfaces[0].networkIP)')
+
+    remote_scp "$LB_INSTANCE" scripts/setup_lb.sh scripts/lb_healthcheck.sh scripts/config.sh scripts/utils.sh scripts/check_nginx.sh
 
     remote_exec "$LB_INSTANCE" "
         set -e
         source /tmp/config.sh
         sudo mkdir -p \$TARGET_DIR/scripts
-        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh \$TARGET_DIR/scripts/
-        sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh
-        sudo \$TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS'
+        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh \$TARGET_DIR/scripts/
+        sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh
+        sudo \$TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS' '$PEER_IP'
     " || echo "WARNING: Failed to update LB $LB_INSTANCE"
 done
 

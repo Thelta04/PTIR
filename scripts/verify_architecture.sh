@@ -121,22 +121,39 @@ echo "  Starting Nginx on 'web-1'..."
 remote_exec "web-1" "sudo systemctl start nginx"
 
 # ---------------------------------------------------------
-# 5. Prove LB Failover & Auto-Replacement
+# 4. Prove LB Failover & Auto-Replacement
 # ---------------------------------------------------------
+source scripts/config.sh
 echo ""
-echo "▶ TEST 5: LB Failover & Auto-Replacement"
-echo "  Stopping Nginx on 'lb-01'..."
+echo "▶ TEST 4: LB Failover (Keepalived VIP)"
+echo "  Stopping Nginx on 'lb-01' (Primary)..."
 remote_exec "lb-01" "sudo systemctl stop nginx"
 
-echo "  Sending request to LB ($LB_IP)..."
-# In a true VIP setup, we'd hit the VIP. Here we might hit lb-01's public IP which is now down.
-# However, for the sake of the test, we'll check if lb-02 is reachable and then trigger replacement.
-HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://$LB_IP/api/check/")
+echo "  Waiting for VIP to migrate to 'lb-02' (up to 20s)..."
+VIP_DETECTED=false
+for i in {1..4}; do
+    echo "    Attempt $i: Checking if 'lb-02' has the VIP ($LB_VIP)..."
+    HAS_VIP=$(remote_exec "lb-02" "ip addr show | grep -q '$LB_VIP' && echo 'yes' || echo 'no'" | xargs)
+    if [ "$HAS_VIP" = "yes" ]; then
+        echo "  ✅ PASS: 'lb-02' has successfully assumed the Virtual IP ($LB_VIP)!"
+        VIP_DETECTED=true
+        break
+    fi
+    sleep 5
+done
 
+if [ "$VIP_DETECTED" = "false" ]; then
+    echo "  ❌ FAIL: 'lb-02' did NOT assume the Virtual IP within 20s."
+    exit 1
+fi
+
+echo "  Verifying if API is reachable through 'lb-02' internal IP..."
+HTTP_CODE=$(remote_exec "web-2" "curl -s -o /dev/null -w '%{http_code}' --max-time 2 'http://10.10.10.11/api/check/'" | xargs)
 if [ "$HTTP_CODE" = "200" ]; then
-    echo "  ✅ PASS: LB Failover successful (Traffic handled by lb-02 via VIP/Fallback)."
+    echo "  ✅ PASS: API is reachable through 'lb-02' internal IP!"
 else
-    echo "  ⚠️  NOTICE: LB public IP ($LB_IP) is tied to lb-01. Expected behavior in static IP setup."
+    echo "  ❌ FAIL: API is unreachable through 'lb-02' (HTTP $HTTP_CODE)."
+    exit 1
 fi
 
 echo "  Simulating Auto-Replacement for 'lb-01'..."
@@ -147,10 +164,10 @@ echo "  Starting Nginx on 'lb-01'..."
 remote_exec "lb-01" "sudo systemctl start nginx"
 
 # ---------------------------------------------------------
-# 6. Prove DB Replication, Failover & Auto-Replacement
+# 5. Prove DB Replication, Failover & Auto-Replacement
 # ---------------------------------------------------------
 echo ""
-echo "▶ TEST 6: Database Replication, Failover & Auto-Replacement"
+echo "▶ TEST 5: Database Replication, Failover & Auto-Replacement"
 echo "  Verifying Replication Status on 'db-02'..."
 REPLICA_STATUS=$(remote_exec "db-02" "sudo -u postgres psql -c 'select count(*) from pg_stat_wal_receiver;' -t" | xargs)
 
@@ -163,13 +180,33 @@ fi
 echo "  Stopping PostgreSQL on 'db-01'..."
 remote_exec "db-01" "sudo systemctl stop postgresql"
 
-# Simulate promotion of db-02
-echo "  Promoting 'db-02' to Primary..."
-remote_exec "db-02" "sudo -u postgres psql -c 'SELECT pg_promote();'"
+# Wait for automatic promotion by cron job
+echo "  Waiting for automatic promotion of 'db-02' (this may take up to 90s)..."
+PROMOTED=false
+for i in {1..18}; do
+    IS_RECOVERY=$(remote_exec "db-02" "sudo -u postgres psql -c 'select pg_is_in_recovery();' -t" | xargs)
+    if [ "$IS_RECOVERY" = "f" ]; then
+        echo "  ✅ PASS: 'db-02' was automatically promoted to Primary!"
+        PROMOTED=true
+        break
+    fi
+    echo "  ... still in recovery mode ($((i*5))s)"
+    sleep 5
+done
+
+if [ "$PROMOTED" = "false" ]; then
+    echo "  ❌ FAIL: 'db-02' was NOT automatically promoted within 90s."
+    exit 1
+fi
 
 echo "  Verifying API Health (should point to promoted DB)..."
-# In a real setup, we'd update DB_HOST or use a floating IP. 
-# Here we simulate the replacement and promotion logic.
+HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "  ✅ PASS: API is still healthy after automatic failover!"
+else
+    echo "  ❌ FAIL: API is NOT healthy after failover (HTTP $HTTP_CODE)."
+    exit 1
+fi
 echo "  Simulating Auto-Replacement for 'db-01'..."
 bash scripts/auto_replace_node.sh db db-01
 echo "  ✅ PASS: Replacement logic triggered for db-01."
@@ -178,10 +215,10 @@ echo "  Starting PostgreSQL on 'db-01'..."
 remote_exec "db-01" "sudo systemctl start postgresql"
 
 # ---------------------------------------------------------
-# 4. Prove Tier Isolation
+# 6. Prove Tier Isolation
 # ---------------------------------------------------------
 echo ""
-echo "▶ TEST 4: Tier Isolation (Port Audits)"
+echo "▶ TEST 6: Tier Isolation (Port Audits)"
 
 check_port() {
     local vm=$1
