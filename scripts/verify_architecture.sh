@@ -4,7 +4,9 @@
 
 PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
 ZONE="europe-southwest1-c"
-LB_IP=34.175.164.1
+
+# Use provided IP or fallback to the one used before
+LB_IP="${1:-34.175.164.1}"
 
 # Helper function to run remote commands
 remote_exec() {
@@ -14,6 +16,20 @@ remote_exec() {
 echo "=================================================="
 echo " Starting Architecture Verification Suite"
 echo "=================================================="
+
+# ---------------------------------------------------------
+# 0. Check: API Operational
+# ---------------------------------------------------------
+echo ""
+echo "▶ TEST 0: API Operational Check"
+echo "  Checking if API is reachable through LB ($LB_IP)..."
+HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "  ✅ PASS: API is reachable (HTTP 200)."
+else
+    echo "  ❌ FAIL: API is not reachable (HTTP $HTTP_CODE)."
+fi
 
 # ---------------------------------------------------------
 # 1. Prove Load Balancing
@@ -26,12 +42,20 @@ SERVED_BY_WEB1=0
 SERVED_BY_WEB2=0
 
 for i in {1..10}; do
-    # Using curl -I to get headers. tr -d '\r' to clean up potential line endings.
-    SERVER=$(curl -s -I "http://$LB_IP/" | grep -i "X-Served-By" | awk '{print $2}' | tr -d '\r' | xargs)
+    # Get all headers and grep for X-Served-By
+    HEADERS=$(curl -s -I "http://$LB_IP/")
+    SERVER=$(echo "$HEADERS" | grep -i "X-Served-By" | awk '{print $2}' | tr -d '\r' | xargs)
+    
     if [ "$SERVER" = "web-1" ]; then
         ((SERVED_BY_WEB1++))
     elif [ "$SERVER" = "web-2" ]; then
         ((SERVED_BY_WEB2++))
+    else
+        # If it fails, let's see why
+        if [ $i -eq 1 ]; then
+           echo "    DEBUG: Headers for first request:"
+           echo "$HEADERS" | sed 's/^/      /'
+        fi
     fi
 done
 
@@ -40,6 +64,7 @@ if [ "$SERVED_BY_WEB1" -gt 0 ] && [ "$SERVED_BY_WEB2" -gt 0 ]; then
     echo "  ✅ PASS: Traffic is being distributed across both VMs."
 else
     echo "  ❌ FAIL: Traffic is not being distributed correctly. Found: web-1=$SERVED_BY_WEB1, web-2=$SERVED_BY_WEB2"
+    echo "     (Make sure you redeployed with the latest scripts!)"
 fi
 
 # ---------------------------------------------------------
@@ -51,9 +76,11 @@ echo "  Stopping PostgreSQL on 'db' VM..."
 remote_exec "db" "sudo systemctl stop postgresql"
 
 echo "  Checking API Health (Expecting Failure)..."
+# Wait a few seconds for connections to actually fail
+sleep 2
 HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 
-if [ "$HTTP_CODE" = "500" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "000" ]; then
+if [ "$HTTP_CODE" = "500" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "000" ]; then
     echo "  ✅ PASS: API failed as expected when DB is down (HTTP $HTTP_CODE)."
 else
     echo "  ❌ FAIL: API returned HTTP $HTTP_CODE instead of an error. Is it truly dependent?"
@@ -70,7 +97,8 @@ echo ""
 echo "▶ TEST 3: High Availability (Web-1 Failover)"
 echo "  Stopping Nginx on 'web-1'..."
 remote_exec "web-1" "sudo systemctl stop nginx"
-sleep 5 # let LB health check detect failure (cron runs every minute, so we wait or just rely on the script being used after detection)
+echo "  Waiting for LB healthcheck to detect failure..."
+sleep 10
 
 echo "  Sending 5 requests to LB..."
 SERVED_BY_WEB1=0
@@ -86,7 +114,7 @@ echo "  Results: web-1 served $SERVED_BY_WEB1, web-2 served $SERVED_BY_WEB2"
 if [ "$SERVED_BY_WEB1" -eq 0 ] && [ "$SERVED_BY_WEB2" -eq 5 ]; then
     echo "  ✅ PASS: LB successfully routed all traffic to web-2 when web-1 failed."
 else
-    echo "  ❌ FAIL: LB did not failover correctly or healthcheck didn't trigger yet. Found: web-1=$SERVED_BY_WEB1, web-2=$SERVED_BY_WEB2"
+    echo "  ❌ FAIL: LB did not failover correctly. Found: web-1=$SERVED_BY_WEB1, web-2=$SERVED_BY_WEB2"
 fi
 
 echo "  Starting Nginx on 'web-1'..."
@@ -103,7 +131,9 @@ check_port() {
     local port=$2
     local should_be_open=$3
     
-    IS_OPEN=$(remote_exec "$vm" "sudo ss -tulpn | grep -q ':$port ' && echo 'yes' || echo 'no'")
+    # Use -E for regex and match port bound to any address or specific IP
+    # Matches :80 (space), :80 (tab), or :80 (end of line)
+    IS_OPEN=$(remote_exec "$vm" "sudo ss -tulpn | grep -qE \"[:\*]$port(\$|[[:space:]])\" && echo 'yes' || echo 'no'")
     
     if [ "$IS_OPEN" = "$should_be_open" ]; then
         echo "  ✅ PASS: $vm port $port is $IS_OPEN (expected: $should_be_open)"

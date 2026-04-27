@@ -1,3 +1,5 @@
+from django.db import connection
+import socket
 from rest_framework import generics, views, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -722,9 +724,6 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-import socket
-from django.db import connection
-
 class CheckHealthView(views.APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
