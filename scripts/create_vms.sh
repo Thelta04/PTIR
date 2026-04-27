@@ -43,7 +43,8 @@ gcloud compute instances create lb \
     --private-network-ip=10.10.10.10 \
     --network=lan \
     --subnet=lan \
-    --tags=http-server,lb-server
+    --tags=http-server,lb-server \
+    --address=tuxy-lb-ip
 
 echo "Creating Load Balancer Backup VM (10.10.10.11)..."
 gcloud compute instances create lb-backup \

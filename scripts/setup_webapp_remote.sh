@@ -90,6 +90,7 @@ server {
         root __TARGET_DIR__/frontend/dist;
         index index.html;
         try_files $uri $uri/ /index.html;
+        add_header X-Served-By $hostname;
     }
 
     location /api/ {
@@ -98,6 +99,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        add_header X-Served-By $hostname;
     }
 
     location /admin/ {
@@ -142,6 +144,7 @@ chmod 755 "/home/$APP_USER"
 chmod -R 755 "$TARGET_DIR/frontend/dist"
 
 echo "Restarting gunicorn and nginx..."
+sudo systemctl enable gunicorn
 sudo systemctl restart gunicorn nginx
 
 # Health check — verify HTTP 200 from the API
