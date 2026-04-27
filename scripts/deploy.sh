@@ -10,8 +10,8 @@ PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
 ZONE="europe-southwest1-c"
 REMOTE_USER="athen"
 WEBAPP_INSTANCES="web-1 web-2"
-DB_INSTANCES="db db-backup"
-LB_INSTANCES="lb lb-backup"
+DB_INSTANCES="db-01 db-02"
+LB_INSTANCES="lb-01 lb-02"
 TARGET_DIR="/home/$REMOTE_USER/app"
 DB_HOST="10.10.10.30"
 DB_PORT="5432"
@@ -80,35 +80,24 @@ for DB_INSTANCE in $DB_INSTANCES; do
         set -e
         export DEBIAN_FRONTEND=noninteractive
 
-        # Wait for any existing apt/dpkg locks (unattended-upgrades on fresh VMs)
+        # Wait for any existing apt/dpkg locks
         echo 'Waiting for dpkg lock to be released...'
         while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
             sleep 2
         done
 
-        # Check if PostgreSQL is already installed and running
-        if systemctl is-active --quiet postgresql 2>/dev/null; then
-            echo 'PostgreSQL is already running on $DB_INSTANCE. Skipping install.'
-            # Still ensure config is correct
-            sudo sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /etc/postgresql/*/main/postgresql.conf
-            if ! sudo grep -q '10.10.10.0/24' /etc/postgresql/*/main/pg_hba.conf; then
-                echo 'host all all 10.10.10.0/24 md5' | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
-                sudo systemctl restart postgresql
-            fi
-            # Re-apply schema and data to keep DB in sync
-            echo 'Re-applying schema.sql and inserts.sql...'
-            sudo -u postgres psql -d $DB_NAME -f /tmp/schema.sql
-            sudo -u postgres psql -d $DB_NAME -f /tmp/inserts.sql
-            # Re-grant permissions after schema recreation
-            sudo -u postgres psql -d $DB_NAME -c \"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;\"
-            sudo -u postgres psql -d $DB_NAME -c \"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;\"
+        # Determine mode
+        if [ \"$DB_INSTANCE\" = \"db-01\" ]; then
+            MODE=\"primary\"
         else
-            echo 'Installing and configuring PostgreSQL...'
-            chmod +x /tmp/setup_db.sh
-            /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD'
+            MODE=\"replica\"
         fi
 
-        echo 'Database setup complete on $DB_INSTANCE.'
+        echo \"Installing and configuring PostgreSQL as \$MODE...\"
+        chmod +x /tmp/setup_db.sh
+        /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' \"\$MODE\" \"10.10.10.30\"
+
+        echo \"Database setup complete on $DB_INSTANCE.\"
     " || { echo "ERROR: Failed to setup $DB_INSTANCE"; exit 1; }
 done
 

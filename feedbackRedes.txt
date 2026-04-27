@@ -1,11 +1,11 @@
 Feedback Redes:
- - Remover o HAProxy e usar nginx para fazer o balanço de carga - feito?
+ - Remover o HAProxy e usar nginx para fazer o balanço de carga - feito
  - Criar o script de criação automática de vms de web app - feito
  - Ter scripts para passar de uma vm limpa para um servidor funcionar - feito
  - Evitar o git. Para coisas rapidas usar scp, usar artifacts para development - feito
  - Deixar de usar o docker - feito
- - Ter servidores para servir backend (api) e outros para frontend - feito?
+ - Ter servidores para servir backend (api) e outros para frontend 
  - Nao usar o porto 80 pq é necessário sudo. Usar 8000 - Acho que nao e preciso sudo
  - Ter um api/check que devolve o ip interno da máquina para debug e healthchecks - feito
- - O docker da db parece estar a correr dentro da web app e não através da conexão com a vm. - Nao confirmei
+ - O docker da db parece estar a correr dentro da web app e não através da conexão com a vm. - feito
  - Ideia: ter um script na vm do loadbalancer que faça (a cada minuto) healthchecks dos servidores e mudar o config file do loadbalancer e faça reload para a lista ser sempre atualizada. - feito

@@ -28,10 +28,10 @@ A infraestrutura segue uma arquitetura em camadas com redundância:
                     Internet
                        │
                 ┌──────┴──────┐
-                │   lb (LB)   │  ← Nginx Load Balancer (porta 80)
+                │   lb-01     │  ← Nginx Load Balancer (porta 80)
                 │ 10.10.10.10 │
                 └──────┬──────┘
-                       │ lb-backup (10.10.10.11)
+                       │ lb-02 (10.10.10.11)
                        │
            ┌───────────┴───────────┐
            │                       │
@@ -43,22 +43,22 @@ A infraestrutura segue uma arquitetura em camadas com redundância:
            │  Frontend SPA + Backend API
            │
     ┌──────┴──────┐
-    │     db      │  ← PostgreSQL (porta 5432)
+    │    db-01    │  ← PostgreSQL (porta 5432)
     │ 10.10.10.30 │
     └─────────────┘
-      db-backup (10.10.10.31)
+      db-02 (10.10.10.31)
 ```
 
 ### Componentes
 
 | VM | IP Interno | Função | Software |
 |:---|:-----------|:-------|:---------|
-| `lb` | 10.10.10.10 | Load Balancer primário | Nginx (porta 80) |
-| `lb-backup` | 10.10.10.11 | Load Balancer backup | Nginx (porta 80) |
+| `lb-01` | 10.10.10.10 | Load Balancer primário | Nginx (porta 80) |
+| `lb-02` | 10.10.10.11 | Load Balancer backup | Nginx (porta 80) |
 | `web-1` | 10.10.10.20 | Webapp (API + Frontend) | Nginx (:8000) + Gunicorn (:8001) |
 | `web-2` | 10.10.10.21 | Webapp (API + Frontend) | Nginx (:8000) + Gunicorn (:8001) |
-| `db` | 10.10.10.30 | Base de dados primária | PostgreSQL (:5432) |
-| `db-backup` | 10.10.10.31 | Base de dados backup | PostgreSQL (:5432) |
+| `db-01` | 10.10.10.30 | Base de dados primária | PostgreSQL (:5432) |
+| `db-02` | 10.10.10.31 | Base de dados backup | PostgreSQL (:5432) |
 
 ### Fluxo de um Pedido
 
@@ -92,9 +92,9 @@ bash scripts/create_vms.sh
 ```
 
 Este script cria 6 VMs na zona `europe-southwest1-c`:
-- 2× Load Balancer (`lb`, `lb-backup`)
+- 2× Load Balancer (`lb-01`, `lb-02`)
 - 2× WebApp (`web-1`, `web-2`)
-- 2× Base de Dados (`db`, `db-backup`)
+- 2× Base de Dados (`db-01`, `db-02`)
 
 > **Nota:** O número de VMs webapp é configurável com `NUM_WEBAPP_VMS=3 bash scripts/create_vms.sh`
 
@@ -112,7 +112,7 @@ Este é o **único comando necessário** para ir de VMs limpas a uma aplicação
 - O `venv/` local é excluído do tarball para não corromper o ambiente remoto
 
 #### Fase 1 — Setup das Bases de Dados
-Para cada VM de BD (`db`, `db-backup`):
+Para cada VM de BD (`db-01`, `db-02`):
 - Instala o PostgreSQL (se não estiver instalado)
 - Aplica o `schema.sql` e `inserts.sql`
 - Configura permissões de rede para a subnet `10.10.10.0/24`
@@ -131,7 +131,7 @@ Para cada VM webapp (`web-1`, `web-2`), sequencialmente:
 > O rolling update garante que pelo menos um servidor está sempre disponível durante o deployment.
 
 #### Fase 3 — Setup dos Load Balancers
-Para cada VM LB (`lb`, `lb-backup`):
+Para cada VM LB (`lb-01`, `lb-02`):
 - Instala o Nginx
 - Configura o upstream com os IPs das webapps
 - Instala o cron job de healthcheck

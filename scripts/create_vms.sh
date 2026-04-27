@@ -10,7 +10,7 @@ NUM_WEBAPP_VMS=${NUM_WEBAPP_VMS:-2}
 echo "Using project: $PROJECT_ID in region: $REGION and zone: $ZONE"
 
 echo "Creating Primary Database VM (10.10.10.30)..."
-gcloud compute instances create db \
+gcloud compute instances create db-01 \
     --project=$PROJECT_ID \
     --zone=$ZONE \
     --machine-type=e2-micro \
@@ -22,7 +22,7 @@ gcloud compute instances create db \
     --tags=db-server
 
 echo "Creating Database Backup VM (10.10.10.31)..."
-gcloud compute instances create db-backup \
+gcloud compute instances create db-02 \
     --project=$PROJECT_ID \
     --zone=$ZONE \
     --machine-type=e2-micro \
@@ -34,7 +34,7 @@ gcloud compute instances create db-backup \
     --tags=db-server
 
 echo "Creating Primary Load Balancer VM (10.10.10.10)..."
-gcloud compute instances create lb \
+gcloud compute instances create lb-01 \
     --project=$PROJECT_ID \
     --zone=$ZONE \
     --machine-type=e2-micro \
@@ -47,7 +47,7 @@ gcloud compute instances create lb \
     --address=tuxy-lb-ip
 
 echo "Creating Load Balancer Backup VM (10.10.10.11)..."
-gcloud compute instances create lb-backup \
+gcloud compute instances create lb-02 \
     --project=$PROJECT_ID \
     --zone=$ZONE \
     --machine-type=e2-micro \
