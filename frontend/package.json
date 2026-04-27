@@ -13,9 +13,11 @@
     "@porsche-design-system/components-react": "^3.33.0",
     "axios": "^1.14.0",
     "framer-motion": "^12.38.0",
-    "lucide-react": "^1.7.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.8.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.0"
   },
   "devDependencies": {
