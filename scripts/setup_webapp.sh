@@ -1,30 +1,47 @@
 #!/bin/bash
 # scripts/setup_webapp.sh
-# Usage: ./setup_webapp.sh [DB_HOST] [DB_NAME] [DB_USER] [DB_PASSWORD]
-
-DB_HOST=${1:-"db-vm"}
-DB_NAME=${2:-"tuxy_db"}
-DB_USER=${3:-"tuxy_user"}
-DB_PASSWORD=${4:-"tuxy_password"}
+# Runs ON a webapp VM. Called by deploy.sh via gcloud SSH.
 
 set -e
 set -o pipefail
+
+# Load utilities and config
+[ -f /tmp/utils.sh ] && source /tmp/utils.sh
+[ -f /tmp/config.sh ] && source /tmp/config.sh
+
+TARGET_DIR="${1:-$TARGET_DIR}"
+APP_USER="${2:-$REMOTE_USER}"
+IS_FIRST_VM="$3"
+INSTANCE_NAME="$4"
+
 export DEBIAN_FRONTEND=noninteractive
 
-# 1. Update and Install dependencies
-sudo apt-get update
-sudo apt-get install -y python3-pip python3-venv nginx gunicorn libpq-dev curl
+echo "--- Setting up $INSTANCE_NAME ---"
 
-# 2. Setup Backend
-mkdir -p /home/athen/app/backend
-cd /home/athen/app/backend
+# Ensure target directory exists
+sudo mkdir -p "$TARGET_DIR"
+sudo chown "$APP_USER:$APP_USER" "$TARGET_DIR"
 
-# Recreate venv if it's missing or broken (can't run pip)
+# Install system dependencies
+echo "Installing system dependencies..."
+wait_for_dpkg_lock
+
+sudo apt-get update -qq
+sudo apt-get install -y python3-venv python3-pip curl nginx libpq-dev -qq
+
+# Extract artifacts
+echo "Extracting artifacts..."
+tar -xzf /tmp/webapp_artifacts.tar.gz -C "$TARGET_DIR"
+
+# Setup Backend
+cd "$TARGET_DIR/backend"
+
+# Recreate venv if missing or broken
 CREATE_VENV=false
 if [ ! -d "venv" ]; then
     CREATE_VENV=true
 elif ! ./venv/bin/python -m pip --version >/dev/null 2>&1; then
-    echo "Virtual environment exists but pip is missing or broken. Recreating..."
+    echo "Virtual environment exists but pip is broken. Recreating..."
     rm -rf venv
     CREATE_VENV=true
 fi
@@ -32,87 +49,113 @@ fi
 if [ "$CREATE_VENV" = "true" ]; then
     echo "Creating virtual environment..."
     python3 -m venv venv
-    # Bootstrap pip if missing (Debian/Ubuntu quirk)
     if ! ./venv/bin/python -m pip --version >/dev/null 2>&1; then
-        echo "Pip not found in venv after creation, bootstrapping manually..."
+        echo "Bootstrapping pip manually..."
         curl -sS https://bootstrap.pypa.io/get-pip.py | ./venv/bin/python
     fi
 fi
 
-source venv/bin/activate
+echo "Installing Python dependencies..."
+./venv/bin/python -m pip install --upgrade pip -q
+./venv/bin/python -m pip install -r backend_req.txt -q
 
-# 3. Create .env file for backend
-cat <<EOF > .env
-DB_HOST=$DB_HOST
-DB_PORT=5432
-DB_NAME=$DB_NAME
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASSWORD
-DJANGO_ALLOWED_HOSTS=*
-DJANGO_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
-EOF
-
-# 4. Setup Gunicorn Systemd Service
+# Setup Gunicorn systemd service
 cat <<EOF | sudo tee /etc/systemd/system/gunicorn.service
 [Unit]
 Description=gunicorn daemon
 After=network.target
 
 [Service]
-User=athen
+User=$APP_USER
 Group=www-data
-WorkingDirectory=/home/athen/app/backend
-EnvironmentFile=/home/athen/app/backend/.env
-ExecStart=/home/athen/app/backend/venv/bin/gunicorn \
-          --workers 3 \
-          --bind 127.0.0.1:8001 \
+WorkingDirectory=$TARGET_DIR/backend
+EnvironmentFile=$TARGET_DIR/backend/.env
+ExecStart=$TARGET_DIR/backend/venv/bin/gunicorn \\
+          --workers 3 \\
+          --bind 127.0.0.1:8001 \\
           core.wsgi:application
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl daemon-reload
-sudo systemctl enable gunicorn
-
-# 5. Setup Frontend directory
-sudo mkdir -p /var/www/frontend
-sudo chown athen:athen /var/www/frontend
-
-# 6. Configure Nginx for WebApp VM
-cat <<EOF | sudo tee /etc/nginx/sites-available/webapp
+# Setup Nginx for webapp
+cat <<'NGINXEOF' | sed "s|__TARGET_DIR__|$TARGET_DIR|g" | sudo tee /etc/nginx/sites-available/webapp
 server {
     listen 8000;
     server_name _;
 
     location / {
-        root /var/www/frontend;
+        root __TARGET_DIR__/frontend/dist;
         index index.html;
-        try_files \$uri \$uri/ /index.html;
+        try_files $uri $uri/ /index.html;
+        add_header X-Served-By $hostname always;
     }
 
     location /api/ {
         proxy_pass http://127.0.0.1:8001;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header X-Served-By $hostname always;
     }
 
     location /admin/ {
         proxy_pass http://127.0.0.1:8001;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 
     location /static/ {
-        alias /home/athen/app/backend/staticfiles/;
+        alias __TARGET_DIR__/backend/staticfiles/;
     }
 }
-EOF
+NGINXEOF
 
 sudo ln -sf /etc/nginx/sites-available/webapp /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo systemctl restart nginx
 
-echo "WebApp setup complete!"
+sudo systemctl daemon-reload
+
+# First VM: run migrations and collectstatic
+if [ "$IS_FIRST_VM" = "true" ]; then
+    echo "Running migrations on $INSTANCE_NAME..."
+    ./venv/bin/python manage.py makemigrations
+    ./venv/bin/python manage.py migrate contenttypes
+    ./venv/bin/python manage.py migrate auth
+    ./venv/bin/python manage.py migrate admin
+    ./venv/bin/python manage.py migrate sessions
+    ./venv/bin/python manage.py migrate api --fake || true
+    ./venv/bin/python manage.py migrate
+    ./venv/bin/python manage.py collectstatic --noinput
+fi
+
+echo "Setting file permissions for nginx..."
+chmod 755 "/home/$APP_USER"
+chmod -R 755 "$TARGET_DIR/frontend/dist"
+
+echo "Restarting gunicorn and nginx..."
+sudo systemctl enable gunicorn
+sudo systemctl restart gunicorn nginx
+
+# Health check
+echo "Running health check on $INSTANCE_NAME..."
+SUCCESS=false
+for i in $(seq 1 30); do
+    HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/check/ 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "Health check PASSED on $INSTANCE_NAME (HTTP $HTTP_CODE)."
+        SUCCESS=true
+        break
+    fi
+    echo "  Waiting for service to be ready... ($i/30, HTTP $HTTP_CODE)"
+    sleep 2
+done
+
+if [ "$SUCCESS" = "false" ]; then
+    echo "ERROR: Health check FAILED on $INSTANCE_NAME!"
+    exit 1
+fi
+
+echo "--- $INSTANCE_NAME deployment complete ---"

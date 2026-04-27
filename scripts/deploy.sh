@@ -118,12 +118,12 @@ for INSTANCE in $WEBAPP_INSTANCES; do
         --format='get(networkInterfaces[0].networkIP)')
     WEBAPP_IPS+="$IP,"
 
-    remote_scp "$INSTANCE" /tmp/webapp_artifacts.tar.gz scripts/config.sh scripts/utils.sh scripts/setup_webapp_remote.sh
+    remote_scp "$INSTANCE" /tmp/webapp_artifacts.tar.gz scripts/config.sh scripts/utils.sh scripts/setup_webapp.sh
 
     remote_exec "$INSTANCE" "
         set -e
-        chmod +x /tmp/setup_webapp_remote.sh
-        /tmp/setup_webapp_remote.sh '$TARGET_DIR' '$REMOTE_USER' '$FIRST_VM' '$INSTANCE'
+        chmod +x /tmp/setup_webapp.sh
+        /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' '$FIRST_VM' '$INSTANCE'
     " || { echo "ERROR: Deployment FAILED on $INSTANCE. Aborting rolling update!"; exit 1; }
 
     FIRST_VM=false

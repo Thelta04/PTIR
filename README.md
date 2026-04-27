@@ -12,7 +12,7 @@ Aplicação de gestão de frotas de táxis com deployment automatizado em Google
 │   ├── create_vms.sh           # Criação das VMs no GCP
 │   ├── deploy.sh               # Script principal de deployment
 │   ├── setup_db.sh             # Setup do PostgreSQL nas VMs de BD
-│   ├── setup_webapp_remote.sh  # Setup do backend+frontend nas VMs web
+│   ├── setup_webapp.sh  # Setup do backend+frontend nas VMs web
 │   ├── setup_lb.sh             # Setup do Nginx load balancer
 │   └── lb_healthcheck.sh       # Healthcheck dinâmico (cron job)
 └── .env                # Variáveis de ambiente (credenciais, config)
@@ -261,6 +261,6 @@ curl -X POST http://<host>/api/auth/token/refresh/ \
 | `create_vms.sh` | Local | Cria as 6 VMs no GCP com IPs estáticos |
 | `deploy.sh` | Local | Orquestra todo o deployment (build → DB → webapp → LB) |
 | `setup_db.sh` | VM de BD | Instala PostgreSQL, aplica schema, cria utilizador |
-| `setup_webapp_remote.sh` | VM webapp | Instala deps, configura Gunicorn+Nginx, corre migrações |
+| `setup_webapp.sh` | VM webapp | Instala deps, configura Gunicorn+Nginx, corre migrações |
 | `setup_lb.sh` | VM LB | Configura Nginx como load balancer com upstream dinâmico |
 | `lb_healthcheck.sh` | VM LB (cron) | Verifica saúde das webapps e atualiza Nginx a cada minuto |
