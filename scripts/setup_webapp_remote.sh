@@ -1,13 +1,16 @@
 #!/bin/bash
 # scripts/setup_webapp_remote.sh
 # Runs ON a webapp VM. Called by deploy.sh via gcloud SSH.
-# Usage: ./setup_webapp_remote.sh <TARGET_DIR> <USER> <IS_FIRST_VM> <INSTANCE_NAME>
 
 set -e
 set -o pipefail
 
-TARGET_DIR="$1"
-APP_USER="$2"
+# Load utilities and config
+[ -f /tmp/utils.sh ] && source /tmp/utils.sh
+[ -f /tmp/config.sh ] && source /tmp/config.sh
+
+TARGET_DIR="${1:-$TARGET_DIR}"
+APP_USER="${2:-$REMOTE_USER}"
 IS_FIRST_VM="$3"
 INSTANCE_NAME="$4"
 
@@ -21,11 +24,8 @@ sudo chown "$APP_USER:$APP_USER" "$TARGET_DIR"
 
 # Install system dependencies
 echo "Installing system dependencies..."
-# Wait for any existing apt/dpkg locks (unattended-upgrades on fresh VMs)
-while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-    echo "  Waiting for dpkg lock..."
-    sleep 2
-done
+wait_for_dpkg_lock
+
 sudo apt-get update -qq
 sudo apt-get install -y python3-venv python3-pip curl nginx libpq-dev -qq
 
@@ -49,7 +49,6 @@ fi
 if [ "$CREATE_VENV" = "true" ]; then
     echo "Creating virtual environment..."
     python3 -m venv venv
-    # Bootstrap pip if missing (Debian/Ubuntu quirk)
     if ! ./venv/bin/python -m pip --version >/dev/null 2>&1; then
         echo "Bootstrapping pip manually..."
         curl -sS https://bootstrap.pypa.io/get-pip.py | ./venv/bin/python
@@ -80,7 +79,7 @@ ExecStart=$TARGET_DIR/backend/venv/bin/gunicorn \\
 WantedBy=multi-user.target
 EOF
 
-# Setup Nginx for webapp (single-quoted heredoc preserves $uri etc.)
+# Setup Nginx for webapp
 cat <<'NGINXEOF' | sed "s|__TARGET_DIR__|$TARGET_DIR|g" | sudo tee /etc/nginx/sites-available/webapp
 server {
     listen 8000;
@@ -119,23 +118,16 @@ sudo rm -f /etc/nginx/sites-enabled/default
 
 sudo systemctl daemon-reload
 
-# First VM: run makemigrations, migrate, and collectstatic
+# First VM: run migrations and collectstatic
 if [ "$IS_FIRST_VM" = "true" ]; then
-    echo "Running makemigrations and migrate on $INSTANCE_NAME..."
+    echo "Running migrations on $INSTANCE_NAME..."
     ./venv/bin/python manage.py makemigrations
-
-    # Migrate Django's own apps first (contenttypes, auth, admin, sessions)
     ./venv/bin/python manage.py migrate contenttypes
     ./venv/bin/python manage.py migrate auth
     ./venv/bin/python manage.py migrate admin
     ./venv/bin/python manage.py migrate sessions
-
-    # Fake the api initial migration — tables already exist from schema.sql
-    ./venv/bin/python manage.py migrate api --fake
-
-    # Run any remaining migrations
+    ./venv/bin/python manage.py migrate api --fake || true
     ./venv/bin/python manage.py migrate
-
     ./venv/bin/python manage.py collectstatic --noinput
 fi
 
@@ -147,7 +139,7 @@ echo "Restarting gunicorn and nginx..."
 sudo systemctl enable gunicorn
 sudo systemctl restart gunicorn nginx
 
-# Health check — verify HTTP 200 from the API
+# Health check
 echo "Running health check on $INSTANCE_NAME..."
 SUCCESS=false
 for i in $(seq 1 30); do

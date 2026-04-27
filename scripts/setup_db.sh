@@ -2,29 +2,30 @@
 # scripts/setup_db.sh
 # Usage: ./setup_db.sh [DB_NAME] [DB_USER] [DB_PASSWORD] [MODE] [PRIMARY_IP]
 
-DB_NAME=${1:-"tuxy_db"}
-DB_USER=${2:-"tuxy_user"}
-DB_PASSWORD=${3:-"tuxy_password"}
+# Load utilities if they were uploaded to /tmp
+[ -f /tmp/utils.sh ] && source /tmp/utils.sh
+[ -f /tmp/config.sh ] && source /tmp/config.sh
+
+DB_NAME=${1:-$DB_NAME_DEFAULT}
+DB_USER=${2:-$DB_USER_DEFAULT}
+DB_PASSWORD=$3
 MODE=${4:-"primary"}
-PRIMARY_IP=$5
+PRIMARY_IP=${5:-$DB_PRIMARY_IP}
 
 export DEBIAN_FRONTEND=noninteractive
 
 # Wait for any existing apt/dpkg locks
-echo "Waiting for dpkg lock to be released..."
-while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-    sleep 2
-done
+wait_for_dpkg_lock
 
 # Install PostgreSQL
-sudo apt-get update
-sudo apt-get install -y postgresql postgresql-contrib
+sudo apt-get update -qq
+sudo apt-get install -y postgresql postgresql-contrib -qq
 
 # Configure PostgreSQL
 PG_VERSION=$(psql -V | awk '{print $3}' | cut -d. -f1)
 CONF_DIR="/etc/postgresql/$PG_VERSION/main"
 
-# Function to update or add config
+# Function to update or add config (Idempotent)
 set_pg_config() {
     local key=$1
     local value=$2
@@ -40,24 +41,28 @@ set_pg_config "wal_level" "replica"
 set_pg_config "max_wal_senders" "10"
 set_pg_config "wal_keep_size" "64MB"
 
-# Access control (pg_hba.conf)
-# Avoid duplicates
-if ! sudo grep -q "10.10.10.0/24" "$CONF_DIR/pg_hba.conf"; then
-    echo "host all all 10.10.10.0/24 md5" | sudo tee -a "$CONF_DIR/pg_hba.conf"
-    echo "host replication replication 10.10.10.0/24 md5" | sudo tee -a "$CONF_DIR/pg_hba.conf"
-fi
+# Access control (pg_hba.conf) - Idempotent
+add_hba_rule() {
+    local rule=$1
+    if ! sudo grep -q "$rule" "$CONF_DIR/pg_hba.conf"; then
+        echo "$rule" | sudo tee -a "$CONF_DIR/pg_hba.conf"
+    fi
+}
+
+add_hba_rule "host all all $INTERNAL_CIDR md5"
+add_hba_rule "host replication replication $INTERNAL_CIDR md5"
 
 if [ "$MODE" = "primary" ]; then
     echo "Configuring as PRIMARY..."
     sudo systemctl restart postgresql
     
-    # Setup Database and User
-    sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || true
-    sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
+    # Setup Database and User (Idempotent)
+    sudo -u postgres psql -c "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;"
+    sudo -u postgres psql -c "SELECT 1 FROM pg_roles WHERE rolname = '$DB_USER'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
     
-    # Create replication user
-    sudo -u postgres psql -c "CREATE USER replication WITH REPLICATION PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
+    # Create replication user (Idempotent)
+    sudo -u postgres psql -c "SELECT 1 FROM pg_roles WHERE rolname = 'replication'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER replication WITH REPLICATION PASSWORD '$DB_PASSWORD';"
 
     # Initialize schema and data
     if [ -f "/tmp/schema.sql" ]; then
@@ -74,34 +79,38 @@ if [ "$MODE" = "primary" ]; then
     sudo systemctl restart postgresql
 else
     echo "Configuring as REPLICA of $PRIMARY_IP..."
-    sudo systemctl stop postgresql
     
-    # Retry pg_basebackup
-    SUCCESS=false
-    for i in {1..10}; do
-        echo "Attempting pg_basebackup (Attempt $i/10)..."
+    # Check if already a replica and running
+    if sudo [ -f "/var/lib/postgresql/$PG_VERSION/main/standby.signal" ] && sudo systemctl is-active --quiet postgresql; then
+        echo "PostgreSQL is already configured as a replica and running."
+    else
+        sudo systemctl stop postgresql
         
-        # Clean directory inside the loop so retries don't fail due to "directory not empty"
-        sudo rm -rf "/var/lib/postgresql/$PG_VERSION/main"
-        sudo mkdir -p "/var/lib/postgresql/$PG_VERSION/main"
-        sudo chown postgres:postgres "/var/lib/postgresql/$PG_VERSION/main"
-        sudo chmod 700 "/var/lib/postgresql/$PG_VERSION/main"
+        # Retry pg_basebackup
+        SUCCESS=false
+        for i in {1..10}; do
+            echo "Attempting pg_basebackup (Attempt $i/10)..."
+            
+            sudo rm -rf "/var/lib/postgresql/$PG_VERSION/main"
+            sudo mkdir -p "/var/lib/postgresql/$PG_VERSION/main"
+            sudo chown postgres:postgres "/var/lib/postgresql/$PG_VERSION/main"
+            sudo chmod 700 "/var/lib/postgresql/$PG_VERSION/main"
 
-        # Change to /tmp to avoid "Permission denied" when sudo -u postgres tries to access the current dir
-        if (cd /tmp && sudo -u postgres PGPASSWORD="$DB_PASSWORD" pg_basebackup -h "$PRIMARY_IP" -D "/var/lib/postgresql/$PG_VERSION/main" -U replication -P -v -R); then
-            SUCCESS=true
-            break
+            if (cd /tmp && sudo -u postgres PGPASSWORD="$DB_PASSWORD" pg_basebackup -h "$PRIMARY_IP" -D "/var/lib/postgresql/$PG_VERSION/main" -U replication -P -v -R); then
+                SUCCESS=true
+                break
+            fi
+            echo "  Attempt failed. Retrying in 5s..."
+            sleep 5
+        done
+
+        if [ "$SUCCESS" = "false" ]; then
+            echo "ERROR: Failed to clone database from primary!"
+            exit 1
         fi
-        echo "  Attempt failed. Retrying in 5s..."
-        sleep 5
-    done
-
-    if [ "$SUCCESS" = "false" ]; then
-        echo "ERROR: Failed to clone database from primary!"
-        exit 1
+        
+        sudo systemctl start postgresql
     fi
-    
-    sudo systemctl start postgresql
 fi
 
 echo "Database setup complete ($MODE)!"

@@ -5,8 +5,9 @@
 VM_TYPE=$1
 FAILED_INSTANCE=$2
 
-PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
-ZONE="europe-southwest1-c"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/config.sh"
 
 # Extract the index from the failed instance name (e.g., lb-01 -> 01)
 INDEX=$(echo $FAILED_INSTANCE | grep -oE '[0-9]+$')
@@ -19,22 +20,21 @@ echo "Detected failure of $FAILED_INSTANCE. Provisioning replacement $NEW_INSTAN
 # 1. Determine IP and Tags
 case $VM_TYPE in
     lb)
-        # Assuming we use 10.10.10.10, 11, 12, ...
         IP_SUFFIX=$((10 + 10#$NEW_INDEX - 1))
         IP_ADDRESS="10.10.10.$IP_SUFFIX"
-        TAGS="http-server,lb-server"
+        TAGS="http-server,$TAG_LB"
         MACHINE_TYPE="e2-micro"
         ;;
     db)
         IP_SUFFIX=$((30 + 10#$NEW_INDEX - 1))
         IP_ADDRESS="10.10.10.$IP_SUFFIX"
-        TAGS="db-server"
+        TAGS="$TAG_DB"
         MACHINE_TYPE="e2-micro"
         ;;
     web)
         IP_SUFFIX=$((20 + 10#$NEW_INDEX - 1))
         IP_ADDRESS="10.10.10.$IP_SUFFIX"
-        TAGS="webapp-server"
+        TAGS="$TAG_WEB"
         MACHINE_TYPE="e2-small"
         ;;
     *)
@@ -51,11 +51,13 @@ gcloud compute instances create "$NEW_INSTANCE" \
     --image-family=ubuntu-2204-lts \
     --image-project=ubuntu-os-cloud \
     --private-network-ip="$IP_ADDRESS" \
-    --network=lan \
-    --subnet=lan \
+    --network="$NETWORK" \
+    --subnet="$SUBNET" \
     --tags="$TAGS"
 
 # 3. Trigger deployment for the new VM
-# In a real scenario, we'd run a subset of deploy.sh here.
-# For this prototype, we'll just note it.
-echo "New instance $NEW_INSTANCE created at $IP_ADDRESS. Please run scripts/deploy.sh to configure it."
+echo "--------------------------------------------------"
+echo "New instance $NEW_INSTANCE created at $IP_ADDRESS."
+echo "CRITICAL: Run scripts/deploy.sh now to configure the new node."
+echo "The new node will be automatically discovered via its tags."
+echo "--------------------------------------------------"
