@@ -12,7 +12,7 @@ Aplicação de gestão de frotas de táxis com deployment automatizado em Google
 │   ├── create_vms.sh           # Criação das VMs no GCP
 │   ├── deploy.sh               # Script principal de deployment
 │   ├── setup_db.sh             # Setup do PostgreSQL nas VMs de BD
-│   ├── setup_webapp_remote.sh  # Setup do backend+frontend nas VMs web
+│   ├── setup_webapp.sh  # Setup do backend+frontend nas VMs web
 │   ├── setup_lb.sh             # Setup do Nginx load balancer
 │   └── lb_healthcheck.sh       # Healthcheck dinâmico (cron job)
 └── .env                # Variáveis de ambiente (credenciais, config)
@@ -28,10 +28,17 @@ A infraestrutura segue uma arquitetura em camadas com redundância:
                     Internet
                        │
                 ┌──────┴──────┐
-                │   lb (LB)   │  ← Nginx Load Balancer (porta 80)
-                │ 10.10.10.10 │
+                │   LB VIP    │  ← 10.10.10.100 (Keepalived / VRRP)
                 └──────┬──────┘
-                       │ lb-backup (10.10.10.11)
+                       │
+           ┌───────────┴───────────┐
+    ┌──────┴──────┐         ┌──────┴──────┐
+    │   lb-01     │         │   lb-02     │
+    │ 10.10.10.10 │         │ 10.10.10.11 │
+    └──────┬──────┘         └──────┬──────┘
+        (Master)                 (Backup)
+           │                       │
+           └───────────┬───────────┘
                        │
            ┌───────────┴───────────┐
            │                       │
@@ -42,23 +49,24 @@ A infraestrutura segue uma arquitetura em camadas com redundância:
            │  Nginx (:8000) → Gunicorn (:8001)
            │  Frontend SPA + Backend API
            │
-    ┌──────┴──────┐
-    │     db      │  ← PostgreSQL (porta 5432)
-    │ 10.10.10.30 │
-    └─────────────┘
-      db-backup (10.10.10.31)
+    ┌──────┴──────┐         ┌──────┴──────┐
+    │    db-01    │         │    db-02    │
+    │ 10.10.10.30 │         │ 10.10.10.31 │
+    └─────────────┘         └─────────────┘
+       (Primary)               (Replica)
 ```
 
 ### Componentes
 
 | VM | IP Interno | Função | Software |
 |:---|:-----------|:-------|:---------|
-| `lb` | 10.10.10.10 | Load Balancer primário | Nginx (porta 80) |
-| `lb-backup` | 10.10.10.11 | Load Balancer backup | Nginx (porta 80) |
-| `web-1` | 10.10.10.20 | Webapp (API + Frontend) | Nginx (:8000) + Gunicorn (:8001) |
-| `web-2` | 10.10.10.21 | Webapp (API + Frontend) | Nginx (:8000) + Gunicorn (:8001) |
-| `db` | 10.10.10.30 | Base de dados primária | PostgreSQL (:5432) |
-| `db-backup` | 10.10.10.31 | Base de dados backup | PostgreSQL (:5432) |
+| `VIP` | 10.10.10.100 | Entry point flutuante | Keepalived (VRRP) |
+| `lb-01` | 10.10.10.10 | Load Balancer (Master) | Nginx + Keepalived |
+| `lb-02` | 10.10.10.11 | Load Balancer (Backup) | Nginx + Keepalived |
+| `web-1` | 10.10.10.20 | Webapp | Nginx + Gunicorn |
+| `web-2` | 10.10.10.21 | Webapp | Nginx + Gunicorn |
+| `db-01` | 10.10.10.30 | DB (Primária) | PostgreSQL |
+| `db-02` | 10.10.10.31 | DB (Backup/Replica) | PostgreSQL |
 
 ### Fluxo de um Pedido
 
@@ -73,6 +81,33 @@ O load balancer executa um **cron job a cada minuto** (`lb_healthcheck.sh`) que:
 1. Faz `curl` ao endpoint `/api/check/` de cada webapp
 2. Remove servidores que não respondem da configuração do Nginx
 3. Faz `reload` do Nginx apenas se a configuração mudou (comparação por MD5)
+
+---
+
+## Alta Disponibilidade (HA) e Resiliência
+
+O sistema implementa vários mecanismos para garantir continuidade de serviço:
+
+### 1. Load Balancer Failover (Keepalived)
+Utiliza o protocolo **VRRP** via **Keepalived** para gerir um **IP Virtual (VIP) 10.10.10.100**.
+- **lb-01 (MASTER):** Assume o VIP por defeito.
+- **lb-02 (BACKUP):** Monitoriza o Master. Se o Master falhar (VM em baixo ou processo Nginx parado via `check_nginx.sh`), o Backup assume o VIP instantaneamente.
+
+### 2. Database Failover (Auto-Promotion)
+As bases de dados operam num modelo Primária-Réplica. O script `db_healthcheck.sh` corre na réplica e:
+1. Verifica se a réplica consegue comunicar com a primária.
+2. Se a primária estiver inacessível após várias tentativas, a réplica executa `pg_promote()` para se tornar a nova Primária.
+
+### 3. Auto-Replacement de Nós
+O script `auto_replace_node.sh` permite a substituição automática de instâncias falhadas.
+- Deteta falhas em qualquer tipo de nó (`lb`, `db`, `web`).
+- Provisiona uma nova instância com a configuração correta (IP estático, tags de rede, tipo de máquina) para manter a redundância desejada.
+
+### 4. Verificação de Arquitetura
+O script `verify_architecture.sh` automatiza testes de:
+- Conetividade da API através do VIP.
+- Verificação de Load Balancing (via header `X-Served-By`).
+- Simulação de failover (parar MASTER e verificar se o VIP migra).
 
 ---
 
@@ -92,9 +127,9 @@ bash scripts/create_vms.sh
 ```
 
 Este script cria 6 VMs na zona `europe-southwest1-c`:
-- 2× Load Balancer (`lb`, `lb-backup`)
+- 2× Load Balancer (`lb-01`, `lb-02`)
 - 2× WebApp (`web-1`, `web-2`)
-- 2× Base de Dados (`db`, `db-backup`)
+- 2× Base de Dados (`db-01`, `db-02`)
 
 > **Nota:** O número de VMs webapp é configurável com `NUM_WEBAPP_VMS=3 bash scripts/create_vms.sh`
 
@@ -112,7 +147,7 @@ Este é o **único comando necessário** para ir de VMs limpas a uma aplicação
 - O `venv/` local é excluído do tarball para não corromper o ambiente remoto
 
 #### Fase 1 — Setup das Bases de Dados
-Para cada VM de BD (`db`, `db-backup`):
+Para cada VM de BD (`db-01`, `db-02`):
 - Instala o PostgreSQL (se não estiver instalado)
 - Aplica o `schema.sql` e `inserts.sql`
 - Configura permissões de rede para a subnet `10.10.10.0/24`
@@ -131,14 +166,14 @@ Para cada VM webapp (`web-1`, `web-2`), sequencialmente:
 > O rolling update garante que pelo menos um servidor está sempre disponível durante o deployment.
 
 #### Fase 3 — Setup dos Load Balancers
-Para cada VM LB (`lb`, `lb-backup`):
+Para cada VM LB (`lb-01`, `lb-02`):
 - Instala o Nginx
 - Configura o upstream com os IPs das webapps
 - Instala o cron job de healthcheck
 
 ### 3. Deploy rápido (apenas .env ou config)
 
-Se só alteraste o `.env` e não o código:
+Se só o `.env` mudou:
 
 ```bash
 # Enviar .env atualizado e reiniciar
@@ -261,6 +296,11 @@ curl -X POST http://<host>/api/auth/token/refresh/ \
 | `create_vms.sh` | Local | Cria as 6 VMs no GCP com IPs estáticos |
 | `deploy.sh` | Local | Orquestra todo o deployment (build → DB → webapp → LB) |
 | `setup_db.sh` | VM de BD | Instala PostgreSQL, aplica schema, cria utilizador |
-| `setup_webapp_remote.sh` | VM webapp | Instala deps, configura Gunicorn+Nginx, corre migrações |
-| `setup_lb.sh` | VM LB | Configura Nginx como load balancer com upstream dinâmico |
+| `setup_webapp.sh` | VM webapp | Instala deps, configura Gunicorn+Nginx, corre migrações |
+| `setup_lb.sh` | VM LB | Configura Nginx e Keepalived (Master/Backup) |
 | `lb_healthcheck.sh` | VM LB (cron) | Verifica saúde das webapps e atualiza Nginx a cada minuto |
+| `db_healthcheck.sh` | VM de BD | Monitoriza a primária e promove a réplica em caso de falha |
+| `check_nginx.sh` | VM LB | Usado pelo Keepalived para verificar se o Nginx está vivo |
+| `auto_replace_node.sh` | Local | Provisiona automaticamente um nó de substituição em caso de falha |
+| `verify_architecture.sh` | Local | Suite de testes para validar a arquitetura e failover |
+| `config.sh` | - | Configurações centralizadas (Project ID, IPs, Tags) |

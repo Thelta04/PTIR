@@ -72,8 +72,8 @@ fi
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 2: Tier Dependency (Database Kill-Switch)"
-echo "  Stopping PostgreSQL on 'db' VM..."
-remote_exec "db" "sudo systemctl stop postgresql"
+echo "  Stopping PostgreSQL on 'db-01' VM..."
+remote_exec "db-01" "sudo systemctl stop postgresql"
 
 echo "  Checking API Health (Expecting Failure)..."
 # Wait a few seconds for connections to actually fail
@@ -86,8 +86,8 @@ else
     echo "  ❌ FAIL: API returned HTTP $HTTP_CODE instead of an error. Is it truly dependent?"
 fi
 
-echo "  Starting PostgreSQL on 'db' VM..."
-remote_exec "db" "sudo systemctl start postgresql"
+echo "  Starting PostgreSQL on 'db-01' VM..."
+remote_exec "db-01" "sudo systemctl start postgresql"
 sleep 5 # give it a moment to recover
 
 # ---------------------------------------------------------
@@ -121,10 +121,104 @@ echo "  Starting Nginx on 'web-1'..."
 remote_exec "web-1" "sudo systemctl start nginx"
 
 # ---------------------------------------------------------
-# 4. Prove Tier Isolation
+# 4. Prove LB Failover & Auto-Replacement
+# ---------------------------------------------------------
+source scripts/config.sh
+echo ""
+echo "▶ TEST 4: LB Failover (Keepalived VIP)"
+echo "  Stopping Nginx on 'lb-01' (Primary)..."
+remote_exec "lb-01" "sudo systemctl stop nginx"
+
+echo "  Waiting for VIP to migrate to 'lb-02' (up to 20s)..."
+VIP_DETECTED=false
+for i in {1..4}; do
+    echo "    Attempt $i: Checking if 'lb-02' has the VIP ($LB_VIP)..."
+    HAS_VIP=$(remote_exec "lb-02" "ip addr show | grep -q '$LB_VIP' && echo 'yes' || echo 'no'" | xargs)
+    if [ "$HAS_VIP" = "yes" ]; then
+        echo "  ✅ PASS: 'lb-02' has successfully assumed the Virtual IP ($LB_VIP)!"
+        VIP_DETECTED=true
+        break
+    fi
+    sleep 5
+done
+
+if [ "$VIP_DETECTED" = "false" ]; then
+    echo "  ❌ FAIL: 'lb-02' did NOT assume the Virtual IP within 20s."
+    exit 1
+fi
+
+echo "  Verifying if API is reachable through 'lb-02' internal IP..."
+HTTP_CODE=$(remote_exec "web-2" "curl -s -o /dev/null -w '%{http_code}' --max-time 2 'http://10.10.10.11/api/check/'" | xargs)
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "  ✅ PASS: API is reachable through 'lb-02' internal IP!"
+else
+    echo "  ❌ FAIL: API is unreachable through 'lb-02' (HTTP $HTTP_CODE)."
+    exit 1
+fi
+
+echo "  Simulating Auto-Replacement for 'lb-01'..."
+bash scripts/auto_replace_node.sh lb lb-01
+echo "  ✅ PASS: Replacement logic triggered for lb-01."
+
+echo "  Starting Nginx on 'lb-01'..."
+remote_exec "lb-01" "sudo systemctl start nginx"
+
+# ---------------------------------------------------------
+# 5. Prove DB Replication, Failover & Auto-Replacement
 # ---------------------------------------------------------
 echo ""
-echo "▶ TEST 4: Tier Isolation (Port Audits)"
+echo "▶ TEST 5: Database Replication, Failover & Auto-Replacement"
+echo "  Verifying Replication Status on 'db-02'..."
+REPLICA_STATUS=$(remote_exec "db-02" "sudo -u postgres psql -c 'select count(*) from pg_stat_wal_receiver;' -t" | xargs)
+
+if [ "$REPLICA_STATUS" -gt 0 ]; then
+    echo "  ✅ PASS: Database replication is active on db-02."
+else
+    echo "  ❌ FAIL: Database replication is NOT active."
+fi
+
+echo "  Stopping PostgreSQL on 'db-01'..."
+remote_exec "db-01" "sudo systemctl stop postgresql"
+
+# Wait for automatic promotion by cron job
+echo "  Waiting for automatic promotion of 'db-02' (this may take up to 90s)..."
+PROMOTED=false
+for i in {1..18}; do
+    IS_RECOVERY=$(remote_exec "db-02" "sudo -u postgres psql -c 'select pg_is_in_recovery();' -t" | xargs)
+    if [ "$IS_RECOVERY" = "f" ]; then
+        echo "  ✅ PASS: 'db-02' was automatically promoted to Primary!"
+        PROMOTED=true
+        break
+    fi
+    echo "  ... still in recovery mode ($((i*5))s)"
+    sleep 5
+done
+
+if [ "$PROMOTED" = "false" ]; then
+    echo "  ❌ FAIL: 'db-02' was NOT automatically promoted within 90s."
+    exit 1
+fi
+
+echo "  Verifying API Health (should point to promoted DB)..."
+HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "  ✅ PASS: API is still healthy after automatic failover!"
+else
+    echo "  ❌ FAIL: API is NOT healthy after failover (HTTP $HTTP_CODE)."
+    exit 1
+fi
+echo "  Simulating Auto-Replacement for 'db-01'..."
+bash scripts/auto_replace_node.sh db db-01
+echo "  ✅ PASS: Replacement logic triggered for db-01."
+
+echo "  Starting PostgreSQL on 'db-01'..."
+remote_exec "db-01" "sudo systemctl start postgresql"
+
+# ---------------------------------------------------------
+# 6. Prove Tier Isolation
+# ---------------------------------------------------------
+echo ""
+echo "▶ TEST 6: Tier Isolation (Port Audits)"
 
 check_port() {
     local vm=$1
@@ -142,18 +236,18 @@ check_port() {
     fi
 }
 
-echo "  Auditing 'lb' VM:"
-check_port "lb" "80" "yes"
-check_port "lb" "8000" "no"
-check_port "lb" "5432" "no"
+echo "  Auditing 'lb-01' VM:"
+check_port "lb-01" "80" "yes"
+check_port "lb-01" "8000" "no"
+check_port "lb-01" "5432" "no"
 
 echo "  Auditing 'web-1' VM:"
 check_port "web-1" "8000" "yes"
 check_port "web-1" "5432" "no"
 
-echo "  Auditing 'db' VM:"
-check_port "db" "5432" "yes"
-check_port "db" "8000" "no"
+echo "  Auditing 'db-01' VM:"
+check_port "db-01" "5432" "yes"
+check_port "db-01" "8000" "no"
 
 echo ""
 echo "=================================================="

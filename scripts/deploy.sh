@@ -1,46 +1,31 @@
 #!/bin/bash
 # scripts/deploy.sh
 # Full deployment: DB → WebApp (rolling) → Load Balancers
-# This is the ONLY script needed to go from clean VMs to a working app.
 
 set -e
 set -o pipefail
 
-PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
-ZONE="europe-southwest1-c"
-REMOTE_USER="athen"
-WEBAPP_INSTANCES="web-1 web-2"
-DB_INSTANCES="db db-backup"
-LB_INSTANCES="lb lb-backup"
-TARGET_DIR="/home/$REMOTE_USER/app"
-DB_HOST="10.10.10.30"
-DB_PORT="5432"
+# Load configuration and utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/utils.sh"
+
+# Dynamic Instance Discovery
+echo "Discovering instances..."
+WEBAPP_INSTANCES=$(get_instances_by_tag "$TAG_WEB")
+DB_INSTANCES=$(get_instances_by_tag "$TAG_DB")
+LB_INSTANCES=$(get_instances_by_tag "$TAG_LB")
+
+echo "Targets: DB ($DB_INSTANCES), Web ($WEBAPP_INSTANCES), LB ($LB_INSTANCES)"
 
 # Read DB credentials from .env
+if [ ! -f .env ]; then
+    echo "ERROR: .env file not found locally. Required for DB credentials."
+    exit 1
+fi
 DB_NAME=$(grep '^DB_NAME=' .env | cut -d'=' -f2)
 DB_USER=$(grep '^DB_USER=' .env | cut -d'=' -f2)
 DB_PASSWORD=$(grep '^DB_PASSWORD=' .env | cut -d'=' -f2)
-
-# Helper: run a command on a remote VM via gcloud SSH
-remote_exec() {
-    local instance="$1"
-    shift
-    gcloud compute ssh "$instance" \
-        --project="$PROJECT_ID" \
-        --zone="$ZONE" \
-        --tunnel-through-iap \
-        --command="$*"
-}
-
-# Helper: upload files to a remote VM via gcloud SCP
-remote_scp() {
-    local instance="$1"
-    shift
-    gcloud compute scp "$@" "$instance:/tmp/" \
-        --project="$PROJECT_ID" \
-        --zone="$ZONE" \
-        --tunnel-through-iap
-}
 
 echo "=================================================="
 echo "Starting FULL deployment for $PROJECT_ID"
@@ -57,6 +42,16 @@ echo "Building frontend..."
 
 echo "Packaging artifacts..."
 cp .env backend/.env
+
+# Dynamically discover all DB IPs for failover support
+DB_IPS=""
+for INST in $DB_INSTANCES; do
+    IP=$(gcloud compute instances describe "$INST" --project="$PROJECT_ID" --zone="$ZONE" --format='get(networkInterfaces[0].networkIP)')
+    DB_IPS+="$IP,"
+done
+DB_IPS=${DB_IPS%,}
+sed -i "s|^DB_HOST=.*|DB_HOST=$DB_IPS|" backend/.env
+
 tar -czf /tmp/webapp_artifacts.tar.gz --exclude='backend/venv' --exclude='__pycache__' backend/ frontend/dist/ scripts/ database/
 rm backend/.env
 
@@ -72,60 +67,44 @@ for DB_INSTANCE in $DB_INSTANCES; do
     echo "Setting up database: $DB_INSTANCE"
     echo "=================================================="
 
-    # Upload setup script and SQL files
-    remote_scp "$DB_INSTANCE" scripts/setup_db.sh database/schema.sql database/inserts.sql
+    # Upload setup script, config, utils, SQL files and healthcheck script
+    remote_scp "$DB_INSTANCE" scripts/setup_db.sh scripts/config.sh scripts/utils.sh database/schema.sql database/inserts.sql scripts/db_healthcheck.sh
 
     # Run setup on the remote VM
     remote_exec "$DB_INSTANCE" "
         set -e
-        export DEBIAN_FRONTEND=noninteractive
+        source /tmp/config.sh
+        source /tmp/utils.sh
+        
+        wait_for_dpkg_lock
 
-        # Wait for any existing apt/dpkg locks (unattended-upgrades on fresh VMs)
-        echo 'Waiting for dpkg lock to be released...'
-        while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-            sleep 2
-        done
-
-        # Check if PostgreSQL is already installed and running
-        if systemctl is-active --quiet postgresql 2>/dev/null; then
-            echo 'PostgreSQL is already running on $DB_INSTANCE. Skipping install.'
-            # Still ensure config is correct
-            sudo sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /etc/postgresql/*/main/postgresql.conf
-            if ! sudo grep -q '10.10.10.0/24' /etc/postgresql/*/main/pg_hba.conf; then
-                echo 'host all all 10.10.10.0/24 md5' | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
-                sudo systemctl restart postgresql
-            fi
-            # Re-apply schema and data to keep DB in sync
-            echo 'Re-applying schema.sql and inserts.sql...'
-            sudo -u postgres psql -d $DB_NAME -f /tmp/schema.sql
-            sudo -u postgres psql -d $DB_NAME -f /tmp/inserts.sql
-            # Re-grant permissions after schema recreation
-            sudo -u postgres psql -d $DB_NAME -c \"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;\"
-            sudo -u postgres psql -d $DB_NAME -c \"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;\"
+        # Determine mode
+        if [[ \"$DB_INSTANCE\" == *\"-01\"* ]]; then
+            MODE=\"primary\"
         else
-            echo 'Installing and configuring PostgreSQL...'
-            chmod +x /tmp/setup_db.sh
-            /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD'
+            MODE=\"replica\"
         fi
 
-        echo 'Database setup complete on $DB_INSTANCE.'
+        echo \"Installing and configuring PostgreSQL as \$MODE...\"
+        chmod +x /tmp/setup_db.sh
+        /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' \"\$MODE\" \"$DB_PRIMARY_IP\"
     " || { echo "ERROR: Failed to setup $DB_INSTANCE"; exit 1; }
 done
 
-# Verify primary DB is reachable from the first webapp VM (local machine can't reach private IPs)
+# Verify primary DB reachability from the first webapp VM
 FIRST_WEBAPP=$(echo $WEBAPP_INSTANCES | awk '{print $1}')
 echo ""
 echo "Verifying DB reachability from $FIRST_WEBAPP..."
 remote_exec "$FIRST_WEBAPP" "
     for attempt in \$(seq 1 20); do
-        if timeout 2 bash -c 'echo > /dev/tcp/$DB_HOST/$DB_PORT' 2>/dev/null; then
-            echo 'Database at $DB_HOST:$DB_PORT is reachable!'
+        if timeout 2 bash -c 'echo > /dev/tcp/$DB_PRIMARY_IP/$DB_PORT' 2>/dev/null; then
+            echo 'Database at $DB_PRIMARY_IP:$DB_PORT is reachable!'
             exit 0
         fi
         echo \"  DB not ready yet... (\$attempt/20)\"
         sleep 2
     done
-    echo 'ERROR: Database at $DB_HOST:$DB_PORT not reachable after 40s.'
+    echo 'ERROR: Database at $DB_PRIMARY_IP:$DB_PORT not reachable after 40s.'
     exit 1
 " || { echo "ERROR: DB not reachable from webapp VMs. Aborting."; exit 1; }
 
@@ -144,23 +123,17 @@ for INSTANCE in $WEBAPP_INSTANCES; do
     echo "Deploying to $INSTANCE..."
     echo "=================================================="
 
-    # Get Internal IP for LB configuration later
     IP=$(gcloud compute instances describe "$INSTANCE" \
         --project="$PROJECT_ID" --zone="$ZONE" \
         --format='get(networkInterfaces[0].networkIP)')
     WEBAPP_IPS+="$IP,"
 
-    # Upload artifacts
-    remote_scp "$INSTANCE" /tmp/webapp_artifacts.tar.gz
+    remote_scp "$INSTANCE" /tmp/webapp_artifacts.tar.gz scripts/config.sh scripts/utils.sh scripts/setup_webapp.sh
 
-    # Upload the remote setup script
-    remote_scp "$INSTANCE" scripts/setup_webapp_remote.sh
-
-    # Execute the setup script on the remote VM
     remote_exec "$INSTANCE" "
         set -e
-        chmod +x /tmp/setup_webapp_remote.sh
-        /tmp/setup_webapp_remote.sh '$TARGET_DIR' '$REMOTE_USER' '$FIRST_VM' '$INSTANCE'
+        chmod +x /tmp/setup_webapp.sh
+        /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' '$FIRST_VM' '$INSTANCE'
     " || { echo "ERROR: Deployment FAILED on $INSTANCE. Aborting rolling update!"; exit 1; }
 
     FIRST_VM=false
@@ -180,14 +153,23 @@ for LB_INSTANCE in $LB_INSTANCES; do
     echo "Updating Load Balancer: $LB_INSTANCE"
     echo "=================================================="
 
-    remote_scp "$LB_INSTANCE" scripts/setup_lb.sh scripts/lb_healthcheck.sh
+    # Determine Peer IP for Keepalived unicast
+    if [[ "$LB_INSTANCE" == *"-01"* ]]; then
+        PEER_NAME=$(echo $LB_INSTANCES | tr ' ' '\n' | grep -- "-02" | head -n 1)
+    else
+        PEER_NAME=$(echo $LB_INSTANCES | tr ' ' '\n' | grep -- "-01" | head -n 1)
+    fi
+    PEER_IP=$(gcloud compute instances describe "$PEER_NAME" --project="$PROJECT_ID" --zone="$ZONE" --format='get(networkInterfaces[0].networkIP)')
+
+    remote_scp "$LB_INSTANCE" scripts/setup_lb.sh scripts/lb_healthcheck.sh scripts/config.sh scripts/utils.sh scripts/check_nginx.sh
 
     remote_exec "$LB_INSTANCE" "
         set -e
-        sudo mkdir -p $TARGET_DIR/scripts
-        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh $TARGET_DIR/scripts/
-        sudo chmod +x $TARGET_DIR/scripts/setup_lb.sh $TARGET_DIR/scripts/lb_healthcheck.sh
-        sudo $TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS'
+        source /tmp/config.sh
+        sudo mkdir -p \$TARGET_DIR/scripts
+        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh \$TARGET_DIR/scripts/
+        sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh
+        sudo \$TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS' '$PEER_IP'
     " || echo "WARNING: Failed to update LB $LB_INSTANCE"
 done
 
