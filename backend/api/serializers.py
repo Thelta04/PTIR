@@ -2,6 +2,7 @@ import re
 from datetime import date
 from rest_framework import serializers
 from .models import *
+from django.utils import timezone
 
 #Validators that are commomn to multiple serializers
 def validate_password(value):
@@ -85,40 +86,18 @@ class CreateTaxiSerializer(serializers.ModelSerializer):
 
 class TripCreateSerializer(serializers.Serializer):
     client_id      = serializers.IntegerField()
-    shift_id       = serializers.IntegerField()
-    origin         = serializers.CharField(max_length=255)
-    destination    = serializers.CharField(max_length=255)
+    originAddress  = serializers.CharField(max_length=255)
+    destAddress    = serializers.CharField(max_length=255)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
-    start_time     = serializers.DateTimeField()
-    end_time       = serializers.DateTimeField()
 
     def validate(self, data):
-        # RIA: origin != destination
-        if data['origin'] == data['destination']:
+        if data['originAddress'] == data['destAddress']:
             raise serializers.ValidationError("Origin and destination cannot be the same.")
-        
-        # RIA: interval valid
-        if data['start_time'] >= data['end_time']:
-            raise serializers.ValidationError("start_time must be before end_time.")
-        
-        # Validate if client exists
         if not Client.objects.filter(user__id=data['client_id']).exists():
             raise serializers.ValidationError("Client not found.")
-        
-        # Validate if shift exists
-        shift = Shift.objects.filter(id=data['shift_id']).first()
-        if not shift:
-            raise serializers.ValidationError("Shift not found.")
-            
-        # RIA: Trip must be contained within the Shift
-        shift_interval = shift.real_interval if shift.real_interval else shift.scheduled_interval
-        if shift_interval:
-            if data['start_time'] < shift_interval.start_time or data['end_time'] > shift_interval.end_time:
-                raise serializers.ValidationError("The trip period must be contained within the corresponding shift period.")
-        
         return data
-
+                        
 class ShiftCreateSerializer(serializers.Serializer):
     driver_id          = serializers.IntegerField()
     taxi_license_plate = serializers.CharField(max_length=10)
@@ -126,11 +105,19 @@ class ShiftCreateSerializer(serializers.Serializer):
     end_time           = serializers.DateTimeField()
 
     def validate(self, data):
-        if data['start_time'] >= data['end_time']:
+        start = data['start_time']
+        end = data['end_time']
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+        data['start_time'] = start
+        data['end_time'] = end
+
+        if start >= end:
             raise serializers.ValidationError("start_time must be before end_time.")
         
-        # RIA: Shift duration cannot exceed 8 hours
-        delta = data['end_time'] - data['start_time']
+        delta = end - start
         if delta.total_seconds() / 3600 > 8:
             raise serializers.ValidationError("A scheduled shift cannot last more than 8 hours.")
 
@@ -141,31 +128,28 @@ class ShiftCreateSerializer(serializers.Serializer):
         if not taxi:
             raise serializers.ValidationError("Taxi not found.")
             
-        # RIA: Taxi purchase year cannot be later than shift year
         try:
             purchase_year = int(taxi.purchase_year)
-            if purchase_year > data['start_time'].year:
+            if purchase_year > start.year:
                 raise serializers.ValidationError("The taxi purchase year cannot be later than the shift year.")
         except ValueError:
             pass
 
-        # Check for driver overlap
         driver_overlap = Shift.objects.filter(
             driver_id=data['driver_id'],
-            scheduled_interval__start_time__lt=data['end_time'],
-            scheduled_interval__end_time__gt=data['start_time']
+            scheduled_interval__start_time__lt=end,
+            scheduled_interval__end_time__gt=start
         ).exists()
         if driver_overlap:
-             raise serializers.ValidationError("Driver already has a shift in this time period.")
+            raise serializers.ValidationError("Driver already has a shift in this time period.")
 
-        # Check for taxi overlap
         taxi_overlap = Shift.objects.filter(
             taxi__license_plate=data['taxi_license_plate'],
-            scheduled_interval__start_time__lt=data['end_time'],
-            scheduled_interval__end_time__gt=data['start_time']
+            scheduled_interval__start_time__lt=end,
+            scheduled_interval__end_time__gt=start
         ).exists()
         if taxi_overlap:
-             raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
+            raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
         return data
 

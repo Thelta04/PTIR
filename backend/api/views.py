@@ -7,8 +7,12 @@ from .authentication import JWTAuthentication, IsManager, IsTripParticipant, gen
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from django.db import transaction
+from django.utils import timezone
+import requests
+
  
 # --- Views with Business Logic ---
+
 
 class ClientCreateView(views.APIView):
     @extend_schema(
@@ -512,10 +516,61 @@ class TripListView(views.APIView):
         serializer = TripListSerializer(trips, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+def geocode_address(address: str) -> str:
+    try:
+        response = requests.get(
+            'https://nominatim.openstreetmap.org/search',
+            params={'q': address, 'format': 'json', 'limit': 1},
+            headers={'User-Agent': 'TuxyApp/1.0'},
+            timeout=5
+        )
+        data = response.json()
+        if data:
+            return f"{data[0]['lat']},{data[0]['lon']}"
+    except Exception:
+        pass
+    return ''
+
+def calculate_distance(origin_coords: str, dest_coords: str) -> float:
+    try:
+        ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='        
+        # coords vêm em formato "lat,lon" mas ORS quer [lon, lat]
+        origin_lat, origin_lon = origin_coords.split(',')
+        dest_lat, dest_lon = dest_coords.split(',')
+        
+        response = requests.post(
+            'https://api.openrouteservice.org/v2/directions/driving-car',
+            headers={
+                'Authorization': ORS_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            json={
+                'coordinates': [
+                    [float(origin_lon), float(origin_lat)],
+                    [float(dest_lon), float(dest_lat)]
+                ]
+            },
+            timeout=5
+        )
+        data = response.json()
+        distance_meters = data['routes'][0]['summary']['distance']
+        return round(distance_meters / 1000, 2)  # converte para km
+    except Exception:
+        return 0
+
+def calculate_price(kilometers: float, comfort_level: str, num_passengers: int) -> float:
+    BASE_FARE = 2.50        # taxa de base
+    PRICE_PER_KM_BASIC = 0.80
+    PRICE_PER_KM_LUXURY = 1.50
+
+    price_per_km = PRICE_PER_KM_LUXURY if comfort_level == 'luxury' else PRICE_PER_KM_BASIC
+    price = BASE_FARE + (kilometers * price_per_km)
+    return round(price, 2)
+
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
-        description="Client requests a new trip. Creates a TimeInterval and associates it with the trip.",
+        description="Client requests a new trip. Coordinates are automatically fetched via Nominatim.",
         request=TripCreateSerializer,
         responses={201: TripListSerializer}
     )
@@ -528,34 +583,44 @@ class TripCreateView(views.APIView):
         
         try:
             client = Client.objects.get(user__id=data['client_id'])
-            shift  = Shift.objects.get(id=data['shift_id'])
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
-        except Shift.DoesNotExist:
-            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # 1. Criar o TimeInterval para a viagem
+        origin_coords = geocode_address(data['originAddress'])
+        dest_coords   = geocode_address(data['destAddress'])
+        
+        kilometers = 0
+        if origin_coords and dest_coords:
+            kilometers = calculate_distance(origin_coords, dest_coords)
+        price = calculate_price(kilometers, data['comfort_level'], data['num_passengers'])
+
+
         interval = TimeInterval.objects.create(
-            start_time=data['start_time'],
-            end_time=data['end_time']
+            start_time=timezone.now(),
+            end_time=None
+        )
+        interval = TimeInterval.objects.create(
+            start_time=timezone.now(),
+            end_time=None
         )
         
-        # 2. Criar a Trip
-        trip = Trip.objects.create(client=client,
-            shift=shift,
+        trip = Trip.objects.create(
+            client=client,
+            shift=None,
             interval=interval,
-            origin=data['origin'],
-            destination=data['destination'],
+            originAddress=data['originAddress'],
+            destAddress=data['destAddress'],
+            originCoords=origin_coords,
+            destCoords=dest_coords,
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=0,   # ainda não conhecido no momento do pedido
-            price=0,        # ainda não conhecido no momento do pedido
+            kilometers=kilometers,
+            price=price,
             status='PENDING'
         )
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
 class RatingListView(views.APIView):
     @extend_schema(
         summary="List all ratings of a driver",
