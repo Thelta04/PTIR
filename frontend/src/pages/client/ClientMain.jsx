@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
+import { getAddressFromCoords } from '../../components/geocoding';
 import './client.css';
 import './map-background.css';
 
@@ -13,7 +14,7 @@ export default function ClientMain() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [currentView, setCurrentView] = useState('initial'); // 'initial', 'selection', 'searching'
   const [searchValue, setSearchValue] = useState('');
 
   const [origin_address, setOriginAddress] = useState('');
@@ -27,6 +28,12 @@ export default function ClientMain() {
 
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
+  const [selectingFor, setSelectingFor] = useState(null);
+
+  // Set current location as default origin on mount
+  useEffect(() => {
+    handleUseCurrentLocation();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -38,104 +45,156 @@ export default function ClientMain() {
     if (path) navigate(path);
   };
 
-  function handleEscolherPonto(ponto) {
-    if (!origem) {
+  async function handleEscolherPonto(ponto) {
+    if (!selectingFor) return;
+
+    const address = await getAddressFromCoords(ponto.lat, ponto.lon);
+
+    if (selectingFor === 'origin') {
       setOrigem(ponto);
-      setOriginAddress(`Lat: ${ponto.lat.toFixed(5)}, Lon: ${ponto.lon.toFixed(5)}`);
-      return;
-    }
-
-    if (!destino) {
+      setOriginAddress(address);
+    } else if (selectingFor === 'destination') {
       setDestino(ponto);
-      setDestinationAddress(`Lat: ${ponto.lat.toFixed(5)}, Lon: ${ponto.lon.toFixed(5)}`);
-      return;
+      setDestinationAddress(address);
+      setSearchValue(address);
     }
-
-    setOrigem(ponto);
-    setDestino(null);
-    setOriginAddress(`Lat: ${ponto.lat.toFixed(5)}, Lon: ${ponto.lon.toFixed(5)}`);
-    setDestinationAddress('');
+    
+    setSelectingFor(null);
   }
 
-  return (
-  <div className="client-layout">
-    <header className="client-header">
-      <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-        <Menu size={24} />
-      </button>
+  const handleProceedToSelection = () => {
+    // Basic validation
+    if (!origin_address && !origem) {
+      alert('Please specify an origin.');
+      return;
+    }
+    if (!dest_address && !destino && !searchValue) {
+      alert('Please specify a destination.');
+      return;
+    }
 
-      <div className="client-brand">
-        <span className="client-brand-name">TUXY</span>
-      </div>
+    // Ensure state matches what's in the text inputs if they were typed manually
+    if (!destino && searchValue) {
+      setDestinationAddress(searchValue);
+    }
 
-      <button className="bell-btn">
-        <Bell size={20} />
-      </button>
-    </header>
+    setShowMoreOptions(false);
+    setCurrentView('selection');
+  };
 
-    <main className="client-main-content">
-      <div className="map-wrapper">
-        <MapaPedido
-          origem={origem}
-          destino={destino}
-          onEscolherPonto={handleEscolherPonto}
-        />
-      </div>
+  const handleConfirmSchedule = () => {
+    if (!dateTime) {
+      alert('Please select a date and time for your scheduled ride.');
+      return;
+    }
+    setCurrentView('searching');
+    setState('PENDING');
+  };
 
-      <section className="search-panel">
-        {isSearching ? (
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const ponto = { lat: latitude, lon: longitude };
+        const address = await getAddressFromCoords(latitude, longitude);
+        
+        setOrigem(ponto);
+        setOriginAddress(address);
+      },
+      (error) => {
+        alert('Unable to retrieve your location: ' + error.message);
+      }
+    );
+  };
+
+  const renderSearchPanel = () => {
+    switch (currentView) {
+      case 'searching':
+        return (
           <div className="waiting-view">
             <h2 className="waiting-title">Looking for a driver...</h2>
             <button
               className="search-btn search-btn--primary waiting-cancel-btn"
               onClick={() => {
-                setIsSearching(false);
+                setCurrentView('initial');
                 setState('CANCELLED');
               }}
             >
               Cancel
             </button>
           </div>
-        ) : !showMoreOptions ? (
-          <>
-            <div className="search-input-wrapper">
-              <Search className="search-icon" size={18} />
+        );
+
+      case 'selection':
+        return (
+          <div className="selection-view">
+            <div className="view-header">
+              <button
+                className="back-btn"
+                onClick={() => setCurrentView('initial')}
+                title="Back"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <h2 className="view-title">When would you like to go?</h2>
+            </div>
+            
+            <div className="form-group" style={{ width: '100%' }}>
               <input
-                type="text"
-                className="search-input"
-                placeholder="Where would you like to go?"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
+                type="datetime-local"
+                className="timestamp-input"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
               />
             </div>
 
-            <div className="quick-options">
-              <div className="quick-option-item">
-                <label>People</label>
+            <div className="selection-options">
+              <button
+                className="search-btn search-btn--primary"
+                onClick={handleConfirmSchedule}
+              >
+                Schedule
+              </button>
+              <button
+                className="search-btn search-btn--primary"
+                onClick={() => {
+                  setDateTime(''); 
+                  setCurrentView('searching');
+                  setState('PENDING');
+                }}
+              >
+                Ride Now
+              </button>
+            </div>
+          </div>
+        );
+
+      default:
+        return !showMoreOptions ? (
+          <>
+            <div className="search-input-wrapper">
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search className="search-icon" size={18} />
                 <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={num_passengers}
-                  onChange={(e) => setPassengers(e.target.value)}
+                  type="text"
+                  className="search-input"
+                  placeholder="Where would you like to go?"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
                 />
               </div>
-
-              <div className="quick-option-item">
-                <label>Comfort</label>
-                <select value={comfort_level} onChange={(e) => setComfort(e.target.value)}>
-                  <option value="Basic">Basic</option>
-                  <option value="Luxury">Luxury</option>
-                </select>
-              </div>
-
-              <div className="quick-option-item">
-                <label>Engine</label>
-                <select value={engine} onChange={(e) => setEngine(e.target.value)}>
-                  <option value="Fuel">Fuel</option>
-                  <option value="Electric">Electric</option>
-                </select>
-              </div>
+              <button
+                className={`pinpoint-btn ${selectingFor === 'destination' ? 'active' : ''}`}
+                onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
+                title="Select destination on map"
+              >
+                <MapPin size={24} />
+              </button>
             </div>
 
             <div className="search-actions">
@@ -148,10 +207,7 @@ export default function ClientMain() {
 
               <button
                 className="search-btn search-btn--primary"
-                onClick={() => {
-                  setIsSearching(true);
-                  setState('PENDING');
-                }}
+                onClick={handleProceedToSelection}
               >
                 See Routes
               </button>
@@ -160,61 +216,42 @@ export default function ClientMain() {
         ) : (
           <div className="more-options-form">
             <div className="form-group">
-              <label>Origin</label>
-              <input
-                type="text"
-                placeholder="Select on map or type here"
-                value={origin_address}
-                onChange={(e) => setOriginAddress(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Destination</label>
-              <input
-                type="text"
-                placeholder="Select on map or type here"
-                value={dest_address}
-                onChange={(e) => setDestinationAddress(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Schedule</label>
-              <input
-                type="datetime-local"
-                value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
-                className="search-input datetime-input"
-              />
-            </div>
-
-            <div className="quick-options">
-              <div className="quick-option-item">
-                <label>People</label>
+              <label>Enter origin:</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={num_passengers}
-                  onChange={(e) => setPassengers(e.target.value)}
+                  type="text"
+                  placeholder="Rua das Oliveiras, Campo Grande"
+                  value={origin_address}
+                  onChange={(e) => setOriginAddress(e.target.value)}
+                  style={{ flex: 1 }}
                 />
+                <button
+                  className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'origin' ? 'active' : ''}`}
+                  onClick={() => setSelectingFor(selectingFor === 'origin' ? null : 'origin')}
+                  title="Select origin on map"
+                >
+                  <MapPin size={20} />
+                </button>
               </div>
+            </div>
 
-              <div className="quick-option-item">
-                <label>Comfort</label>
-                <select value={comfort_level} onChange={(e) => setComfort(e.target.value)}>
-                  <option value="Basic">Basic</option>
-                  <option value="Luxury">Luxury</option>
-                </select>
-              </div>
-
-              <div className="quick-option-item">
-                <label>Engine</label>
-                <select value={engine} onChange={(e) => setEngine(e.target.value)}>
-                  <option value="Fuel">Fuel</option>
-                  <option value="Electric">Electric</option>
-                </select>
+            <div className="form-group">
+              <label>Enter destination:</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  placeholder="Avenida Dos Campos, Saldanha"
+                  value={dest_address}
+                  onChange={(e) => setDestinationAddress(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'destination' ? 'active' : ''}`}
+                  onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
+                  title="Select destination on map"
+                >
+                  <MapPin size={20} />
+                </button>
               </div>
             </div>
 
@@ -228,28 +265,51 @@ export default function ClientMain() {
 
               <button
                 className="search-btn search-btn--primary"
-                onClick={() => {
-                  setIsSearching(true);
-                  setState('PENDING');
-                }}
+                onClick={handleProceedToSelection}
               >
                 Request Tuxy
               </button>
             </div>
           </div>
-        )}
+        );
+    }
+  };
+
+  return (
+  <div className="client-layout">
+    <header className="client-header">
+      <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
+        <Menu size={24} color="#000" />
+      </button>
+
+      <div className="client-brand">
+        <span className="client-brand-name">TUXY</span>
+      </div>
+
+      <button className="bell-btn">
+        <Bell size={24} color="#000" />
+      </button>
+    </header>
+
+    <main className="client-main-content">
+      <div className="map-wrapper">
+        <MapaPedido
+          origem={origem}
+          destino={destino}
+          onEscolherPonto={handleEscolherPonto}
+        />
+      </div>
+
+      <section className="search-panel">
+        {renderSearchPanel()}
       </section>
 
       <button
         className="gps-btn"
-        onClick={() => {
-          setOrigem(null);
-          setDestino(null);
-          setOriginAddress('');
-          setDestinationAddress('');
-        }}
+        onClick={handleUseCurrentLocation}
+        title="Use current location"
       >
-        <Target size={20} color="#374151" />
+        <Target size={24} color="#000" />
       </button>
     </main>
 
@@ -282,10 +342,10 @@ export default function ClientMain() {
                 Request Trip
               </button>
               <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                View Reservations
+                Reservations
               </button>
               <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                View Trip History
+                History
               </button>
             </nav>
 

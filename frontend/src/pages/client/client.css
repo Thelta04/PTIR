@@ -13,14 +13,13 @@ html, body, #root {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: #f3f4f6;
+  background: #fff;
 }
 
 .client-header {
-  height: 88px;
+  height: 80px;
   width: 100%;
   background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -32,74 +31,92 @@ html, body, #root {
 .client-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
+  margin-left: 20px;
   flex: 1;
 }
 
 .client-brand-name {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 2.2rem;
+  font-weight: 900;
   color: #000;
-  letter-spacing: 1px;
 }
 
 .menu-btn,
 .bell-btn {
-  width: 54px;
-  height: 54px;
+  width: 48px;
+  height: 48px;
   border: none;
-  border-radius: 14px;
-  background: #f3e7b1;
+  border-radius: 8px;
+  background: #fdf2b3;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  flex-shrink: 0;
 }
 
 .client-main-content {
   position: relative;
   width: 100%;
-  height: calc(100vh - 88px); 
-  display: flex;
-  flex-direction: column; 
-  overflow: hidden;
-  background: #fff; 
+  height: calc(100vh - 80px); 
 }
 
 .map-wrapper {
-  position: relative; 
-  flex: 0.8;
-  width: 100%;
+  position: absolute;
+  inset: 0;
   z-index: 1;
 }
 
-.map-wrapper > div {
-  width: 100%;
-  height: 100%;
-}
-
 .search-panel {
-  position: relative; /* Mudado de absolute para relative */
-  top: 0; /* Remove o top anterior */
-  left: 0; /* Remove o left anterior */
-  transform: none; /* Remove o translateX */
-  width: 100%; /* Ocupa a largura total */
-  max-width: none; /* Remove o limite de 560px para preencher o ecrã */
-  flex: 1.2; /* Faz com que ocupe os outros 50% */
-  background: #fffbef; /* Cor de fundo sólida para não ver o mapa por trás */
-  border-radius: 24px 24px 0 0; /* Arredonda apenas os cantos superiores */
-  padding: 20px;
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 420px;
+  background: #fffdf2;
+  border: 1.5px solid #f1cf58;
+  border-radius: 12px;
+  padding: 16px;
   z-index: 20;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1); /* Sombra para o topo */
-  overflow-y: auto; /* Permite scroll se o formulário for maior que a metade do ecrã */
-  backdrop-filter: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .search-input-wrapper {
   position: relative;
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 10px;
+}
+
+.pinpoint-btn {
+  width: 60px;
+  height: 60px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 12px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  color: #374151;
+}
+
+.pinpoint-btn:hover {
+  background: #fdf2b3;
+}
+
+.pinpoint-btn.active {
+  background: #f1af3d;
+  color: #fff;
+  border-color: #f1af3d;
+}
+
+.pinpoint-btn--small {
+  width: 48px;
+  height: 48px;
 }
 
 .search-icon {
@@ -110,101 +127,55 @@ html, body, #root {
   color: #6b7280;
 }
 
-.search-input-wrapper .search-input {
+.search-input {
   width: 100%;
-  height: 52px;
-  border: 1px solid #f1d783;
-  border-radius: 14px;
+  height: 60px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 12px;
   padding: 0 16px 0 44px;
-  font-size: 1rem;
+  font-size: 1.05rem;
   background: #fff;
-}
-
-.datetime-input {
-  width: 100%;
-  height: 48px;
-  border: 1px solid #f1d783;
-  border-radius: 12px;
-  padding: 0 12px;
-  background: #fff;
-}
-
-.quick-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.quick-option-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.quick-option-item label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #4b5563;
-}
-
-.quick-option-item input,
-.quick-option-item select,
-.form-group input {
-  width: 100%;
-  height: 46px;
-  border: 1px solid #f1d783;
-  border-radius: 12px;
-  padding: 0 12px;
-  background: #fff;
-  font-size: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.form-group label {
-  font-size: 0.92rem;
-  font-weight: 700;
   color: #374151;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
 }
 
 .search-actions {
   display: flex;
   gap: 12px;
-  margin-top: 10px;
 }
 
 .search-btn {
   flex: 1;
-  height: 50px;
+  height: 54px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-btn--primary {
-  background: #e8a93a;
+  background: #f1af3d;
   color: #fff;
 }
 
 .search-btn--secondary {
-  background: #f1cf58;
+  background: #fcd34d;
   color: #fff;
 }
 
 .search-btn--cancel {
-  background: #d1d5db;
-  color: #111827;
+  background: #e5e7eb;
+  color: #374151;
 }
 
-.waiting-view {
+.selection-view, .scheduling-view, .waiting-view {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -212,24 +183,106 @@ html, body, #root {
   text-align: center;
 }
 
-.waiting-title {
+.view-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.back-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: #fdf2b3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #000;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #fcd34d;
+}
+
+.view-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #374151;
   margin: 0;
-  font-size: 1.4rem;
-  color: #111827;
+  text-align: left;
+}
+
+.selection-options {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.timestamp-input {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.more-options-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  font-size: 1rem;
+}
+
+.schedule-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .gps-btn {
   position: absolute;
   right: 20px;
-  bottom: 20px;
-  width: 56px;
-  height: 56px;
+  top: 10px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 16px;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .drawer-overlay {
@@ -243,26 +296,25 @@ html, body, #root {
   position: fixed;
   top: 0;
   left: 0;
-  width: 290px;
+  width: 280px;
   height: 100vh;
-  background: #fffdf5;
+  background: #fff;
   z-index: 50;
-  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
 }
 
 .drawer-header {
-  height: 88px;
+  height: 80px;
   padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .drawer-title {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
@@ -275,68 +327,40 @@ html, body, #root {
 .drawer-nav {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 10px;
+  padding: 20px;
+  gap: 12px;
 }
 
 .drawer-link {
-  height: 46px;
+  height: 50px;
   border: none;
-  border-radius: 12px;
-  background: #f8f0c9;
+  border-radius: 10px;
+  background: #fdf2b3;
   text-align: left;
-  padding: 0 14px;
+  padding: 0 16px;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .drawer-footer {
   margin-top: auto;
-  padding: 16px;
+  padding: 20px;
 }
 
 .drawer-logout {
   width: 100%;
-  height: 48px;
+  height: 50px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ef4444;
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
-@media (max-width: 768px) {
-  .client-header {
-    height: 76px;
-    padding: 0 14px;
-  }
-
-  .client-brand-name {
-    font-size: 1.7rem;
-  }
-
-  .client-main-content {
-    height: calc(100vh - 76px);
-  }
-
- .search-panel {
-    width: 100%;
-    padding: 16px;
-    border-radius: 20px 20px 0 0;
-  }
-
-  .quick-options {
-    grid-template-columns: 1fr;
-  }
-
-  .search-actions {
-    flex-direction: column;
-  }
-
-  .menu-btn,
-  .bell-btn {
-    width: 48px;
-    height: 48px;
+@media (max-width: 480px) {
+  .search-panel {
+    width: 95%;
   }
 }
