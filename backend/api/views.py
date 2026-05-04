@@ -610,14 +610,14 @@ class TripCreateView(views.APIView):
             client=client,
             shift=None,
             interval=interval,
-            originAddress=data['origin'],           # origin from serializer → originAddress in model            destination=data['destination'],
-            destAddress=data['destination'],        # destination from serializer → destAddress in model
-            originCoords='0,2',       # placeholder — não tens coords no serializer
-            destCoords='0,0',  
+            originAddress=data['originAddress'],
+            destAddress=data['destAddress'],
+            originCoords=origin_coords,
+            destCoords=dest_coords,
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=1,   # ainda não conhecido no momento do pedido
-            price=1,        # ainda não conhecido no momento do pedido
+            kilometers=kilometers,
+            price=price,
             status='PENDING'
         )
         
