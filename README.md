@@ -232,6 +232,8 @@ Após o deployment (com `inserts.sql` aplicado):
 | 4 | **Client** | Ana Ferreira | `ana@email.com` | `Ana123` |
 | 5 | **Manager** | Carlos Mendes | `carlos@email.com` | `Carlos123` |
 
+Adicionalmente, existem 4 viagens de teste com o estado `PENDING` criadas no ficheiro `inserts.sql` para testar a atribuição a motoristas (incluindo a ordenação por distância).
+
 ---
 
 ## Autenticação JWT (Endpoints de Manager)
@@ -279,9 +281,14 @@ curl -X POST http://<host>/api/auth/token/refresh/ \
 
 1. **Schema da BD:** O PostgreSQL usa naming conventions específicas (e.g., `id_scheduled_interval`, `id_taxi`). Ao modificar modelos Django com ForeignKey, especificar **sempre** `db_column` (e.g., `db_column='id_taxi'`).
 2. **Convenção de Endpoints:** A API usa **nomenclatura singular** (e.g., `/api/driver/`, `/api/taxi/`, `/api/shift/`).
-3. **Banning:** Qualquer utilizador pode ser banido por um Manager. Um utilizador banido falha a autenticação no endpoint `/auth/login/`.
-4. **CORS:** Não é necessário `django-cors-headers`. Em desenvolvimento o Vite faz proxy, e em produção o Nginx trata do routing.
-5. **Acesso SSH às VMs:** Todas as VMs usam IAP (Identity-Aware Proxy), não é necessário expor a porta 22:
+3. **Listagem de Viagens:** O endpoint `GET /api/trip/` suporta os query parameters `lat`, `lon`, `comfort_level`, `num_passengers` e `driver_id`. 
+   - `lat` e `lon`: Quando fornecidos (juntamente com `status=PENDING`), a API calcula a distância em linha reta (fórmula de Haversine) entre as coordenadas dadas e a origem da viagem, ordenando os resultados por proximidade. (Exemplo: http://localhost:5173/api/trip/?status=PENDING&lat=38.7223&lon=-9.1393)
+   - `comfort_level`: Filtra por nível de conforto (ex: `basic` ou `luxury`).
+   - `num_passengers`: Filtra viagens que tenham um número de passageiros menor ou igual ao indicado.
+   - `driver_id`: Alternativamente, pode ser fornecido o ID do motorista. Se fornecido, a API irá procurar o turno ativo desse motorista e filtrar automaticamente as viagens que caibam na lotação (`num_passengers`) do seu táxi atual e conforme o nível de conforto (`comfort_level`).
+4. **Banning:** Qualquer utilizador pode ser banido por um Manager. Um utilizador banido falha a autenticação no endpoint `/auth/login/`.
+5. **CORS:** Não é necessário `django-cors-headers`. Em desenvolvimento o Vite faz proxy, e em produção o Nginx trata do routing.
+6. **Acesso SSH às VMs:** Todas as VMs usam IAP (Identity-Aware Proxy), não é necessário expor a porta 22:
    ```bash
    gcloud compute ssh <vm-name> --project="project-dc8596f3-77e8-4941-a9a" \
        --zone="europe-southwest1-c" --tunnel-through-iap

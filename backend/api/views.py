@@ -505,6 +505,9 @@ class TripListView(views.APIView):
     )
     def get(self, request):
         status_filter = request.query_params.get('status', None)
+        comfort_filter = request.query_params.get('comfort_level', None)
+        passengers_filter = request.query_params.get('num_passengers', None)
+        driver_id = request.query_params.get('driver_id', None)
         driver_lat = request.query_params.get('lat', None)
         driver_lon = request.query_params.get('lon', None)
         
@@ -517,6 +520,38 @@ class TripListView(views.APIView):
         
         if status_filter:
             trips = trips.filter(status=status_filter)
+        if comfort_filter:
+            trips = trips.filter(comfort_level=comfort_filter)
+            
+        # Determine maximum allowed passengers
+        max_passengers = None
+        if driver_id:
+            # Look for an active shift (clocked in, no end time)
+            active_shift = Shift.objects.filter(
+                driver__user_id=driver_id,
+                real_interval__isnull=False,
+                real_interval__end_time__isnull=True
+            ).select_related('taxi').first()
+            
+            if active_shift:
+                max_passengers = active_shift.taxi.num_passengers
+                comfort_filter = active_shift.taxi.comfort_level
+
+        # Fallback to the explicit query parameter if max_passengers wasn't resolved via driver_id
+        if max_passengers is None and passengers_filter:
+            try:
+                max_passengers = int(passengers_filter)
+            except ValueError:
+                pass
+        if comfort_filter is None and comfort_filter:
+            try:
+                comfort_filter = comfort_filter
+            except ValueError:
+                pass
+        if max_passengers is not None:
+            trips = trips.filter(num_passengers__lte=max_passengers)
+        if comfort_filter is not None:
+            trips = trips.filter(comfort_level=comfort_filter)
         
         trips_list = list(trips)
 
