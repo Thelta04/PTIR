@@ -505,6 +505,9 @@ class TripListView(views.APIView):
     )
     def get(self, request):
         status_filter = request.query_params.get('status', None)
+        comfort_filter = request.query_params.get('comfort_level', None)
+        passengers_filter = request.query_params.get('num_passengers', None)
+        driver_id = request.query_params.get('driver_id', None)
         driver_lat = request.query_params.get('lat', None)
         driver_lon = request.query_params.get('lon', None)
         
@@ -517,6 +520,38 @@ class TripListView(views.APIView):
         
         if status_filter:
             trips = trips.filter(status=status_filter)
+        if comfort_filter:
+            trips = trips.filter(comfort_level=comfort_filter)
+            
+        # Determine maximum allowed passengers
+        max_passengers = None
+        if driver_id:
+            # Look for an active shift (clocked in, no end time)
+            active_shift = Shift.objects.filter(
+                driver__user_id=driver_id,
+                real_interval__isnull=False,
+                real_interval__end_time__isnull=True
+            ).select_related('taxi').first()
+            
+            if active_shift:
+                max_passengers = active_shift.taxi.num_passengers
+                comfort_filter = active_shift.taxi.comfort_level
+
+        # Fallback to the explicit query parameter if max_passengers wasn't resolved via driver_id
+        if max_passengers is None and passengers_filter:
+            try:
+                max_passengers = int(passengers_filter)
+            except ValueError:
+                pass
+        if comfort_filter is None and comfort_filter:
+            try:
+                comfort_filter = comfort_filter
+            except ValueError:
+                pass
+        if max_passengers is not None:
+            trips = trips.filter(num_passengers__lte=max_passengers)
+        if comfort_filter is not None:
+            trips = trips.filter(comfort_level=comfort_filter)
         
         trips_list = list(trips)
 
@@ -653,6 +688,65 @@ class TripCreateView(views.APIView):
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+class TripAcceptView(views.APIView):
+    @extend_schema(
+        summary="Driver accepts a trip",
+        description="Driver assigns themselves to a PENDING trip by providing their shift_id. Status changes to DRIVER_ACCEPTED.",
+        request=TripAcceptSerializer,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
+        # 1. Find the trip
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Trip must be PENDING to be accepted
+        if trip.status != 'PENDING':
+            return Response(
+                {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Validate request body
+        serializer = TripAcceptSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        driver_id = serializer.validated_data['driver_id']
+        shift_id  = serializer.validated_data['shift_id']
+
+        # 4. Confirm driver exists
+        try:
+            driver = Driver.objects.get(user__id=driver_id)
+        except Driver.DoesNotExist:
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 5. Confirm the shift exists, belongs to this driver, and has started
+        try:
+            shift = Shift.objects.select_related('taxi').get(id=shift_id, driver=driver)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found or does not belong to this driver."}, status=status.HTTP_404_NOT_FOUND)
+
+        if shift.real_interval is None:
+            return Response({"error": "Shift has not started yet (no clock-in)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if shift.real_interval.end_time is not None:
+            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 6. Assign shift to trip and update status
+        trip.shift  = shift
+        trip.status = 'DRIVER_ACCEPTED'
+        trip.save()
+
+        response_serializer = TripListSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
 class RatingListView(views.APIView):
     @extend_schema(
         summary="List all ratings of a driver",
@@ -692,51 +786,6 @@ class RatingCreateView(views.APIView):
         
         response_serializer = RatingListSerializer(rating)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-
-class TripAcceptView(views.APIView):
-    @extend_schema(
-        summary="Driver accepts a trip",
-        description="Changes trip status from PENDING to DRIVER_ACCEPTED.",
-        request=TripAcceptSerializer,
-        responses={200: TripListSerializer}
-    )
-    def patch(self, request, id):
-        try:
-            trip = Trip.objects.select_related(
-                'client__user',
-                'shift__driver__user',
-                'shift__taxi',
-                'interval'
-            ).get(id=id)
-        except Trip.DoesNotExist:
-            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Validar que o estado atual permite aceitar
-        if trip.status != 'PENDING':
-            return Response(
-                {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        serializer = TripAcceptSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Validar que o driver pertence ao shift da viagem
-        driver_id = serializer.validated_data['driver_id']
-        if trip.shift.driver.user_id != driver_id:
-            return Response(
-                {"error": "This driver is not assigned to this trip's shift."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        trip.status = 'DRIVER_ACCEPTED'
-        trip.save()
-        
-        response_serializer = TripListSerializer(trip)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-    
 
 class TripCancelView(views.APIView):
     @extend_schema(
