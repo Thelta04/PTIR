@@ -52,13 +52,13 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* <Route path="/client" element={
+          <Route path="/client" element={
             <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientMain />
             </ProtectedRoute>
-          } /> */}
+          } />
 
-          <Route path="/Client" element={<ClientMain />} />
+          {/* <Route path="/Client" element={<ClientMain />} /> */}
 
           <Route path="*" element={<HomeRedirect />} />
         </Routes>

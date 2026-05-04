@@ -26,8 +26,8 @@ export default function MapaPedido({ origem, destino, onEscolherPonto }) {
   const centroPortugal = [38.7223, -9.1393]
 
   return (
-    <div style={{ height: '420px', width: '100%' }}>
-      <MapContainer center={centroPortugal} zoom={13} style={{ height: '100%', width: '100%' }}>
+    <div style={{ height: '100%', width: '100%', minHeight: '100%' }}>
+      <MapContainer center={centroPortugal} zoom={13} style={{ height: '100%', width: '100%', minHeight: '100%' }}>
         <TileLayer
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; OpenStreetMap contributors'

@@ -118,7 +118,7 @@ class Trip(models.Model):
         ('CANCELED',        'Canceled'),
     ], default='PENDING')
     client   = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='id_client')
-    shift    = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift', null=True, blank=True)
     interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')
 
     class Meta:

@@ -81,7 +81,7 @@ CREATE TABLE trip (
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
     id_client INTEGER NOT NULL REFERENCES client(id_user) ON DELETE CASCADE,
-    id_shift INTEGER NOT NULL REFERENCES shift(id),
+    id_shift INTEGER REFERENCES shift(id),
     id_interval INTEGER NOT NULL REFERENCES time_interval(id_interval)
 );
 
@@ -142,12 +142,9 @@ ALTER TABLE refueling
     );
     
 ALTER TABLE trip
-    ADD CONSTRAINT chk_trip_origin_dest CHECK (origin_coords <> dest_coords),
     ADD CONSTRAINT chk_trip_comfort CHECK (comfort_level IN ('basic', 'luxury')),
-    ADD CONSTRAINT chk_trip_kilometers CHECK (kilometers > 0), -- RIA 19
-    ADD CONSTRAINT chk_trip_price CHECK (price > 0), -- RIA 20
-    ADD CONSTRAINT chk_trip_passengers CHECK (num_passengers BETWEEN 1 AND 4), -- RIA 18
-    ADD CONSTRAINT chk_trip_status CHECK (status IN ('PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED')); -- RIA 27
+    ADD CONSTRAINT chk_trip_passengers CHECK (num_passengers BETWEEN 1 AND 4),
+    ADD CONSTRAINT chk_trip_status CHECK (status IN ('PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED'));
 
 ALTER TABLE invoice
     ADD CONSTRAINT uq_invoice_year_number UNIQUE (year, number),
