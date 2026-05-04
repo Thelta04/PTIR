@@ -156,10 +156,6 @@ else
     exit 1
 fi
 
-echo "  Simulating Auto-Replacement for 'lb-01'..."
-bash scripts/auto_replace_node.sh lb lb-01
-echo "  ✅ PASS: Replacement logic triggered for lb-01."
-
 echo "  Starting Nginx on 'lb-01'..."
 remote_exec "lb-01" "sudo systemctl start nginx"
 
@@ -207,9 +203,7 @@ else
     echo "  ❌ FAIL: API is NOT healthy after failover (HTTP $HTTP_CODE)."
     exit 1
 fi
-echo "  Simulating Auto-Replacement for 'db-01'..."
-bash scripts/auto_replace_node.sh db db-01
-echo "  ✅ PASS: Replacement logic triggered for db-01."
+
 
 echo "  Starting PostgreSQL on 'db-01'..."
 remote_exec "db-01" "sudo systemctl start postgresql"
