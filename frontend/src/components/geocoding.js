@@ -26,3 +26,35 @@ export async function getAddressFromCoords(lat, lon) {
     return `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
   }
 }
+
+/**
+ * Fetches coordinates from a human-readable address using Nominatim Geocoding.
+ * @param {string} address - The address to search for.
+ * @returns {Promise<{lat: number, lon: number} | null>} - The coordinates or null.
+ */
+export async function getCoordsFromAddress(address) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+        },
+      }
+    );
+    if (!response.ok) throw new Error('Geocoding request failed');
+    
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon),
+        display_name: data[0].display_name
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error in forward geocoding:', error);
+    return null;
+  }
+}

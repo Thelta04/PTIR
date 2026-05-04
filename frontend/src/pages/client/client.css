@@ -125,6 +125,28 @@ html, body, #root {
   left: 14px;
   transform: translateY(-50%);
   color: #6b7280;
+  pointer-events: none;
+}
+
+.input-search-btn {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  z-index: 10;
+  transition: color 0.2s;
+}
+
+.input-search-btn:hover {
+  color: #374151;
 }
 
 .search-input {
@@ -132,7 +154,7 @@ html, body, #root {
   height: 60px;
   border: 1.5px solid #f1cf58;
   border-radius: 12px;
-  padding: 0 16px 0 44px;
+  padding: 0 16px 0 48px;
   font-size: 1.05rem;
   background: #fff;
   color: #374151;
@@ -223,6 +245,90 @@ html, body, #root {
   width: 100%;
 }
 
+.trip-settings-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.setting-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-item label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.setting-input {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.number-control {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.number-btn {
+  width: 40px;
+  height: 100%;
+  border: none;
+  background: #fdf2b3;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.number-btn:hover {
+  background: #fcd34d;
+}
+
+.number-value {
+  flex: 1;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.search-field-btn {
+  width: 48px;
+  height: 48px;
+  border: 1.5px solid #f1cf58;
+  border-radius: 10px;
+  background: #fdf2b3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #000;
+  transition: all 0.2s;
+}
+
+.search-field-btn:hover {
+  background: #fcd34d;
+}
+
 .timestamp-input {
   width: 100%;
   height: 48px;
@@ -257,7 +363,7 @@ html, body, #root {
   height: 48px;
   border: 1.5px solid #f1cf58;
   border-radius: 10px;
-  padding: 0 12px;
+  padding: 0 12px 0 40px;
   background: #fff;
   font-size: 1rem;
 }
