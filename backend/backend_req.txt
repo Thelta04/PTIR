@@ -26,4 +26,5 @@ PyJWT==2.12.1
 # Load environment variables from .env
 python-dotenv==1.0.1
 
-requests
+# HTTP requests
+requests==2.31.0

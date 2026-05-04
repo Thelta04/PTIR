@@ -45,6 +45,19 @@ INSERT INTO trip(id_client, kilometers, origin_coords, dest_coords, origin_addre
 (2, 12, '38.7223,-9.1393', '38.6970,-9.3017', 'Marquês de Pombal, Lisboa', 'Estação, Oeiras', 'basic',  15.00, 2, 'COMPLETED', 1, 5),
 (4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais',           'Saldanha, Lisboa', 'luxury', 35.00, 3, 'COMPLETED', 2, 6);
 
+-- NEW PENDING TRIPS FOR TESTING
+INSERT INTO time_interval (start_time, end_time) VALUES
+('2026-05-04 22:00:00+00:00', NULL),
+('2026-05-04 22:15:00+00:00', NULL),
+('2026-05-04 22:30:00+00:00', NULL),
+('2026-05-04 22:45:00+00:00', NULL);
+
+INSERT INTO trip (id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval) VALUES
+(2, 5,  '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa',            'Saldanha, Lisboa',          'basic',   6.50, 1, 'PENDING', NULL, 7),
+(4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 8),
+(2, 3,  '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa',      'basic',   4.90, 3, 'PENDING', NULL, 9),
+(4, 8,  '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa',           'El Corte Inglés, Lisboa',   'luxury', 14.50, 4, 'PENDING', NULL, 10);
+
 -- REFUELING
 INSERT INTO refueling (cost, kwh, liters, initial_mileage, id_shift, id_interval) VALUES
 (40.00, NULL, 30,   120000, 1, 3),
