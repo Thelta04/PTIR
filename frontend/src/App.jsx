@@ -10,6 +10,7 @@ import ClientMain from './pages/client/ClientMain';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
+import Refuels from './pages/driver/Refuels';
 
 const ROLE_ROUTES = {
   MANAGER: '/manager',
@@ -57,6 +58,8 @@ function App() {
               <ClientMain />
             </ProtectedRoute>
           } />
+
+          <Route path="/driver/refuels" element={<Refuels />} />
 
           {/* <Route path="/Client" element={<ClientMain />} /> */}
 

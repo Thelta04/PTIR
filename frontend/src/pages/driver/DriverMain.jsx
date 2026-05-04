@@ -6,7 +6,10 @@ import { Menu, Bell, ChevronLeft, LogOut } from 'lucide-react';
 import DriverHomeView from './DriverHomeView';
 import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
+import MapaPedido from '../../components/MapaPedido';
 import './driver.css';
+import '../../components/map-background.css';
+import Refuels from './Refuels';
 
 export default function DriverMain() {
   const { user, logout } = useAuth();
@@ -33,8 +36,11 @@ export default function DriverMain() {
         return <DriverScheduleView />;
       case 'shifts':
         return <DriverShiftsView />;
+      case 'refuels':
+        return <Refuels />;
       default:
         return <DriverHomeView />;
+      
     }
   };
 
@@ -57,6 +63,13 @@ export default function DriverMain() {
       {/* Main Content Area */}
       <main className="driver-main-content">
         {renderContent()}
+        <div className="map-wrapper">
+                <MapaPedido
+                  origem={origem}
+                  destino={destino}
+                  onEscolherPonto={handleEscolherPonto}
+                />
+        </div>
       </main>
 
       {/* Sidebar Drawer overlay */}
@@ -92,8 +105,8 @@ export default function DriverMain() {
                   Registar turno
                 </button>
                 <button 
-                  className="drawer-link"
-                  onClick={() => setIsMenuOpen(false)}
+                  className={`drawer-link ${activeTab === 'refuels' ? 'active' : ''}`}
+                  onClick={() => handleNav('refuels')}
                 >
                   Registar reabastecimento
                 </button>
@@ -110,7 +123,7 @@ export default function DriverMain() {
                   Ver histórico de viagens
                 </button>
               </nav>
-
+              
               <div className="drawer-footer">
                 <button className="drawer-logout" onClick={handleLogout}>
                   Terminar Sessão

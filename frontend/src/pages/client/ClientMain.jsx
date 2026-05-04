@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, Search, MapPin, ChevronLeft, Target } from 'lucide-react';
+import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
-import { getAddressFromCoords } from '../../components/geocoding';
+import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import './client.css';
-import './map-background.css';
+import '../../components/map-background.css';
 
 export default function ClientMain() {
   const { logout } = useAuth();
@@ -35,6 +35,26 @@ export default function ClientMain() {
     handleUseCurrentLocation();
   }, []);
 
+  const handleSearchAddress = async (type) => {
+    const addressToSearch = type === 'origin' ? origin_address : (type === 'destination' ? dest_address : searchValue);
+    if (!addressToSearch) return;
+
+    const coords = await getCoordsFromAddress(addressToSearch);
+    if (coords) {
+      const ponto = { lat: coords.lat, lon: coords.lon };
+      if (type === 'origin') {
+        setOrigem(ponto);
+        setOriginAddress(coords.display_name);
+      } else {
+        setDestino(ponto);
+        setDestinationAddress(coords.display_name);
+        setSearchValue(coords.display_name);
+      }
+    } else {
+      alert('Address not found');
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login-client');
@@ -46,20 +66,24 @@ export default function ClientMain() {
   };
 
   async function handleEscolherPonto(ponto) {
-    if (!selectingFor) return;
-
     const address = await getAddressFromCoords(ponto.lat, ponto.lon);
 
-    if (selectingFor === 'origin') {
-      setOrigem(ponto);
-      setOriginAddress(address);
-    } else if (selectingFor === 'destination') {
+    if (selectingFor) {
+      if (selectingFor === 'origin') {
+        setOrigem(ponto);
+        setOriginAddress(address);
+      } else if (selectingFor === 'destination') {
+        setDestino(ponto);
+        setDestinationAddress(address);
+        setSearchValue(address);
+      }
+      setSelectingFor(null);
+    } else if (!showMoreOptions && currentView === 'initial') {
+      // Main view behavior: clicking map sets destination automatically
       setDestino(ponto);
       setDestinationAddress(address);
       setSearchValue(address);
     }
-    
-    setSelectingFor(null);
   }
 
   const handleProceedToSelection = () => {
@@ -114,22 +138,6 @@ export default function ClientMain() {
 
   const renderSearchPanel = () => {
     switch (currentView) {
-      case 'searching':
-        return (
-          <div className="waiting-view">
-            <h2 className="waiting-title">Looking for a driver...</h2>
-            <button
-              className="search-btn search-btn--primary waiting-cancel-btn"
-              onClick={() => {
-                setCurrentView('initial');
-                setState('CANCELLED');
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        );
-
       case 'selection':
         return (
           <div className="selection-view">
@@ -156,7 +164,13 @@ export default function ClientMain() {
             <div className="selection-options">
               <button
                 className="search-btn search-btn--primary"
-                onClick={handleConfirmSchedule}
+                onClick={() => {
+                  if (!dateTime) {
+                    alert('Please select a date and time for your scheduled ride.');
+                    return;
+                  }
+                  setCurrentView('confirmation');
+                }}
               >
                 Schedule
               </button>
@@ -164,8 +178,7 @@ export default function ClientMain() {
                 className="search-btn search-btn--primary"
                 onClick={() => {
                   setDateTime(''); 
-                  setCurrentView('searching');
-                  setState('PENDING');
+                  setCurrentView('confirmation');
                 }}
               >
                 Ride Now
@@ -174,27 +187,140 @@ export default function ClientMain() {
           </div>
         );
 
+      case 'confirmation':
+        return (
+          <div className="confirmation-view" style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '20px',
+            minHeight: '350px',
+            justifyContent: 'space-between'
+          }}>
+            <div className="view-header" style={{ marginBottom: '10px' }}>
+              <button
+                className="back-btn"
+                onClick={() => setCurrentView('selection')}
+                title="Back"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <h2 className="view-title" style={{ fontSize: '1.4rem' }}>Trip Summary</h2>
+            </div>
+
+            <div className="details-list" style={{ 
+              background: '#fff', 
+              border: '2px solid #f1cf58', 
+              borderRadius: '16px', 
+              padding: '20px',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              flex: 1,
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+            }}>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>From</span>
+                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{origin_address || 'Current Location'}</div>
+              </div>
+              
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>To</span>
+                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{dest_address || searchValue}</div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '40px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service</span>
+                  <div style={{ fontSize: '1.05rem', color: '#1f2937'}}>{comfort_level}</div>
+                </div>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</span>
+                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{num_passengers}</div>
+                </div>
+              </div>
+
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pickup Time</span>
+                <div style={{ fontSize: '1.1rem', color: '#f1af3d', fontWeight: '700' }}>
+                  {dateTime ? new Date(dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Immediate (Ride Now)'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="search-btn search-btn--primary"
+              onClick={() => {
+                alert('Trip Confirmed! We are processing your request.');
+                setCurrentView('initial');
+                setState('PENDING');
+              }}
+              style={{ 
+                marginTop: '10px',
+                padding: '12px 0',  
+                height: '64px',
+                fontSize: '1.1rem',
+                letterSpacing: '0.5px'
+              }}
+            >
+              Confirm Trip
+            </button>
+          </div>
+        );
+
       default:
         return !showMoreOptions ? (
           <>
             <div className="search-input-wrapper">
               <div style={{ position: 'relative', flex: 1 }}>
-                <Search className="search-icon" size={18} />
+                <button
+                  className="input-search-btn"
+                  onClick={() => handleSearchAddress('main')}
+                  title="Search address"
+                >
+                  <Search size={18} />
+                </button>
                 <input
                   type="text"
                   className="search-input"
                   placeholder="Where would you like to go?"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('main')}
                 />
               </div>
-              <button
-                className={`pinpoint-btn ${selectingFor === 'destination' ? 'active' : ''}`}
-                onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
-                title="Select destination on map"
-              >
-                <MapPin size={24} />
-              </button>
+            </div>
+
+            <div className="trip-settings-row">
+              <div className="setting-item">
+                <label>Comfort</label>
+                <select 
+                  className="setting-input"
+                  value={comfort_level}
+                  onChange={(e) => setComfort(e.target.value)}
+                >
+                  <option value="Basic">Basic</option>
+                  <option value="Luxury">Luxury</option>
+                </select>
+              </div>
+              <div className="setting-item">
+                <label>Passengers</label>
+                <div className="number-control">
+                  <button 
+                    className="number-btn"
+                    onClick={() => setPassengers(Math.max(0, num_passengers - 1))}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="number-value">{num_passengers}</span>
+                  <button 
+                    className="number-btn"
+                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="search-actions">
@@ -218,13 +344,23 @@ export default function ClientMain() {
             <div className="form-group">
               <label>Enter origin:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  type="text"
-                  placeholder="Rua das Oliveiras, Campo Grande"
-                  value={origin_address}
-                  onChange={(e) => setOriginAddress(e.target.value)}
-                  style={{ flex: 1 }}
-                />
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <button
+                    className="input-search-btn"
+                    onClick={() => handleSearchAddress('origin')}
+                    title="Search address"
+                  >
+                    <Search size={16} />
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="Rua das Oliveiras, Campo Grande"
+                    value={origin_address}
+                    onChange={(e) => setOriginAddress(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('origin')}
+                    style={{ width: '100%' }}
+                  />
+                </div>
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'origin' ? 'active' : ''}`}
                   onClick={() => setSelectingFor(selectingFor === 'origin' ? null : 'origin')}
@@ -238,13 +374,23 @@ export default function ClientMain() {
             <div className="form-group">
               <label>Enter destination:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  type="text"
-                  placeholder="Avenida Dos Campos, Saldanha"
-                  value={dest_address}
-                  onChange={(e) => setDestinationAddress(e.target.value)}
-                  style={{ flex: 1 }}
-                />
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <button
+                    className="input-search-btn"
+                    onClick={() => handleSearchAddress('destination')}
+                    title="Search address"
+                  >
+                    <Search size={16} />
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="Avenida Dos Campos, Saldanha"
+                    value={dest_address}
+                    onChange={(e) => setDestinationAddress(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('destination')}
+                    style={{ width: '100%' }}
+                  />
+                </div>
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'destination' ? 'active' : ''}`}
                   onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
@@ -252,6 +398,38 @@ export default function ClientMain() {
                 >
                   <MapPin size={20} />
                 </button>
+              </div>
+            </div>
+
+            <div className="trip-settings-row">
+              <div className="setting-item">
+                <label>Comfort Level</label>
+                <select 
+                  className="setting-input"
+                  value={comfort_level}
+                  onChange={(e) => setComfort(e.target.value)}
+                >
+                  <option value="Basic">Basic</option>
+                  <option value="Luxury">Luxury</option>
+                </select>
+              </div>
+              <div className="setting-item">
+                <label>Passengers (0-6)</label>
+                <div className="number-control">
+                  <button 
+                    className="number-btn"
+                    onClick={() => setPassengers(Math.max(0, num_passengers - 1))}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="number-value">{num_passengers}</span>
+                  <button 
+                    className="number-btn"
+                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
