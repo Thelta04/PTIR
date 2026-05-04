@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
@@ -6,15 +5,6 @@ import { motion } from 'framer-motion';
 export default function DecisionDriver() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selection, setSelection] = useState('DRIVER'); // Default to Driver as it's a driver account
-
-  const handleConfirm = () => {
-    if (selection === 'DRIVER') {
-      navigate('/driver');
-    } else {
-      navigate('/client');
-    }
-  };
 
   return (
     <div className="decision-page">
@@ -28,25 +18,22 @@ export default function DecisionDriver() {
 
         <div className="decision-options">
           <motion.div
-            className={`decision-option ${selection === 'DRIVER' ? 'active' : ''}`}
-            onClick={() => setSelection('DRIVER')}
+            className="decision-option"
+            onClick={() => navigate('/driver')}
             whileTap={{ scale: 0.95 }}
           >
             Motorista
           </motion.div>
 
           <motion.div
-            className={`decision-option ${selection === 'CLIENT' ? 'active' : ''}`}
-            onClick={() => setSelection('CLIENT')}
+            className="decision-option"
+            onClick={() => navigate('/client')}
             whileTap={{ scale: 0.95 }}
           >
             Cliente
           </motion.div>
         </div>
 
-        <button className="confirm-btn" onClick={handleConfirm}>
-          Confirmar
-        </button>
       </div>
     </div>
   );

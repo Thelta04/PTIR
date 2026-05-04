@@ -6,7 +6,7 @@ import LoginUser from './pages/LoginUser';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 import DriverMain from './pages/driver/DriverMain';
 import DecisionDriver from './pages/driver/DecisionDriver';
-import ClientDashboard from './pages/client/ClientDashboard';
+import ClientMain from './pages/client/ClientMain';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
@@ -53,10 +53,12 @@ function App() {
           } />
 
           <Route path="/client" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
-              <ClientDashboard />
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
+              <ClientMain />
             </ProtectedRoute>
           } />
+
+          {/* <Route path="/Client" element={<ClientMain />} /> */}
 
           <Route path="*" element={<HomeRedirect />} />
         </Routes>

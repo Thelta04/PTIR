@@ -1,41 +1,194 @@
 # PTIR - Taxi Fleet Management System
 
-Welcome to the PTIR Taxi Management application. This document serves as a quick reference for developers working on the project, especially for things that are easy to forget.
+Aplicação de gestão de frotas de táxis com deployment automatizado em Google Cloud Platform (GCP).
 
-## Project Structure
+## Estrutura do Projeto
 
-- **`backend/`**: Django REST Framework API. Contains the `core` configuration and the `api` app.
-- **`database/`**: PostgreSQL database scripts (`schema.sql`, `inserts.sql`) and setup bash scripts.
-- **`frontend/`**: Vite + React frontend application.
-
-## Database Management (PostgreSQL)
-
-The application uses PostgreSQL. The database name is `tuxy_db` and it's accessed via the `tuxy_user`.
-
-### Resetting / Populating the Database
-If you need to wipe the database clean and start over with the default mock data, use the provided script from the `database/` folder:
-
-```bash
-cd database
-sudo bash start_db.sh
+```
+├── backend/            # API Django REST Framework (core + api app)
+├── frontend/           # Aplicação React + Vite (SPA)
+├── database/           # Scripts SQL (schema.sql, inserts.sql)
+├── scripts/            # Scripts de automação de infraestrutura
+│   ├── create_vms.sh           # Criação das VMs no GCP
+│   ├── deploy.sh               # Script principal de deployment
+│   ├── setup_db.sh             # Setup do PostgreSQL nas VMs de BD
+│   ├── setup_webapp.sh  # Setup do backend+frontend nas VMs web
+│   ├── setup_lb.sh             # Setup do Nginx load balancer
+│   └── lb_healthcheck.sh       # Healthcheck dinâmico (cron job)
+└── .env                # Variáveis de ambiente (credenciais, config)
 ```
 
-## Running via Docker
+---
 
-The entire application can be run using Docker Compose, orchestrating the PostgreSQL database, Django backend (Gunicorn), and an Nginx reverse proxy serving the compiled React frontend.
+## Arquitetura de Deployment
 
-1. Get the `.env` file (Available at Discord)
-2. Build and start all services:
-   ```bash
-   docker compose up --build
-   ```
+A infraestrutura segue uma arquitetura em camadas com redundância:
 
-- **Frontend:** Accessible at `http://localhost:80`
-- **Backend API:** Proxied through Nginx at `http://localhost:80/api/`
+```
+                    Internet
+                       │
+                ┌──────┴──────┐
+                │   LB VIP    │  ← 10.10.10.100 (Keepalived / VRRP)
+                └──────┬──────┘
+                       │
+           ┌───────────┴───────────┐
+    ┌──────┴──────┐         ┌──────┴──────┐
+    │   lb-01     │         │   lb-02     │
+    │ 10.10.10.10 │         │ 10.10.10.11 │
+    └──────┬──────┘         └──────┬──────┘
+        (Master)                 (Backup)
+           │                       │
+           └───────────┬───────────┘
+                       │
+           ┌───────────┴───────────┐
+           │                       │
+    ┌──────┴──────┐         ┌──────┴──────┐
+    │   web-1     │         │   web-2     │
+    │ 10.10.10.20 │         │ 10.10.10.21 │
+    └──────┬──────┘         └──────┬──────┘
+           │  Nginx (:8000) → Gunicorn (:8001)
+           │  Frontend SPA + Backend API
+           │
+    ┌──────┴──────┐         ┌──────┴──────┐
+    │    db-01    │         │    db-02    │
+    │ 10.10.10.30 │         │ 10.10.10.31 │
+    └─────────────┘         └─────────────┘
+       (Primary)               (Replica)
+```
 
-## Running the Backend (Without Docker)
+### Componentes
 
-Ensure your virtual environment is active, then start the Django development server:
+| VM | IP Interno | Função | Software |
+|:---|:-----------|:-------|:---------|
+| `VIP` | 10.10.10.100 | Entry point flutuante | Keepalived (VRRP) |
+| `lb-01` | 10.10.10.10 | Load Balancer (Master) | Nginx + Keepalived |
+| `lb-02` | 10.10.10.11 | Load Balancer (Backup) | Nginx + Keepalived |
+| `web-1` | 10.10.10.20 | Webapp | Nginx + Gunicorn |
+| `web-2` | 10.10.10.21 | Webapp | Nginx + Gunicorn |
+| `db-01` | 10.10.10.30 | DB (Primária) | PostgreSQL |
+| `db-02` | 10.10.10.31 | DB (Backup/Replica) | PostgreSQL |
+
+### Fluxo de um Pedido
+
+1. O utilizador acede ao IP externo do load balancer (porta 80)
+2. O **Nginx do LB** distribui o pedido para um dos servidores web (`web-1` ou `web-2`) na porta 8000
+3. O **Nginx da webapp** serve ficheiros estáticos do frontend (SPA React) diretamente, ou faz proxy de pedidos `/api/` e `/admin/` para o Gunicorn na porta 8001
+4. O **Gunicorn** executa a aplicação Django que comunica com o PostgreSQL em `10.10.10.30:5432`
+
+### Healthcheck Dinâmico
+
+O load balancer executa um **cron job a cada minuto** (`lb_healthcheck.sh`) que:
+1. Faz `curl` ao endpoint `/api/check/` de cada webapp
+2. Remove servidores que não respondem da configuração do Nginx
+3. Faz `reload` do Nginx apenas se a configuração mudou (comparação por MD5)
+
+---
+
+## Alta Disponibilidade (HA) e Resiliência
+
+O sistema implementa vários mecanismos para garantir continuidade de serviço:
+
+### 1. Load Balancer Failover (Keepalived)
+Utiliza o protocolo **VRRP** via **Keepalived** para gerir um **IP Virtual (VIP) 10.10.10.100**.
+- **lb-01 (MASTER):** Assume o VIP por defeito.
+- **lb-02 (BACKUP):** Monitoriza o Master. Se o Master falhar (VM em baixo ou processo Nginx parado via `check_nginx.sh`), o Backup assume o VIP instantaneamente.
+
+### 2. Database Failover (Auto-Promotion)
+As bases de dados operam num modelo Primária-Réplica. O script `db_healthcheck.sh` corre na réplica e:
+1. Verifica se a réplica consegue comunicar com a primária.
+2. Se a primária estiver inacessível após várias tentativas, a réplica executa `pg_promote()` para se tornar a nova Primária.
+
+### 3. Auto-Replacement de Nós
+O script `auto_replace_node.sh` permite a substituição automática de instâncias falhadas.
+- Deteta falhas em qualquer tipo de nó (`lb`, `db`, `web`).
+- Provisiona uma nova instância com a configuração correta (IP estático, tags de rede, tipo de máquina) para manter a redundância desejada.
+
+### 4. Verificação de Arquitetura
+O script `verify_architecture.sh` automatiza testes de:
+- Conetividade da API através do VIP.
+- Verificação de Load Balancing (via header `X-Served-By`).
+- Simulação de failover (parar MASTER e verificar se o VIP migra).
+
+---
+
+## Como Fazer o Deployment
+
+### Pré-requisitos
+
+- **Google Cloud SDK** (`gcloud`) instalado e autenticado
+- Acesso ao projeto GCP (`project-dc8596f3-77e8-4941-a9a`)
+- **Node.js/npm** instalado localmente (para compilar o frontend)
+- Ficheiro `.env` configurado na raiz do projeto
+
+### 1. Criar as VMs (apenas na primeira vez)
+
+```bash
+bash scripts/create_vms.sh
+```
+
+Este script cria 6 VMs na zona `europe-southwest1-c`:
+- 2× Load Balancer (`lb-01`, `lb-02`)
+- 2× WebApp (`web-1`, `web-2`)
+- 2× Base de Dados (`db-01`, `db-02`)
+
+> **Nota:** O número de VMs webapp é configurável com `NUM_WEBAPP_VMS=3 bash scripts/create_vms.sh`
+
+### 2. Deploy completo
+
+```bash
+bash scripts/deploy.sh
+```
+
+Este é o **único comando necessário** para ir de VMs limpas a uma aplicação funcional. O script executa 4 fases:
+
+#### Fase 0 — Build & Empacotamento
+- Compila o frontend React (`npm run build`)
+- Cria um tarball com `backend/`, `frontend/dist/`, `scripts/`, e `database/`
+- O `venv/` local é excluído do tarball para não corromper o ambiente remoto
+
+#### Fase 1 — Setup das Bases de Dados
+Para cada VM de BD (`db-01`, `db-02`):
+- Instala o PostgreSQL (se não estiver instalado)
+- Aplica o `schema.sql` e `inserts.sql`
+- Configura permissões de rede para a subnet `10.10.10.0/24`
+- Atribui privilégios ao utilizador da aplicação (`tuxy_user`)
+
+#### Fase 2 — Deploy das WebApps (Rolling Update)
+Para cada VM webapp (`web-1`, `web-2`), sequencialmente:
+- Envia o tarball via `gcloud compute scp`
+- Instala dependências do sistema (Python, Nginx, etc.)
+- Cria um `venv` Python e instala as dependências
+- Configura o **Gunicorn** como serviço systemd
+- Configura o **Nginx** para servir o frontend e fazer proxy do backend
+- Executa as migrações Django (apenas na primeira VM)
+- Executa um **health check** antes de avançar para a próxima VM
+
+> O rolling update garante que pelo menos um servidor está sempre disponível durante o deployment.
+
+#### Fase 3 — Setup dos Load Balancers
+Para cada VM LB (`lb-01`, `lb-02`):
+- Instala o Nginx
+- Configura o upstream com os IPs das webapps
+- Instala o cron job de healthcheck
+
+### 3. Deploy rápido (apenas .env ou config)
+
+Se só o `.env` mudou:
+
+```bash
+# Enviar .env atualizado e reiniciar
+gcloud compute scp .env web-1:/tmp/.env --project="project-dc8596f3-77e8-4941-a9a" --zone="europe-southwest1-c" --tunnel-through-iap
+gcloud compute ssh web-1 --project="project-dc8596f3-77e8-4941-a9a" --zone="europe-southwest1-c" --tunnel-through-iap \
+    --command="sudo cp /tmp/.env /home/athen/app/backend/.env && sudo systemctl restart gunicorn"
+```
+
+Repetir para `web-2`.
+
+---
+
+## Desenvolvimento Local
+
+### Backend
 
 ```bash
 cd backend
@@ -43,11 +196,9 @@ source venv/bin/activate
 python manage.py runserver
 ```
 
-## Running the Frontend (Local Development)
+### Frontend
 
-The frontend is built with React and Vite. For local development, the Vite server proxies all `/api` requests to `localhost:8000` (the Django backend), effectively bypassing CORS issues.
-
-Make sure your Django backend is running on port 8000 (either via Docker or locally).
+O Vite faz proxy de pedidos `/api` para `localhost:8000` (Django), evitando problemas de CORS.
 
 ```bash
 cd frontend
@@ -55,72 +206,101 @@ npm install
 npm run dev
 ```
 
-The frontend will be accessible at `http://localhost:5173/`.
+Frontend acessível em `http://localhost:5173/`.
 
-## API Documentation (Swagger)
+---
 
-The project uses `drf-spectacular` to automatically generate OpenAPI documentation based on the API views and serializers.
+## Documentação da API (Swagger)
 
-When the backend server is running (`localhost:8000`), you can access the docs at:
-- **Swagger UI:** [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
-- **Raw Schema:** [http://localhost:8000/api/schema/](http://localhost:8000/api/schema/)
+O projeto usa `drf-spectacular` para gerar documentação OpenAPI automaticamente.
 
-## Default Test Accounts
+Com o servidor a correr:
+- **Swagger UI:** `http://<host>/api/docs/`
+- **Schema Raw:** `http://<host>/api/schema/`
 
-After running `./start_db.sh`, the following accounts are available for testing (password is `password` specified, e.g. `Joao123`):
+---
 
-| ID | Role | Name | Email | Password |
-| :--- | :--- | :--- | :--- | :--- |
-|1| **Driver** | Joao Silva | `joao@email.com` | `Joao123` |
-|2| **Driver** | Pedro Santos | `pedro@email.com` | `Pedro123` |
-|3| **Client** | Maria Costa | `maria@email.com` | `Maria123` |
-|4| **Client** | Ana Ferreira | `ana@email.com` | `Ana123` |
-|5| **Manager** | Carlos Mendes | `carlos@email.com` | `Carlos123` |
+## Contas de Teste
 
-## JWT Authentication (Manager Endpoints)
+Após o deployment (com `inserts.sql` aplicado):
 
-Manager-only endpoints are protected with JWT. Clients and Drivers do **not** use tokens.
+| ID | Papel | Nome | Email | Password |
+|:---|:------|:-----|:------|:---------|
+| 1 | **Driver** | João Silva | `joao@email.com` | `Joao123` |
+| 2 | **Driver** | Pedro Santos | `pedro@email.com` | `Pedro123` |
+| 3 | **Client** | Maria Costa | `maria@email.com` | `Maria123` |
+| 4 | **Client** | Ana Ferreira | `ana@email.com` | `Ana123` |
+| 5 | **Manager** | Carlos Mendes | `carlos@email.com` | `Carlos123` |
 
-### Flow
+---
 
-1. **Login** — `POST /api/auth/login/` with `email` + `password`. Managers receive `access` and `refresh` tokens in the response.
-2. **Use the token** — include `Authorization: Bearer <access_token>` in requests to protected endpoints.
-3. **Refresh** — when the access token expires (30 min), call `POST /api/auth/token/refresh/` with the `refresh` token to get a new access token. Refresh tokens last 7 days.
+## Autenticação JWT (Endpoints de Manager)
 
-### Protected Endpoints
+Endpoints de gestão são protegidos com JWT. Clients e Drivers **não** usam tokens.
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| POST | `/api/taxi/create/` | Create a new taxi |
-| POST | `/api/shift/create/` | Create a new shift |
-| DELETE | `/api/shift/<id>/delete/` | Delete a shift |
-| PATCH | `/api/user/<id>/toggle-status/` | Ban / unban a user |
+### Fluxo
 
-### Example (cURL)
+1. **Login** — `POST /api/auth/login/` com `email` + `password`. Managers recebem tokens `access` e `refresh`.
+2. **Usar o token** — incluir `Authorization: Bearer <access_token>` nos headers.
+3. **Refresh** — quando o access token expira (30 min), chamar `POST /api/auth/token/refresh/` com o `refresh` token. Refresh tokens duram 7 dias.
+
+### Endpoints Protegidos
+
+| Método | Endpoint | Descrição |
+|:-------|:---------|:----------|
+| POST | `/api/taxi/create/` | Criar um novo táxi |
+| POST | `/api/shift/create/` | Criar um novo turno |
+| DELETE | `/api/shift/<id>/delete/` | Apagar um turno |
+| PATCH | `/api/user/<id>/toggle-status/` | Banir / desbanir utilizador |
+
+### Exemplo (cURL)
 
 ```bash
-# 1. Login as manager
-curl -X POST http://localhost:8000/api/auth/login/ \
+# 1. Login como manager
+curl -X POST http://<host>/api/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{"email": "carlos@email.com", "password": "Carlos123"}'
-# Response includes: "access": "<token>", "refresh": "<token>"
 
-# 2. Use access token on a protected endpoint
-curl -X POST http://localhost:8000/api/taxi/create/ \
+# 2. Usar access token num endpoint protegido
+curl -X POST http://<host>/api/taxi/create/ \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <access_token>" \
   -d '{"license_plate": "XX-99-YY", ...}'
 
-# 3. Refresh an expired access token
-curl -X POST http://localhost:8000/api/auth/token/refresh/ \
+# 3. Refresh de um access token expirado
+curl -X POST http://<host>/api/auth/token/refresh/ \
   -H "Content-Type: application/json" \
   -d '{"refresh": "<refresh_token>"}'
 ```
 
-## Important Reminders
+---
 
-1. **Banning:** Any user can be banned by a Manager (JWT required). A banned user (`is_banned=True`) will fail authentication at the `/auth/login/` endpoint.
-2. **Dates and Times:** Ensure `timezone.now()` is used rather than standard Python `datetime` for tz-aware operations where needed.
-3. **Database Schema Mappings:** The PostgreSQL database schema uses custom naming conventions (e.g., `id_scheduled_interval`, `id_taxi`, `id_trip`). When modifying Django models with Foreign Keys or OneToOne fields, you **MUST** explicitly specify the `db_column` attribute (e.g., `db_column='id_taxi'`). Otherwise, Django will default to `<field_name>_id` and queries will crash with `column does not exist` errors.
-4. **API Endpoint Conventions:** The REST API strictly uses **singular nomenclature** for overarching endpoints. For example, use `/api/driver/`, `/api/taxi/`, and `/api/shift/` to grab bulk lists, rather than pluralizing them as `drivers/`. This keeps bulk endpoints strictly consistent with creation endpoints (e.g., `/api/driver/create/`).
-5. **CORS & Proxy Layout:** You do *not* need to manage a `django-cors-headers` middleware. For local React development, Vite safely reverse-proxies `/api` traffic directly to Django on port `8000`. In the `docker-compose` production environment, **Nginx** handles both the React compiled SPA and backend routing collectively via port `80`. Always use relative paths like `api.get('driver/')` in `client.js`.
+## Notas Importantes
+
+1. **Schema da BD:** O PostgreSQL usa naming conventions específicas (e.g., `id_scheduled_interval`, `id_taxi`). Ao modificar modelos Django com ForeignKey, especificar **sempre** `db_column` (e.g., `db_column='id_taxi'`).
+2. **Convenção de Endpoints:** A API usa **nomenclatura singular** (e.g., `/api/driver/`, `/api/taxi/`, `/api/shift/`).
+3. **Banning:** Qualquer utilizador pode ser banido por um Manager. Um utilizador banido falha a autenticação no endpoint `/auth/login/`.
+4. **CORS:** Não é necessário `django-cors-headers`. Em desenvolvimento o Vite faz proxy, e em produção o Nginx trata do routing.
+5. **Acesso SSH às VMs:** Todas as VMs usam IAP (Identity-Aware Proxy), não é necessário expor a porta 22:
+   ```bash
+   gcloud compute ssh <vm-name> --project="project-dc8596f3-77e8-4941-a9a" \
+       --zone="europe-southwest1-c" --tunnel-through-iap
+   ```
+
+---
+
+## Scripts de Infraestrutura
+
+| Script | Onde corre | O que faz |
+|:-------|:-----------|:----------|
+| `create_vms.sh` | Local | Cria as 6 VMs no GCP com IPs estáticos |
+| `deploy.sh` | Local | Orquestra todo o deployment (build → DB → webapp → LB) |
+| `setup_db.sh` | VM de BD | Instala PostgreSQL, aplica schema, cria utilizador |
+| `setup_webapp.sh` | VM webapp | Instala deps, configura Gunicorn+Nginx, corre migrações |
+| `setup_lb.sh` | VM LB | Configura Nginx e Keepalived (Master/Backup) |
+| `lb_healthcheck.sh` | VM LB (cron) | Verifica saúde das webapps e atualiza Nginx a cada minuto |
+| `db_healthcheck.sh` | VM de BD | Monitoriza a primária e promove a réplica em caso de falha |
+| `check_nginx.sh` | VM LB | Usado pelo Keepalived para verificar se o Nginx está vivo |
+| `auto_replace_node.sh` | Local | Provisiona automaticamente um nó de substituição em caso de falha |
+| `verify_architecture.sh` | Local | Suite de testes para validar a arquitetura e failover |
+| `config.sh` | - | Configurações centralizadas (Project ID, IPs, Tags) |

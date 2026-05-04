@@ -1,3 +1,5 @@
+from django.db import connection
+import socket
 from rest_framework import generics, views, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -608,14 +610,14 @@ class TripCreateView(views.APIView):
             client=client,
             shift=None,
             interval=interval,
-            originAddress=data['originAddress'],
-            destAddress=data['destAddress'],
-            originCoords=origin_coords,
-            destCoords=dest_coords,
+            originAddress=data['origin'],           # origin from serializer → originAddress in model            destination=data['destination'],
+            destAddress=data['destination'],        # destination from serializer → destAddress in model
+            originCoords='0,2',       # placeholder — não tens coords no serializer
+            destCoords='0,0',  
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=kilometers,
-            price=price,
+            kilometers=1,   # ainda não conhecido no momento do pedido
+            price=1,        # ainda não conhecido no momento do pedido
             status='PENDING'
         )
         
@@ -785,3 +787,33 @@ class TripCompleteView(views.APIView):
         
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+class CheckHealthView(views.APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    
+    @extend_schema(
+        summary="Health Check",
+        description="Returns the status of the API and its database connection.",
+        responses={200: inline_serializer(
+            name='CheckHealthResponse',
+            fields={'status': serializers.CharField(), 'database': serializers.CharField(), 'hostname': serializers.CharField()}
+        )}
+    )
+    def get(self, request):
+        health = {
+            "status": "OK",
+            "hostname": socket.gethostname(),
+            "ip": socket.gethostbyname(socket.gethostname()),
+            "database": "OK"
+        }
+        try:
+            # Attempt a simple database query to verify connectivity
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        except Exception as e:
+            health["status"] = "ERROR"
+            health["database"] = f"Unreachable: {str(e)}"
+            return Response(health, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+        return Response(health, status=status.HTTP_200_OK)

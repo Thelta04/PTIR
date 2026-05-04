@@ -23,7 +23,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response && (error.response.status === 401 || error.response.status === 403) && !originalRequest._retry) {
+    // Skip retry for login and refresh endpoints to avoid infinite loops or double-triggering
+    const isAuthPath = originalRequest.url.includes('auth/login') || originalRequest.url.includes('auth/token/refresh');
+
+    if (error.response && (error.response.status === 401 || error.response.status === 403) && !originalRequest._retry && !isAuthPath) {
       originalRequest._retry = true;
       const stored = localStorage.getItem('tuxy_user');
       

@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS rating, invoice, trip_request, trip, refueling, shift, time_interval, driver, manager, client, user_account, taxi CASCADE;
+DROP TABLE IF EXISTS rating, invoice, trip, refueling, shift, time_interval, driver, manager, client, user_account, taxi CASCADE;
 
 -- TAXI
 CREATE TABLE taxi ( 
