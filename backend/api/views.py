@@ -632,11 +632,7 @@ class TripCreateView(views.APIView):
 
 
         interval = TimeInterval.objects.create(
-            start_time=timezone.now(),
-            end_time=None
-        )
-        interval = TimeInterval.objects.create(
-            start_time=timezone.now(),
+            start_time=data['scheduled_time'],
             end_time=None
         )
         

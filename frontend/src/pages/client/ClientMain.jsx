@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { createTrip } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
@@ -9,6 +10,7 @@ import './client.css';
 import '../../components/map-background.css';
 
 export default function ClientMain() {
+  const { user } = useAuth();
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -22,9 +24,10 @@ export default function ClientMain() {
   const [dateTime, setDateTime] = useState('');
 
   const [num_passengers, setPassengers] = useState(1);
-  const [comfort_level, setComfort] = useState('Basic');
-  const [engine, setEngine] = useState('Fuel');
-  const [status, setState] = useState('PENDING');
+  const [comfort_level, setComfort] = useState('basic');
+  const [engine, setEngine] = useState('fuel');  // NOT USED
+  const [status, setState] = useState('PENDING'); // NOT USED
+  const [scheduled_time, setScheduledTime] = useState(null); // NOT USED
 
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
@@ -114,6 +117,24 @@ export default function ClientMain() {
     setCurrentView('searching');
     setState('PENDING');
   };
+
+  const handleConfirmRide = async () => {
+    setState('PENDING');
+    try {
+      await createTrip({
+        client_id: user.id,
+        originAddress: origin_address,
+        destAddress: dest_address,
+        comfort_level,
+        num_passengers,
+        scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
+      });
+      alert('Trip Confirmed! We are processing your request.');
+      setCurrentView('initial');
+    } catch (error) {
+      alert('Error creating trip: ' + (error.response?.data?.message || error.message));
+    }
+  }
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -250,11 +271,7 @@ export default function ClientMain() {
 
             <button
               className="search-btn search-btn--primary"
-              onClick={() => {
-                alert('Trip Confirmed! We are processing your request.');
-                setCurrentView('initial');
-                setState('PENDING');
-              }}
+              onClick={handleConfirmRide}
               style={{ 
                 marginTop: '10px',
                 padding: '12px 0',  
@@ -297,10 +314,10 @@ export default function ClientMain() {
                 <select 
                   className="setting-input"
                   value={comfort_level}
-                  onChange={(e) => setComfort(e.target.value)}
+                  onChange={(e) => setComfort((e.target.value))}
                 >
-                  <option value="Basic">Basic</option>
-                  <option value="Luxury">Luxury</option>
+                  <option value="basic">Basic</option>
+                  <option value="luxury">Luxury</option>
                 </select>
               </div>
               <div className="setting-item">
@@ -308,7 +325,7 @@ export default function ClientMain() {
                 <div className="number-control">
                   <button 
                     className="number-btn"
-                    onClick={() => setPassengers(Math.max(0, num_passengers - 1))}
+                    onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
                   >
                     <Minus size={16} />
                   </button>
@@ -409,16 +426,16 @@ export default function ClientMain() {
                   value={comfort_level}
                   onChange={(e) => setComfort(e.target.value)}
                 >
-                  <option value="Basic">Basic</option>
-                  <option value="Luxury">Luxury</option>
+                  <option value="basic">Basic</option>
+                  <option value="luxury">Luxury</option>
                 </select>
               </div>
               <div className="setting-item">
-                <label>Passengers (0-6)</label>
+                <label>Passengers</label>
                 <div className="number-control">
                   <button 
                     className="number-btn"
-                    onClick={() => setPassengers(Math.max(0, num_passengers - 1))}
+                    onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
                   >
                     <Minus size={16} />
                   </button>
