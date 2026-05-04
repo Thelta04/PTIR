@@ -93,40 +93,14 @@ class TripCreateSerializer(serializers.Serializer):
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
 
 
-def validate(self, data):
-    # RIA: origin != destination
-    if data['origin'] == data['destination']:
-        raise serializers.ValidationError("Origin and destination cannot be the same.")
-    
-    # RIA: interval valid
-    if data['start_time'] >= data['end_time']:
-        raise serializers.ValidationError("start_time must be before end_time.")
-    
-    # Validate if client exists
-    if not Client.objects.filter(user__id=data['client_id']).exists():
-        raise serializers.ValidationError("Client not found.")
-    
-    # Validate if shift exists
-    shift = Shift.objects.filter(id=data['shift_id']).first()
-    if not shift:
-        raise serializers.ValidationError("Shift not found.")
+    def validate(self, data):
+        origin = data.get('origin')
+        destination = data.get('destination')
         
-    # RIA: Trip must be contained within the Shift
-    shift_interval = shift.real_interval if shift.real_interval else shift.scheduled_interval
-    if shift_interval:
-        shift_start = shift_interval.start_time
-        shift_end   = shift_interval.end_time
-
-        # Normalize: make both aware or both naive
-        if tz.is_naive(shift_start):
-            shift_start = tz.make_aware(shift_start)
-        if shift_end and tz.is_naive(shift_end):
-            shift_end = tz.make_aware(shift_end)
-
-        if data['start_time'] < shift_start or (shift_end and data['end_time'] > shift_end):
-            raise serializers.ValidationError("The trip period must be contained within the corresponding shift period.")
-    
-    return data
+        if origin and destination and origin == destination:
+            raise serializers.ValidationError("Origin and destination cannot be the same.")
+        
+        return data
 
 class ShiftCreateSerializer(serializers.Serializer):
     driver_id          = serializers.IntegerField()
@@ -278,9 +252,16 @@ class RatingListSerializer(serializers.ModelSerializer):
 #PATCH 
 class TripAcceptSerializer(serializers.Serializer):
     driver_id = serializers.IntegerField()
+    shift_id  = serializers.IntegerField()
+
     def validate_driver_id(self, value):
         if not Driver.objects.filter(user__id=value).exists():
-            raise serializers.ValidationError("Motorista não encontrado.")
+            raise serializers.ValidationError("Driver not found.")
+        return value
+
+    def validate_shift_id(self, value):
+        if not Shift.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Shift not found.")
         return value
 
 class TripCancelSerializer(serializers.Serializer):
