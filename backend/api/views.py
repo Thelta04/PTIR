@@ -824,6 +824,7 @@ class TripCancelView(views.APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 class TripCompleteView(views.APIView):
+    #FALTA CONVERTER COORDS PARA ENDEREÇO
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",

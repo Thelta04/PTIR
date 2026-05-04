@@ -34,12 +34,14 @@ INSERT INTO time_interval (start_time, end_time) VALUES
 ('2025-01-01 18:00:00+00:00', '2025-01-01 18:45:00+00:00'),
 ('2025-01-01 11:00:00+00:00', '2025-01-01 11:30:00+00:00'),
 ('2025-01-01 19:00:00+00:00', '2025-01-01 19:40:00+00:00'),
+(CURRENT_TIMESTAMP - INTERVAL '1 hour', CURRENT_TIMESTAMP + INTERVAL '7 hours'),
 (CURRENT_TIMESTAMP - INTERVAL '1 hour', NULL);
 
 -- SHIFT
 INSERT INTO shift (id_taxi, id_driver, id_scheduled_interval, id_real_interval) VALUES
-('AA-11-BB', 1, 1, 7),
-('EE-33-FF', 3, 2, NULL);
+('AA-11-BB', 1, 1, NULL),
+('EE-33-FF', 3, 2, NULL),
+('AA-11-BB', 1, 7, 8);
 
 -- TRIP
 INSERT INTO trip(id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval) VALUES
@@ -54,10 +56,10 @@ INSERT INTO time_interval (start_time, end_time) VALUES
 (CURRENT_TIMESTAMP, NULL);
 
 INSERT INTO trip (id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval) VALUES
-(2, 5,  '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa',            'Saldanha, Lisboa',          'basic',   6.50, 1, 'PENDING', NULL, 8),
-(4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 9),
-(2, 3,  '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa',      'basic',   4.90, 4, 'PENDING', NULL, 10),
-(4, 8,  '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa',           'El Corte Inglés, Lisboa',   'basic',  14.50, 2, 'PENDING', NULL, 11);
+(2, 5,  '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa',            'Saldanha, Lisboa',          'basic',   6.50, 1, 'PENDING', NULL, 9),
+(4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 10),
+(2, 3,  '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa',      'basic',   4.90, 4, 'PENDING', NULL, 11),
+(4, 8,  '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa',           'El Corte Inglés, Lisboa',   'basic',  14.50, 2, 'PENDING', NULL, 12);
 
 -- REFUELING
 INSERT INTO refueling (cost, kwh, liters, initial_mileage, id_shift, id_interval) VALUES
