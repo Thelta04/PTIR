@@ -11,6 +11,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
 import requests
+import math
 
  
 # --- Views with Business Logic ---
@@ -499,11 +500,13 @@ class TokenRefreshView(views.APIView):
 class TripListView(views.APIView):
     @extend_schema(
         summary="List all trips",
-        description="Returns all trips. Can be filtered by status.",
+        description="Returns all trips. Can be filtered by status. Optionally pass 'lat' and 'lon' query parameters to sort by distance from driver to the trip's origin.",
         responses={200: TripListSerializer(many=True)}
     )
     def get(self, request):
         status_filter = request.query_params.get('status', None)
+        driver_lat = request.query_params.get('lat', None)
+        driver_lon = request.query_params.get('lon', None)
         
         trips = Trip.objects.select_related(
             'client__user',
@@ -515,7 +518,38 @@ class TripListView(views.APIView):
         if status_filter:
             trips = trips.filter(status=status_filter)
         
-        serializer = TripListSerializer(trips, many=True)
+        trips_list = list(trips)
+
+        if driver_lat and driver_lon:
+            try:
+                d_lat = float(driver_lat)
+                d_lon = float(driver_lon)
+                
+                # Haversine formula inline or helper to calculate distance
+                def haversine(lat1, lon1, lat2, lon2):
+                    R = 6371.0 # Earth radius in km
+                    dlat = math.radians(lat2 - lat1)
+                    dlon = math.radians(lon2 - lon1)
+                    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+                    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                    return R * c
+
+                for trip in trips_list:
+                    if trip.originCoords:
+                        try:
+                            t_lat, t_lon = map(float, trip.originCoords.split(','))
+                            trip._distance = haversine(d_lat, d_lon, t_lat, t_lon)
+                        except ValueError:
+                            trip._distance = float('inf')
+                    else:
+                        trip._distance = float('inf')
+                
+                # Sort the list by calculated distance
+                trips_list.sort(key=lambda t: t._distance)
+            except ValueError:
+                pass # Ignore invalid lat/lon inputs
+
+        serializer = TripListSerializer(trips_list, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 def geocode_address(address: str) -> str:
