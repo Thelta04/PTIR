@@ -80,7 +80,7 @@ $(echo -e "$UPSTREAM_BLOCK")
 
 server {
     listen 80;
-    server_name _;
+    server_name tuxy.pt;
 
     location / {
         proxy_pass http://webapp_servers;
@@ -89,6 +89,56 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_pass_header X-Served-By;
+    }
+}
+server {
+    listen 443 ssl http2;
+    server_name tuxy.pt;
+
+    # SSL Certificates
+    ssl_certificate /etc/letsencrypt/live/tuxy.pt/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tuxy.pt/privkey.pem;
+
+    # Security Headers
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    # Performance: Gzip
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+
+    # Standard Proxy Headers (Inherited by all location blocks)
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+
+    # Frontend: Serve Vite Static Files
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+        expires 30d; # Cache static assets
+    }
+
+    # Backend: Proxy API and Admin to Upstream
+    location ~ ^/(api|admin)/ {
+        proxy_pass http://webapp_servers;
+        
+        # Stability: Buffer tuning for production
+        proxy_buffers 8 16k;
+        proxy_buffer_size 32k;
+
+        # Keep the custom header from your previous config
+        proxy_pass_header X-Served-By;
+    }
+
+    # Django Static/Media (Avoid proxying these to Python)
+    location /static/ {
+        alias /var/www/tuxy/static/; 
     }
 }
 EOF
