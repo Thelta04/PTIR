@@ -251,7 +251,6 @@ class RatingListSerializer(serializers.ModelSerializer):
 
 #PATCH 
 class TripAcceptSerializer(serializers.Serializer):
-    driver_id = serializers.IntegerField()
     shift_id  = serializers.IntegerField()
 
     def validate_driver_id(self, value):

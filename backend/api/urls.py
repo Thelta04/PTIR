@@ -20,6 +20,8 @@ urlpatterns = [
 
     # Taxis
     path('taxi/create/', views.TaxiCreateView.as_view(), name='create_taxi'),
+    path('taxis/<str:license_plate>/delete/', views.TaxiDeleteView.as_view(), name='delete_taxi'),
+
     
     # Shifts
     path('shift/create/', views.ShiftCreateView.as_view(), name='create_shift'),

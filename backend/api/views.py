@@ -13,6 +13,7 @@ from django.utils import timezone
 import requests
 import math
 
+
  
 # --- Views with Business Logic ---
 
@@ -214,7 +215,31 @@ class TaxiListView(views.APIView):
         taxis = Taxi.objects.all()
         serializer = TaxiDetailSerializer(taxis, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class TaxiDeleteView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
 
+    @extend_schema(
+        summary="Delete a Taxi (Manager only)",
+        description="Deletes a taxi from the fleet. Only possible if it has no associated shifts. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="TaxiDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="TaxiDeleteNotFound", fields={'error': serializers.CharField()})
+        }
+    )
+    def delete(self, request, license_plate):
+        try:
+            taxi = Taxi.objects.get(license_plate=license_plate)
+            if Shift.objects.filter(taxi=taxi).exists():
+                return Response({"error": "Cannot delete a taxi that has associated shifts."}, status=status.HTTP_403_FORBIDDEN)
+            taxi.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Taxi.DoesNotExist:
+            return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
+        
 class ShiftCreateView(views.APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -594,13 +619,13 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
     except Exception:
         return 0
 
-def calculate_price(kilometers: float, comfort_level: str, num_passengers: int) -> float:
-    BASE_FARE = 2.50        # taxa de base
-    PRICE_PER_KM_BASIC = 0.80
-    PRICE_PER_KM_LUXURY = 1.50
+def calculate_price(minutes: float, comfort_level: str) -> float:
+    BASE_FARE = 2.50
+    PRICE_PER_MIN_BASIC = 0.25
+    PRICE_PER_MIN_LUXURY = 0.50
 
-    price_per_km = PRICE_PER_KM_LUXURY if comfort_level == 'luxury' else PRICE_PER_KM_BASIC
-    price = BASE_FARE + (kilometers * price_per_km)
+    price_per_min = PRICE_PER_MIN_LUXURY if comfort_level == 'luxury' else PRICE_PER_MIN_BASIC
+    price = BASE_FARE + (minutes * price_per_min)
     return round(price, 2)
 
 class TripCreateView(views.APIView):
@@ -621,14 +646,19 @@ class TripCreateView(views.APIView):
             client = Client.objects.get(user__id=data['client_id'])
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
+        if Trip.objects.filter(client=client, status__in=active_statuses).exists():
+            return Response(
+                {"error": "Client already has an active trip."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         origin_coords = geocode_address(data['originAddress'])
         dest_coords   = geocode_address(data['destAddress'])
         
         kilometers = 0
         if origin_coords and dest_coords:
             kilometers = calculate_distance(origin_coords, dest_coords)
-        price = calculate_price(kilometers, data['comfort_level'], data['num_passengers'])
+        price = 0
 
 
         interval = TimeInterval.objects.create(
@@ -659,62 +689,35 @@ class TripCreateView(views.APIView):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 class TripAcceptView(views.APIView):
-    @extend_schema(
-        summary="Driver accepts a trip",
-        description="Driver assigns themselves to a PENDING trip by providing their shift_id. Status changes to DRIVER_ACCEPTED.",
-        request=TripAcceptSerializer,
-        responses={200: TripListSerializer}
-    )
     def patch(self, request, id):
-        # 1. Find the trip
         try:
-            trip = Trip.objects.select_related(
-                'client__user',
-                'interval'
-            ).get(id=id)
+            trip = Trip.objects.select_related('client__user', 'interval').get(id=id)
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Trip must be PENDING to be accepted
         if trip.status != 'PENDING':
-            return Response(
-                {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Validate request body
-        serializer = TripAcceptSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        shift_id = request.data.get('shift_id')
+        if not shift_id:
+            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        driver_id = serializer.validated_data['driver_id']
-        shift_id  = serializer.validated_data['shift_id']
-
-        # 4. Confirm driver exists
         try:
-            driver = Driver.objects.get(user__id=driver_id)
-        except Driver.DoesNotExist:
-            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # 5. Confirm the shift exists, belongs to this driver, and has started
-        try:
-            shift = Shift.objects.select_related('taxi').get(id=shift_id, driver=driver)
+            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
         except Shift.DoesNotExist:
-            return Response({"error": "Shift not found or does not belong to this driver."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if shift.real_interval is None:
-            return Response({"error": "Shift has not started yet (no clock-in)."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
 
         if shift.real_interval.end_time is not None:
             return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 6. Assign shift to trip and update status
-        trip.shift  = shift
+        trip.shift = shift
         trip.status = 'DRIVER_ACCEPTED'
         trip.save()
 
-        response_serializer = TripListSerializer(trip)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
 
 class RatingListView(views.APIView):
     @extend_schema(
@@ -806,23 +809,23 @@ class TripCompleteView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # Só pode completar se estiver IN_PROGRESS
         if trip.status != 'IN_PROGRESS':
             return Response(
                 {"error": f"Trip cannot be completed. Current status: {trip.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Atualizar estado
+        # Calcular duração em minutos e preço final
+        now = timezone.now()
+        minutes = (now - trip.interval.start_time).total_seconds() / 60
+        trip.price = calculate_price(minutes, trip.comfort_level)
+
         trip.status = 'COMPLETED'
         trip.save()
         
-        # Gerar fatura
-        # Buscar o último número de fatura do ano atual para incrementar
-        from django.utils import timezone
         current_year = timezone.now().year
         last_invoice = Invoice.objects.filter(date__year=current_year).order_by('-number').first()
-        next_number  = (last_invoice.number + 1) if last_invoice else 1
+        next_number = (last_invoice.number + 1) if last_invoice else 1
         
         Invoice.objects.create(
             trip=trip,
