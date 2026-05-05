@@ -29,29 +29,29 @@ api.interceptors.response.use(
     if (error.response && (error.response.status === 401 || error.response.status === 403) && !originalRequest._retry && !isAuthPath) {
       originalRequest._retry = true;
       const stored = localStorage.getItem('tuxy_user');
-      
+
       if (stored) {
         try {
           const userData = JSON.parse(stored);
           const { refresh } = userData;
-          
+
           if (refresh) {
             const res = await axios.post('/api/auth/token/refresh/', { refresh });
-            
+
             if (res.data && res.data.access) {
               userData.access = res.data.access;
               if (res.data.refresh) {
                 userData.refresh = res.data.refresh;
               }
               localStorage.setItem('tuxy_user', JSON.stringify(userData));
-              
+
               originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
               return api(originalRequest);
             }
           }
         } catch {
           localStorage.removeItem('tuxy_user');
-          window.location.href = '/'; 
+          window.location.href = '/';
         }
       }
     }
@@ -71,13 +71,13 @@ export const refreshToken = (refresh) =>
 export const getClient = (id) => api.get(`client/${id}`);
 export const listClients = () => api.get('client/');
 
-export const createClient = (data) => 
+export const createClient = (data) =>
   api.post('auth/create/client/', data);
 
 export const getDriver = (id) => api.get(`driver/${id}`);
 export const listDrivers = () => api.get('driver/');
 
-export const createDriver = (data) => 
+export const createDriver = (data) =>
   api.post('auth/create/driver/', data);
 
 // ── Taxis ───────────────────────────────────────
@@ -106,6 +106,7 @@ export const listPendingTrips = (driverId, lat, lon) => {
 export const createTrip = (data) => api.post('trip/create/', data);
 export const acceptTrip = (id, driverId, shiftId) =>
   api.patch(`trip/${id}/accept/`, { driver_id: driverId, shift_id: shiftId });
+export const clientAcceptTrip = (id) => api.patch(`trip/${id}/accept/`);
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 
 export default api;

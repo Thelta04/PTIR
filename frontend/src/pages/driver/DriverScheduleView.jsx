@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
 import { ArrowLeft, Check, Car } from 'lucide-react';
@@ -17,6 +17,7 @@ export default function DriverScheduleView() {
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
+  const [isMultipleDays, setIsMultipleDays] = useState(false);
 
   // Step 1 State
   const [startTime, setStartTime] = useState('10:00');
@@ -47,13 +48,18 @@ export default function DriverScheduleView() {
     setError('');
     setMsg('');
 
-    if (!startDate || !endDate) {
+    if (isMultipleDays && (!startDate || !endDate)) {
       setError('Por favor preencha as datas.');
       return;
     }
 
+    if (!isMultipleDays && !startDate) {
+      setError('Por favor preencha a data.');
+      return;
+    }
+
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    const end = isMultipleDays ? new Date(endDate) : new Date(startDate);
 
     if (start > end) {
       setError('Data de fim tem de ser posterior à data de início.');
@@ -75,7 +81,7 @@ export default function DriverScheduleView() {
       let idCounter = 1;
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        if (selectedDays.length === 0 || selectedDays.includes(d.getDay())) {
+        if (!isMultipleDays || selectedDays.length === 0 || selectedDays.includes(d.getDay())) {
 
           const [sh, sm] = startTime.split(':');
           const stDt = new Date(d);
@@ -240,6 +246,17 @@ export default function DriverScheduleView() {
 
       {step === 1 && (
         <form onSubmit={handleNextStep} className="schedule-form">
+          <div className="schedule-card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.1rem' }}>
+              <input type="radio" name="scheduleMode" checked={!isMultipleDays} onChange={() => setIsMultipleDays(false)} />
+              Único dia
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.1rem' }}>
+              <input type="radio" name="scheduleMode" checked={isMultipleDays} onChange={() => setIsMultipleDays(true)} />
+              Vários dias
+            </label>
+          </div>
+
           <div className="schedule-card">
             <div className="schedule-row">
               <span className="schedule-label">Horas:</span>
@@ -250,31 +267,42 @@ export default function DriverScheduleView() {
             </div>
           </div>
 
-          <div className="schedule-card">
-            <div className="schedule-row">
-              <span className="schedule-label">Datas:</span>
-              <label className="schedule-sublabel">De</label>
-              <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
-              <label className="schedule-sublabel">Até:</label>
-              <input type="date" className="schedule-input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+          {!isMultipleDays ? (
+            <div className="schedule-card">
+              <div className="schedule-row">
+                <span className="schedule-label">Data:</span>
+                <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="schedule-card">
+                <div className="schedule-row">
+                  <span className="schedule-label">Datas:</span>
+                  <label className="schedule-sublabel">De</label>
+                  <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+                  <label className="schedule-sublabel">Até:</label>
+                  <input type="date" className="schedule-input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                </div>
+              </div>
 
-          <div className="schedule-card" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span className="schedule-label" style={{ marginBottom: '1rem' }}>Repetir:</span>
-            <div className="schedule-days-grid">
-              {DAYS.map(day => (
-                <label key={day.val} className="schedule-day-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedDays.includes(day.val)}
-                    onChange={() => toggleDay(day.val)}
-                  />
-                  <span>{day.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+              <div className="schedule-card" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="schedule-label" style={{ marginBottom: '1rem' }}>Repetir:</span>
+                <div className="schedule-days-grid">
+                  {DAYS.map(day => (
+                    <label key={day.val} className="schedule-day-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedDays.includes(day.val)}
+                        onChange={() => toggleDay(day.val)}
+                      />
+                      <span>{day.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ marginTop: '2rem', textAlign: 'center' }}>
             <button type="submit" className="btn btn--warning schedule-submit-btn" disabled={loading} style={{ width: '100%', maxWidth: '300px', fontSize: '1.2rem', padding: '1rem' }}>

@@ -724,32 +724,45 @@ class TripCreateView(views.APIView):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 class TripAcceptView(views.APIView):
+    @extend_schema(
+        summary="Accept a trip",
+        description="Driver accepts a PENDING trip (requires shift_id) or Client accepts a DRIVER_ACCEPTED trip (starts the trip).",
+        request=TripAcceptSerializer,
+        responses={200: TripListSerializer}
+    )
     def patch(self, request, id):
         try:
             trip = Trip.objects.select_related('client__user', 'interval').get(id=id)
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.status != 'PENDING':
+        if trip.status not in ['PENDING', 'DRIVER_ACCEPTED']:
             return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        shift_id = request.data.get('shift_id')
-        if not shift_id:
-            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if trip.status == 'PENDING':
+            shift_id = request.data.get('shift_id')
+            if not shift_id:
+                return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
-        except Shift.DoesNotExist:
-            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
+            except Shift.DoesNotExist:
+                return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if shift.real_interval is None:
-            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+            if shift.real_interval is None:
+                return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if shift.real_interval.end_time is not None:
-            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+            if shift.real_interval.end_time is not None:
+                return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-        trip.shift = shift
-        trip.status = 'DRIVER_ACCEPTED'
+            trip.shift = shift
+            trip.status = 'DRIVER_ACCEPTED'
+        else: # DRIVER_ACCEPTED
+            trip.status = 'IN_PROGRESS'
+            # Update start_time to now
+            trip.interval.start_time = timezone.now()
+            trip.interval.save()
+
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
@@ -857,6 +870,8 @@ class TripCompleteView(views.APIView):
         trip.price = calculate_price(minutes, trip.comfort_level)
 
         trip.status = 'COMPLETED'
+        trip.interval.end_time = now
+        trip.interval.save()
         trip.save()
         
         current_year = timezone.now().year

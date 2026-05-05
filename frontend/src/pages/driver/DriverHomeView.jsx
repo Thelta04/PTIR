@@ -40,16 +40,10 @@ export default function DriverHomeView() {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [activeShift, setActiveShift] = useState(null);
-  const [driverLoc] = useState({ lat: 38.7223, lon: -9.1393 }); // Mocked location
+  const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
 
   // Sheet states: 'closed' (peek), 'open' (expanded)
   const [sheetState, setSheetState] = useState('closed');
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchData();
-    }
-  }, [user]);
 
   const fetchData = async () => {
     try {
@@ -78,6 +72,12 @@ export default function DriverHomeView() {
       alert('Erro ao aceitar viagem.');
     }
   };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchData();
+    }
+  }, [user]);
 
   const sheetVariants = {
     closed: { y: 'calc(100% - 160px)' }, // Peeks 160px instead of 100px

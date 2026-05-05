@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createTrip } from '../../api/client';
+import { createTrip, listTrips, clientAcceptTrip, cancelTrip } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
@@ -25,18 +25,70 @@ export default function ClientMain() {
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
-  const [engine, setEngine] = useState('fuel');  // NOT USED
-  const [status, setState] = useState('PENDING'); // NOT USED
-  const [scheduled_time, setScheduledTime] = useState(null); // NOT USED
+  const [activeTrip, setActiveTrip] = useState(null);
 
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
 
-  // Set current location as default origin on mount
+  const checkActiveTrip = async () => {
+    try {
+      const { data } = await listTrips();
+      // Filter active trips for this client
+      const mine = data.filter(t => 
+        t.client_id === user.id && 
+        ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+      );
+      
+      if (mine.length > 0) {
+        const trip = mine[0];
+        setActiveTrip(trip);
+        if (trip.status === 'PENDING') {
+          setCurrentView('searching');
+        } else if (trip.status === 'DRIVER_ACCEPTED') {
+          setCurrentView('accepted');
+        } else if (trip.status === 'CLIENT_ACCEPTED' || trip.status === 'IN_PROGRESS') {
+          setCurrentView('in_progress');
+        }
+      }
+    } catch (err) {
+      console.error('Error checking active trip:', err);
+    }
+  };
+
+  // Set current location as default origin on mount and check for active trips
   useEffect(() => {
     handleUseCurrentLocation();
+    checkActiveTrip();
   }, []);
+
+  // Polling for trip status
+  useEffect(() => {
+    let interval;
+    if (activeTrip && (currentView === 'searching' || currentView === 'accepted')) {
+      interval = setInterval(async () => {
+        try {
+          const { data } = await listTrips();
+          const updatedTrip = data.find(t => t.id === activeTrip.id);
+          
+          if (updatedTrip) {
+            setActiveTrip(updatedTrip);
+            if (updatedTrip.status === 'DRIVER_ACCEPTED' && currentView === 'searching') {
+              setCurrentView('accepted');
+            } else if ((updatedTrip.status === 'CLIENT_ACCEPTED' || updatedTrip.status === 'IN_PROGRESS') && currentView === 'accepted') {
+              setCurrentView('in_progress');
+            } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
+              setActiveTrip(null);
+              setCurrentView('initial');
+            }
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [activeTrip, currentView]);
 
   const handleSearchAddress = async (type) => {
     const addressToSearch = type === 'origin' ? origin_address : (type === 'destination' ? dest_address : searchValue);
@@ -117,14 +169,12 @@ export default function ClientMain() {
       alert('Please select a date and time for your scheduled ride.');
       return;
     }
-    setCurrentView('searching');
-    setState('PENDING');
+    handleConfirmRide();
   };
 
   const handleConfirmRide = async () => {
-    setState('PENDING');
     try {
-      await createTrip({
+      const { data } = await createTrip({
         client_id: user.id,
         originAddress: origin_address,
         destAddress: dest_address || searchValue,
@@ -132,8 +182,8 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      alert('Trip Confirmed! We are processing your request.');
-      setCurrentView('initial');
+      setActiveTrip(data);
+      setCurrentView('searching');
     } catch (error) {
       const errorData = error.response?.data;
       let errorMsg = error.message;
@@ -153,28 +203,114 @@ export default function ClientMain() {
   }
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
+    // MOCKED LOCATIONS for testing
+    const originCoords = { lat: 38.7111, lon: -9.1368 };
+    const destCoords = { lat: 38.7369, lon: -9.1427 };
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const ponto = { lat: latitude, lon: longitude };
-        const address = await getAddressFromCoords(latitude, longitude);
-        
-        setOrigem(ponto);
-        setOriginAddress(address);
-      },
-      (error) => {
-        alert('Unable to retrieve your location: ' + error.message);
-      }
-    );
+    // Set Origin
+    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+      setOrigem(originCoords);
+      setOriginAddress(address);
+    });
+
+    // Set Destination automatically for easier testing
+    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
+      setDestino(destCoords);
+      setDestinationAddress(address);
+      setSearchValue(address);
+    });
+  };
+  const handleCancelTrip = async () => {
+    if (!activeTrip) return;
+    try {
+      await cancelTrip(activeTrip.id);
+      setActiveTrip(null);
+      setCurrentView('initial');
+    } catch (err) {
+      alert('Error canceling trip');
+    }
+  };
+
+  const handleClientAccept = async () => {
+    if (!activeTrip) return;
+    try {
+      await clientAcceptTrip(activeTrip.id);
+      setCurrentView('in_progress');
+    } catch (err) {
+      alert('Error accepting trip');
+    }
   };
 
   const renderSearchPanel = () => {
     switch (currentView) {
+      case 'searching':
+        return (
+          <div className="searching-view" style={{ textAlign: 'center', padding: '20px' }}>
+            <h2 className="view-title" style={{ marginBottom: '30px' }}>A procurar um motorista...</h2>
+            <div className="pulse-container" style={{ margin: '40px 0' }}>
+              <div className="pulse-circle"></div>
+            </div>
+            <button
+              className="search-btn search-btn--primary"
+              onClick={handleCancelTrip}
+              style={{ backgroundColor: '#f1cf58', color: '#fff' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        );
+
+      case 'accepted':
+        return (
+          <div className="accepted-view" style={{ textAlign: 'center' }}>
+            <div className="driver-info" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+              <div className="driver-photo" style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#eee', overflow: 'hidden' }}>
+                <img src="https://via.placeholder.com/80" alt="Driver" />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{activeTrip?.driver_name}</h3>
+                <div style={{ color: '#f1af3d', fontWeight: 'bold' }}>⭐ 4.9 (531 reviews)</div>
+              </div>
+            </div>
+            <div className="car-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid #eee', borderRadius: '12px', marginBottom: '20px' }}>
+              <div style={{ textAlign: 'left' }}>
+                <h4 style={{ margin: 0 }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</h4>
+                <div style={{ fontSize: '0.8rem', color: '#666' }}>{activeTrip?.taxi_plate}</div>
+              </div>
+              <div className="car-icon">🚗</div>
+            </div>
+            <div className="actions" style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                className="search-btn" 
+                onClick={handleCancelTrip}
+                style={{ flex: 1, backgroundColor: '#e53e3e', color: '#fff' }}
+              >
+                Recusar
+              </button>
+              <button 
+                className="search-btn" 
+                onClick={handleClientAccept}
+                style={{ flex: 1, backgroundColor: '#f1cf58', color: '#fff' }}
+              >
+                Aceitar
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'in_progress':
+        return (
+          <div className="in-progress-view" style={{ textAlign: 'center', padding: '20px' }}>
+            <h2 className="view-title">Trip in Progress</h2>
+            <p>Your driver is on the way!</p>
+            <div className="driver-brief" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '10px' }}>
+              <span>🚗</span>
+              <strong>{activeTrip?.driver_name}</strong>
+              <span style={{ marginLeft: 'auto' }}>{activeTrip?.taxi_plate}</span>
+            </div>
+          </div>
+        );
+
       case 'selection':
         return (
           <div className="selection-view">
