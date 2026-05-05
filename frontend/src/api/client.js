@@ -8,9 +8,18 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const stored = localStorage.getItem('tuxy_user');
   if (stored) {
-    const { access } = JSON.parse(stored);
-    if (access) {
-      config.headers.Authorization = `Bearer ${access}`;
+    try {
+      const userData = JSON.parse(stored);
+      if (userData && userData.access) {
+        config.headers = config.headers || {};
+        if (typeof config.headers.set === 'function') {
+          config.headers.set('Authorization', `Bearer ${userData.access}`);
+        } else {
+          config.headers.Authorization = `Bearer ${userData.access}`;
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing auth token', e);
     }
   }
   return config;
@@ -45,7 +54,11 @@ api.interceptors.response.use(
               }
               localStorage.setItem('tuxy_user', JSON.stringify(userData));
               
-              originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+              if (typeof originalRequest.headers.set === 'function') {
+                originalRequest.headers.set('Authorization', `Bearer ${res.data.access}`);
+              } else {
+                originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+              }
               return api(originalRequest);
             }
           }
@@ -91,6 +104,7 @@ export const listAllShifts = () => api.get('shift/');
 export const createShift = (data) => api.post('shift/create/', data);
 export const startShift = (id) => api.patch(`shift/${id}/start`);
 export const endShift = (id) => api.patch(`shift/${id}/end`);
+export const deleteShift = (id) => api.delete(`shift/${id}/delete/`);
 
 // ── Trips ───────────────────────────────────────
 export const listTrips = (status) => {

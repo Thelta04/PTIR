@@ -112,10 +112,10 @@ class ShiftCreateSerializer(serializers.Serializer):
     def validate(self, data):
         start = data['start_time']
         end = data['end_time']
-        if timezone.is_naive(start):
-            start = timezone.make_aware(start)
-        if timezone.is_naive(end):
-            end = timezone.make_aware(end)
+        if tz.is_naive(start):
+            start = tz.make_aware(start)
+        if tz.is_naive(end):
+            end = tz.make_aware(end)
         data['start_time'] = start
         data['end_time'] = end
 
