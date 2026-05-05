@@ -19,7 +19,8 @@
   z-index: 10;
 }
 
-.menu-btn, .bell-btn {
+.menu-btn,
+.bell-btn {
   background: #fdf2d5;
   border: none;
   padding: 0.5rem;
@@ -29,6 +30,28 @@
   align-items: center;
   justify-content: center;
   color: #333;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.close-btn-red {
+  background-color: #f87171;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.close-btn-red:hover {
+  background-color: #ef4444;
 }
 
 .driver-brand {
@@ -41,7 +64,7 @@
   font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: -0.5px;
-  
+
 }
 
 .driver-brand-sub {
@@ -58,21 +81,26 @@
 /* Sidebar Drawer */
 .drawer-overlay {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 20;
 }
 
 .drawer-menu {
   position: absolute;
-  top: 0; left: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: 280px;
   max-width: 80%;
   background: #fdfdf5;
   z-index: 30;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   border-right: 1px solid #f0c14b;
 }
 
@@ -115,7 +143,8 @@
   transition: background 0.2s;
 }
 
-.drawer-link:hover, .drawer-link.active {
+.drawer-link:hover,
+.drawer-link.active {
   background: #fcf6e3;
   font-weight: 600;
 }
@@ -133,31 +162,143 @@
   font-size: 1rem;
 }
 
-/* Driver Home View (Map Placeholder) */
-.driver-home-view {
+/* Driver Home View (Map) */
+.driver-home-container {
   width: 100%;
   height: 100%;
-}
-
-.map-placeholder {
-  width: 100%;
-  height: 100%;
-  background-color: #e5e3df;
   position: relative;
-  overflow: hidden;
 }
 
-/* A simple CSS pattern to vaguely resemble streets/map */
-.map-pattern {
+.map-full {
   width: 100%;
   height: 100%;
-  background-image: 
-    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff),
-    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff);
-  background-color: #e5e3df;
-  background-size: 100px 100px;
-  background-position: 0 0, 50px 50px;
-  opacity: 0.5;
+  z-index: 0;
+}
+
+.bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  height: 100%;
+  /* Take full height but variants will translate it */
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  /* Crucial for framer-motion drag */
+}
+
+.sheet-handle-wrapper {
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+  cursor: grab;
+}
+
+.sheet-handle-wrapper:active {
+  cursor: grabbing;
+}
+
+.sheet-handle {
+  width: 50px;
+  height: 6px;
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.sheet-header {
+  padding: 0 1.5rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.sheet-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: #111;
+}
+
+.passenger-list {
+  padding: 0 1rem 2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  touch-action: pan-y;
+  /* Allow scrolling inside list */
+}
+
+.passenger-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.2rem 0.5rem;
+  border-top: 1px dashed #e5e7eb;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.passenger-card:hover {
+  background-color: #f9fafb;
+}
+
+.card-icon {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.passenger-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.passenger-address {
+  font-size: 0.95rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.trip-distance {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.no-trips {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
 }
 
 /* Driver Schedule View */

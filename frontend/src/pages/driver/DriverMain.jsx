@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, ChevronLeft, LogOut } from 'lucide-react';
+import { Menu, Bell, ChevronLeft, LogOut, X } from 'lucide-react';
 import DriverHomeView from './DriverHomeView';
 import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
-import MapaPedido from '../../components/MapaPedido';
 import './driver.css';
 import '../../components/map-background.css';
 import Refuels from './Refuels';
@@ -53,23 +52,20 @@ export default function DriverMain() {
         </button>
         <div className="driver-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
           <span className="driver-brand-name">TUXY</span>
-          <span className="driver-brand-sub">Motorista</span>
         </div>
-        <button className="bell-btn">
-          <Bell size={20} />
-        </button>
+        <div className="header-actions">
+          <button className="bell-btn">
+            <Bell size={20} />
+          </button>
+          <button className="close-btn-red" onClick={() => navigate('/decision')}>
+            <X size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Main Content Area */}
       <main className="driver-main-content">
         {renderContent()}
-        <div className="map-wrapper">
-                <MapaPedido
-                  origem={origem}
-                  destino={destino}
-                  onEscolherPonto={handleEscolherPonto}
-                />
-        </div>
       </main>
 
       {/* Sidebar Drawer overlay */}

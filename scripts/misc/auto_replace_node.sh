@@ -7,7 +7,7 @@ FAILED_INSTANCE=$2
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/../common/config.sh"
 
 # Extract the index from the failed instance name (e.g., lb-01 -> 01)
 INDEX=$(echo $FAILED_INSTANCE | grep -oE '[0-9]+$')
@@ -58,6 +58,6 @@ gcloud compute instances create "$NEW_INSTANCE" \
 # 3. Trigger deployment for the new VM
 echo "--------------------------------------------------"
 echo "New instance $NEW_INSTANCE created at $IP_ADDRESS."
-echo "CRITICAL: Run scripts/deploy.sh now to configure the new node."
+echo "CRITICAL: Run scripts/deploy/deploy_all.sh now to configure the new node."
 echo "The new node will be automatically discovered via its tags."
 echo "--------------------------------------------------"

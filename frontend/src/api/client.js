@@ -98,9 +98,14 @@ export const listTrips = (status) => {
   return api.get('trip/', { params });
 };
 
+export const listPendingTrips = (driverId, lat, lon) => {
+  const params = { status: 'PENDING', driver_id: driverId, lat, lon };
+  return api.get('trip/', { params });
+};
+
 export const createTrip = (data) => api.post('trip/create/', data);
-export const acceptTrip = (id, driverId) =>
-  api.patch(`trip/${id}/accept/`, { driver_id: driverId });
+export const acceptTrip = (id, driverId, shiftId) =>
+  api.patch(`trip/${id}/accept/`, { driver_id: driverId, shift_id: shiftId });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 
 export default api;
