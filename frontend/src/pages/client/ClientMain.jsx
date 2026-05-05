@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createTrip } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
@@ -10,8 +10,7 @@ import './client.css';
 import '../../components/map-background.css';
 
 export default function ClientMain() {
-  const { user } = useAuth();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -25,18 +24,36 @@ export default function ClientMain() {
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
-  const [engine, setEngine] = useState('fuel');  // NOT USED
-  const [status, setState] = useState('PENDING'); // NOT USED
-  const [scheduled_time, setScheduledTime] = useState(null); // NOT USED
 
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
 
+  const handleUseCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const ponto = { lat: latitude, lon: longitude };
+        const address = await getAddressFromCoords(latitude, longitude);
+        
+        setOrigem(ponto);
+        setOriginAddress(address);
+      },
+      (error) => {
+        alert('Unable to retrieve your location: ' + error.message);
+      }
+    );
+  }, []);
+
   // Set current location as default origin on mount
   useEffect(() => {
     handleUseCurrentLocation();
-  }, []);
+  }, [handleUseCurrentLocation]);
 
   const handleSearchAddress = async (type) => {
     const addressToSearch = type === 'origin' ? origin_address : (type === 'destination' ? dest_address : searchValue);
@@ -112,19 +129,9 @@ export default function ClientMain() {
     setCurrentView('selection');
   };
 
-  const handleConfirmSchedule = () => {
-    if (!dateTime) {
-      alert('Please select a date and time for your scheduled ride.');
-      return;
-    }
-    setCurrentView('searching');
-    setState('PENDING');
-  };
-
   const handleConfirmRide = async () => {
-    setState('PENDING');
     try {
-      await createTrip({
+      const { data: trip } = await createTrip({
         client_id: user.id,
         originAddress: origin_address,
         destAddress: dest_address || searchValue,
@@ -132,8 +139,15 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      alert('Trip Confirmed! We are processing your request.');
-      setCurrentView('initial');
+      
+      // Navigate to the trip searching view
+      navigate('/client/trip', { 
+        state: { 
+          tripId: trip.id,
+          origem,
+          destino
+        } 
+      });
     } catch (error) {
       const errorData = error.response?.data;
       let errorMsg = error.message;
@@ -151,27 +165,6 @@ export default function ClientMain() {
       alert('Error creating trip:\n' + errorMsg);
     }
   }
-
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const ponto = { lat: latitude, lon: longitude };
-        const address = await getAddressFromCoords(latitude, longitude);
-        
-        setOrigem(ponto);
-        setOriginAddress(address);
-      },
-      (error) => {
-        alert('Unable to retrieve your location: ' + error.message);
-      }
-    );
-  };
 
   const renderSearchPanel = () => {
     switch (currentView) {
