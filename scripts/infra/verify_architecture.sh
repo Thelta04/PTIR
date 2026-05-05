@@ -2,8 +2,9 @@
 # scripts/verify_architecture.sh
 # Automates the verification of the multi-tier architecture.
 
-PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
-ZONE="europe-southwest1-c"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../common/config.sh"
 
 # Use provided IP or fallback to the one used before
 LB_IP="${1:-34.175.164.1}"
@@ -123,7 +124,6 @@ remote_exec "web-1" "sudo systemctl start nginx"
 # ---------------------------------------------------------
 # 4. Prove LB Failover & Auto-Replacement
 # ---------------------------------------------------------
-source scripts/config.sh
 echo ""
 echo "▶ TEST 4: LB Failover (Keepalived VIP)"
 echo "  Stopping Nginx on 'lb-01' (Primary)..."
