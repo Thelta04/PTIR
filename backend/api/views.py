@@ -666,8 +666,12 @@ class TripCreateView(views.APIView):
         price = calculate_price(kilometers, data['comfort_level'], data['num_passengers'])
 
 
+        scheduled_time = data.get('scheduled_time')
+        if not scheduled_time:
+            scheduled_time = timezone.now()
+
         interval = TimeInterval.objects.create(
-            start_time=data['scheduled_time'],
+            start_time=scheduled_time,
             end_time=None
         )
         
@@ -681,7 +685,7 @@ class TripCreateView(views.APIView):
             destCoords=dest_coords,
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=kilometers,
+            kilometers=int(round(kilometers)),
             price=price,
             status='PENDING'
         )

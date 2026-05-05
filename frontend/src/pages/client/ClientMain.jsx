@@ -101,9 +101,12 @@ export default function ClientMain() {
     }
 
     // Ensure state matches what's in the text inputs if they were typed manually
-    if (!destino && searchValue) {
+    if (searchValue && dest_address !== searchValue) {
       setDestinationAddress(searchValue);
     }
+    
+    // Also sync origin_address if we are in more options but didn't search
+    // (though usually origin_address state is updated on every keystroke)
 
     setShowMoreOptions(false);
     setCurrentView('selection');
@@ -124,7 +127,7 @@ export default function ClientMain() {
       await createTrip({
         client_id: user.id,
         originAddress: origin_address,
-        destAddress: dest_address,
+        destAddress: dest_address || searchValue,
         comfort_level,
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
@@ -132,7 +135,20 @@ export default function ClientMain() {
       alert('Trip Confirmed! We are processing your request.');
       setCurrentView('initial');
     } catch (error) {
-      alert('Error creating trip: ' + (error.response?.data?.message || error.message));
+      const errorData = error.response?.data;
+      let errorMsg = error.message;
+      
+      if (errorData) {
+        if (typeof errorData === 'object') {
+          errorMsg = Object.entries(errorData)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join('\n');
+        } else if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        }
+      }
+      
+      alert('Error creating trip:\n' + errorMsg);
     }
   }
 
@@ -332,7 +348,7 @@ export default function ClientMain() {
                   <span className="number-value">{num_passengers}</span>
                   <button 
                     className="number-btn"
-                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
+                    onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
                   >
                     <Plus size={16} />
                   </button>
@@ -442,7 +458,7 @@ export default function ClientMain() {
                   <span className="number-value">{num_passengers}</span>
                   <button 
                     className="number-btn"
-                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
+                    onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
                   >
                     <Plus size={16} />
                   </button>
