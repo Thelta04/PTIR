@@ -15,7 +15,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient, listTrips } from '../../api/client';
+import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient, listTrips, deleteShift } from '../../api/client';
 
 const sidebarItems = [
   { key: 'clients', label: 'Clients', icon: User },
@@ -41,6 +41,11 @@ export default function ManagerDashboard() {
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -155,6 +160,27 @@ export default function ManagerDashboard() {
           setSubmitting(false);
         });
     }
+  };
+
+  const handleDeleteShift = () => {
+    if (!shiftToDelete) return;
+    setDeleting(true);
+    deleteShift(shiftToDelete)
+      .then(() => {
+        setIsDeleteModalOpen(false);
+        setShiftToDelete(null);
+        fetchData();
+        setApiStatus('Shift deleted successfully');
+        setTimeout(() => setApiStatus(''), 4000);
+      })
+      .catch(err => {
+        const errData = err.response?.data;
+        const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
+        alert(`Failed to delete shift: ${errorMsg}`);
+      })
+      .finally(() => {
+        setDeleting(false);
+      });
   };
 
   const renderFormFields = () => {
@@ -363,6 +389,60 @@ export default function ManagerDashboard() {
         )}
       </AnimatePresence>
 
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <motion.div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              style={{
+                background: '#fff', padding: '24px', borderRadius: '12px',
+                width: '350px', maxWidth: '90%', textAlign: 'center',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+              }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Confirm Deletion</h3>
+              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
+                Are you sure you want to delete this shift? This action cannot be undone.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
+                    background: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteShift}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="dash-header">
         <div className="dash-header-left">
@@ -543,6 +623,7 @@ export default function ManagerDashboard() {
                       <th style={{ padding: '12px 16px' }}>Driver</th>
                       <th style={{ padding: '12px 16px' }}>Taxi</th>
                       <th style={{ padding: '12px 16px' }}>Scheduled Start</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -552,9 +633,34 @@ export default function ManagerDashboard() {
                         <td style={{ padding: '12px 16px' }}>{s.driver_name}</td>
                         <td style={{ padding: '12px 16px' }}>{s.taxi_plate}</td>
                         <td style={{ padding: '12px 16px' }}>{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString() : '-'}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => {
+                              setShiftToDelete(s.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            style={{
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              margin: '0 auto',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            title="Delete Shift"
+                          >
+                            <X size={18} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
-                    {data.shifts.length === 0 && <tr><td colSpan="4" style={{ padding: '16px' }}>No shifts found.</td></tr>}
+                    {data.shifts.length === 0 && <tr><td colSpan="5" style={{ padding: '16px' }}>No shifts found.</td></tr>}
                   </tbody>
                 </table>
               </div>
