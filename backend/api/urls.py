@@ -20,7 +20,9 @@ urlpatterns = [
 
     # Taxis
     path('taxi/create/', views.TaxiCreateView.as_view(), name='create_taxi'),
-    path('taxis/<str:license_plate>/delete/', views.TaxiDeleteView.as_view(), name='delete_taxi'),
+    path('taxi/<str:license_plate>/delete/', views.TaxiDeleteView.as_view(), name='delete_taxi'),
+    path('taxi/<str:license_plate>/mileage/', views.TaxiUpdateMileageView.as_view()),
+
 
     
     # Shifts
@@ -37,15 +39,20 @@ urlpatterns = [
     
     # Account Management (Ban - Manager only)
     path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
+    path('user/<int:id>/delete/', views.UserDeleteView.as_view(), name='delete_user'),
+
     
-    # # Trips (viagens)
+    # Trips (viagens)
     path('trip/', views.TripListView.as_view(), name='list_trips'),
     path('trip/create/', views.TripCreateView.as_view(), name='create_trip'),
-    path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip'),
+    path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip_driver'),
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
     path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
+    path('trip/<int:id>/client-accept/', views.TripClientAcceptView.as_view(), name='accept_trip_client'),
+    path('trip/<int:id>/pickup/', views.TripPickupView.as_view(), name='start_trip'),
 
-    # Ratings
+
+    # Ratting
     path('rating/create/', views.RatingCreateView.as_view(), name='rate_trip'),
     path('rating/<int:driver_id>/', views.RatingListView.as_view(), name='list_ratings'),
 
