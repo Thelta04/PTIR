@@ -1,220 +1,232 @@
+/* Global Reset & Base */
 .refuel-page {
-  min-height: 100vh;
-  background: #f5f5f5;
-  font-family: Arial, sans-serif;
-  color: #2f2f2f;
-}
-
-.refuel-header {
-  height: 88px;
-  background: #fff;
+  min-height: calc(100vh - 64px);
+  background: #f8f9fa;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a1a;
   display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 14px;
+  flex-direction: column;
 }
 
-.refuel-icon-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 6px;
-  background: #f6e7a8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.refuel-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex: 1;
-}
-
-.refuel-logo {
-  font-size: 24px;
-  font-weight: 800;
-  color: #000;
-}
-
-.refuel-role {
-  font-size: 13px;
-  color: #b8b8b8;
-}
-
+/* Main Content */
 .refuel-main {
-  padding: 16px;
+  padding: 24px 16px;
+  flex: 1;
+  max-width: 500px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .refuel-main h1 {
-  margin: 0 0 14px;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
+  margin-bottom: 24px;
+  color: #212529;
 }
 
+/* Card */
 .refuel-card {
-  border: 1px solid #f0b73d;
-  border-radius: 6px;
-  background: #fffdf6;
-  padding: 8px 10px 10px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e9ecef;
 }
 
 .refuel-card label {
   display: block;
-  margin-bottom: 8px;
   font-size: 14px;
-  color: #555;
   font-weight: 600;
+  color: #495057;
+  margin-bottom: 12px;
 }
 
 .refuel-inputs {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.refuel-input-box {
-  width: 68px;
-  height: 36px;
-  border: 1px solid #d8d8d8;
-  border-radius: 6px;
-  background: #fff;
+/* Custom Input Groups */
+.refuel-field-group {
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  background: #f1f3f5;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 56px;
+  transition: ring 0.2s;
+  border: 2px solid transparent;
 }
 
-.refuel-input-box input {
-  width: 100%;
-  border: none;
-  outline: none;
-  font-size: 14px;
+.refuel-field-group:focus-within {
+  border-color: #fab005;
+  background: #fff;
 }
 
-.refuel-input-box select {
-  border: none;
-  outline: none;
+.refuel-field {
+  flex: 1;
   background: transparent;
-  font-size: 13px;
-  color: #999;
+  border: none;
+  outline: none;
+  font-size: 18px;
+  font-weight: 600;
+  width: 100%;
+  color: #212529;
 }
 
-.refuel-input-box span {
-  font-size: 14px;
-  color: #999;
+.refuel-field::placeholder {
+  color: #adb5bd;
+  font-weight: 400;
 }
 
+.refuel-unit, .refuel-currency {
+  font-size: 16px;
+  font-weight: 700;
+  color: #868e96;
+  margin-left: 8px;
+}
+
+.refuel-unit {
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  color: #fab005;
+}
+
+/* Actions */
 .refuel-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 32px;
 }
 
 .refuel-actions button {
-  height: 34px;
-  border: none;
-  border-radius: 6px;
+  height: 56px;
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.refuel-actions button:active {
+  transform: scale(0.98);
 }
 
 .refuel-cancel {
-  width: 86px;
-  background: #cfcfcf;
-  color: white;
+  flex: 1;
+  background: #f1f3f5;
+  color: #495057;
+  border: none;
 }
 
 .refuel-submit {
-  flex: 1;
-  background: #f0a529;
-  color: white;
+  flex: 2;
+  background: #fab005;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px 0 rgba(250, 176, 5, 0.39);
 }
 
+/* Success Popup */
 .refuel-popup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  padding: 18px;
+  z-index: 200;
+  padding: 20px;
 }
 
 .refuel-popup {
   position: relative;
   width: 100%;
-  max-width: 280px;
+  max-width: 320px;
   background: #fff;
-  border-radius: 4px;
-  padding: 28px 18px 16px;
+  border-radius: 24px;
+  padding: 32px 24px;
   text-align: center;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .popup-close {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 16px;
+  right: 16px;
   border: none;
-  background: transparent;
-  color: #999;
+  background: #f1f3f5;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #868e96;
   cursor: pointer;
 }
 
 .success-badge {
-  width: 86px;
-  height: 86px;
-  margin: 0 auto 12px;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
   border-radius: 50%;
-  background: #d8ecd1;
-  color: #5ca756;
+  background: #ebfbee;
+  color: #40c057;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .refuel-popup h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .popup-text {
-  margin: 0 0 18px;
-  font-size: 11px;
-  color: #8a8a8a;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #868e96;
+  line-height: 1.5;
 }
 
 .popup-info {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
 }
 
 .popup-info span {
-  font-size: 12px;
-  color: #777;
+  font-size: 14px;
+  color: #868e96;
+  font-weight: 500;
 }
 
 .popup-info strong {
-  font-size: 28px;
-  color: #333;
+  font-size: 18px;
+  color: #212529;
+  font-weight: 700;
 }
 
 .popup-divider {
-  border-top: 1px dashed #ddd;
-  margin: 16px 0;
+  border-top: 1px solid #f1f3f5;
 }
 
 .popup-button {
   width: 100%;
-  height: 42px;
+  height: 52px;
   border: none;
-  border-radius: 4px;
-  background: #e2ae34;
-  color: white;
+  border-radius: 12px;
+  background: #212529;
+  color: #fff;
   font-weight: 700;
+  font-size: 16px;
   cursor: pointer;
-  margin-top: 18px;
+  margin-top: 24px;
 }

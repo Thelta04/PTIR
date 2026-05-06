@@ -25,7 +25,7 @@ from .serializers import (
 
 class UserDeleteView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated, IsManager]
 
     @extend_schema(
         summary="Delete a User (Manager only)",
@@ -536,7 +536,7 @@ class LoginView(views.APIView):
     
 class BanView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated, IsManager]
 
     @extend_schema(
         summary="Ban or Activate User (Manager only)",
