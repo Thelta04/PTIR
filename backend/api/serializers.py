@@ -220,16 +220,19 @@ class TaxiDetailSerializer(serializers.ModelSerializer):
         fields = ['license_plate', 'purchase_year', 'mileage', 'brand', 'model', 'comfort_level', 'engine_type', 'num_passengers']
 
 class TripListSerializer(serializers.ModelSerializer):
-    driver_name = serializers.CharField(source='shift.driver.user.name', read_only=True)
-    driver_id   = serializers.IntegerField(source='shift.driver.user_id', read_only=True)
-    taxi_plate  = serializers.CharField(source='shift.taxi.license_plate', read_only=True)
+    driver_name = serializers.CharField(source='shift.driver.user.name', read_only=True, default=None)
+    driver_id   = serializers.IntegerField(source='shift.driver.user_id', read_only=True, default=None)
+    taxi_plate  = serializers.CharField(source='shift.taxi.license_plate', read_only=True, default=None)
+    taxi_brand  = serializers.CharField(source='shift.taxi.brand', read_only=True, default=None)
+    taxi_model  = serializers.CharField(source='shift.taxi.model', read_only=True, default=None)
+    taxi_engine = serializers.CharField(source='shift.taxi.engine_type', read_only=True, default=None)
     client_id   = serializers.IntegerField(source='client.user_id', read_only=True)
     client_name = serializers.CharField(source='client.user.name', read_only=True)
     interval    = TimeIntervalSerializer(read_only=True)
 
     class Meta:
         model = Trip    
-        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'interval']
 
 class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
@@ -252,7 +255,7 @@ class RatingListSerializer(serializers.ModelSerializer):
 
 #PATCH 
 class TripAcceptSerializer(serializers.Serializer):
-    shift_id  = serializers.IntegerField()
+    shift_id  = serializers.IntegerField(required=False)
 
     def validate_driver_id(self, value):
         if not Driver.objects.filter(user__id=value).exists():
