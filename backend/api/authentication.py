@@ -76,9 +76,15 @@ class IsManager(BasePermission):
     message = 'Forbidden. Only Managers can perform this action.'
 
     def has_permission(self, request, view):
-        if not isinstance(request.user, User):
+        if not request.user or not request.user.is_authenticated:
             return False
-        return Manager.objects.filter(user=request.user).exists()
+        
+        # Robust check: works even if request.user is a SimpleLazyObject or there are model class mismatches
+        user_id = getattr(request.user, 'id', None)
+        if not user_id:
+            return False
+            
+        return Manager.objects.filter(user_id=user_id).exists()
 
 
 class IsTripParticipant(BasePermission):

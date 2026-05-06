@@ -1,17 +1,23 @@
-from django.db import connection
+import math
 import socket
-from rest_framework import generics, views, status
+import requests
+
+from django.db import connection, transaction
+from django.utils import timezone
+from rest_framework import views, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip
-from .serializers import *
-from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import serializers
-from django.db import transaction
-from django.utils import timezone
-import requests
-import math
+
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Rating, Invoice
+from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .serializers import (
+    CreateClientSerializer, UserSerializer, CreateDriverSerializer,
+    DriverSerializer, CreateManagerSerializer, CreateTaxiSerializer,
+    TaxiDetailSerializer, ShiftCreateSerializer, ShiftDetailSerializer,
+    TripListSerializer, TripCreateSerializer, RatingListSerializer,
+    RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer
+)
 
 
  
@@ -25,7 +31,7 @@ PRICING_CONFIG = {
 
 class UserDeleteView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated, IsManager]
 
     @extend_schema(
         summary="Delete a User (Manager only)",
@@ -106,7 +112,6 @@ class ClientListView(views.APIView):
     )
     def get(self, request):
         clients = Client.objects.all()
-        from .serializers import UserSerializer
         serializer = UserSerializer(clients, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -156,7 +161,6 @@ class DriverDetailView(views.APIView):
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # 2. Serialize and return the data
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -168,7 +172,6 @@ class DriverListView(views.APIView):
     )
     def get(self, request):
         drivers = Driver.objects.all()
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -438,8 +441,6 @@ class ShiftStartView(views.APIView):
         if shift.real_interval is not None:
             return Response({"error": "Shift has already started."}, status=status.HTTP_400_BAD_REQUEST)
         
-        from django.utils import timezone
-        
         interval = TimeInterval.objects.create(
             start_time=timezone.now(),
             end_time=None
@@ -468,7 +469,6 @@ class ShiftEndView(views.APIView):
         if shift.real_interval.end_time is not None:
             return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
             
-        from django.utils import timezone
         shift.real_interval.end_time = timezone.now()
         shift.real_interval.save()
         
@@ -542,7 +542,7 @@ class LoginView(views.APIView):
     
 class BanView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated, IsManager]
 
     @extend_schema(
         summary="Ban or Activate User (Manager only)",
@@ -794,7 +794,7 @@ class TripCreateView(views.APIView):
 class TripAcceptView(views.APIView):
     @extend_schema(
         summary="Accept a trip (Driver)",
-        description="Driver accepts a pending trip by associating a shift.",
+        description="Driver accepts a PENDING trip by associating a shift.",
         request=inline_serializer(
             name='TripAcceptRequest',
             fields={'shift_id': serializers.IntegerField()}
@@ -807,26 +807,33 @@ class TripAcceptView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.status != 'PENDING':
+        if trip.status not in ['PENDING', 'DRIVER_ACCEPTED']:
             return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        shift_id = request.data.get('shift_id')
-        if not shift_id:
-            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if trip.status == 'PENDING':
+            shift_id = request.data.get('shift_id')
+            if not shift_id:
+                return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
-        except Shift.DoesNotExist:
-            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
+            except Shift.DoesNotExist:
+                return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if shift.real_interval is None:
-            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+            if shift.real_interval is None:
+                return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if shift.real_interval.end_time is not None:
-            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+            if shift.real_interval.end_time is not None:
+                return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-        trip.shift = shift
-        trip.status = 'DRIVER_ACCEPTED'
+            trip.shift = shift
+            trip.status = 'DRIVER_ACCEPTED'
+        else: # DRIVER_ACCEPTED
+            trip.status = 'IN_PROGRESS'
+            # Update start_time to now
+            trip.interval.start_time = timezone.now()
+            trip.interval.save()
+
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
@@ -1005,6 +1012,8 @@ class TripCompleteView(views.APIView):
         trip.interval.save()
 
         trip.status = 'COMPLETED'
+        trip.interval.end_time = now
+        trip.interval.save()
         trip.save()
         
         current_year = timezone.now().year
