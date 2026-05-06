@@ -12,10 +12,16 @@ import {
   BarChart3,
   X,
   User,
-  MapPin
+  MapPin,
+  Trash2,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, listClients, createClient, listTrips, deleteShift } from '../../api/client';
+import { 
+  listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, 
+  listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser 
+} from '../../api/client';
 
 const sidebarItems = [
   { key: 'clients', label: 'Clients', icon: User },
@@ -44,7 +50,7 @@ export default function ManagerDashboard() {
 
   // Delete State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [shiftToDelete, setShiftToDelete] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null); // { id, type: 'shift' | 'user' }
   const [deleting, setDeleting] = useState(false);
 
   const fetchData = useCallback(() => {
@@ -162,24 +168,41 @@ export default function ManagerDashboard() {
     }
   };
 
-  const handleDeleteShift = () => {
-    if (!shiftToDelete) return;
+  const handleDelete = () => {
+    if (!itemToDelete) return;
     setDeleting(true);
-    deleteShift(shiftToDelete)
+    
+    const request = itemToDelete.type === 'shift' 
+      ? deleteShift(itemToDelete.id)
+      : deleteUser(itemToDelete.id);
+
+    request
       .then(() => {
         setIsDeleteModalOpen(false);
-        setShiftToDelete(null);
+        setItemToDelete(null);
         fetchData();
-        setApiStatus('Shift deleted successfully');
+        setApiStatus(`${itemToDelete.type === 'shift' ? 'Shift' : 'User'} deleted successfully`);
         setTimeout(() => setApiStatus(''), 4000);
       })
       .catch(err => {
         const errData = err.response?.data;
         const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-        alert(`Failed to delete shift: ${errorMsg}`);
+        alert(`Failed to delete ${itemToDelete.type}: ${errorMsg}`);
       })
       .finally(() => {
         setDeleting(false);
+      });
+  };
+
+  const handleToggleStatus = (id) => {
+    toggleUserStatus(id)
+      .then(res => {
+        setApiStatus(`User is now ${res.data.message}`);
+        fetchData();
+        setTimeout(() => setApiStatus(''), 4000);
+      })
+      .catch(err => {
+        alert('Failed to toggle status');
       });
   };
 
@@ -414,7 +437,7 @@ export default function ManagerDashboard() {
             >
               <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Confirm Deletion</h3>
               <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
-                Are you sure you want to delete this shift? This action cannot be undone.
+                Are you sure you want to delete this {itemToDelete?.type}? This action cannot be undone.
               </p>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                 <button
@@ -428,7 +451,7 @@ export default function ManagerDashboard() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleDeleteShift}
+                  onClick={handleDelete}
                   style={{
                     padding: '8px 16px', borderRadius: '6px', border: 'none',
                     background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
@@ -549,6 +572,8 @@ export default function ManagerDashboard() {
                       <th style={{ padding: '12px 16px' }}>NIF</th>
                       <th style={{ padding: '12px 16px' }}>Name</th>
                       <th style={{ padding: '12px 16px' }}>Email</th>
+                      <th style={{ padding: '12px 16px' }}>Status</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -558,9 +583,49 @@ export default function ManagerDashboard() {
                         <td style={{ padding: '12px 16px' }}>{c.nif}</td>
                         <td style={{ padding: '12px 16px' }}>{c.name}</td>
                         <td style={{ padding: '12px 16px' }}>{c.email}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ 
+                            color: c.is_banned ? '#ef4444' : '#16a34a',
+                            background: c.is_banned ? '#fee2e2' : '#dcfce7',
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600
+                          }}>
+                            {c.is_banned ? 'Banned' : 'Active'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                            <button
+                              onClick={() => handleToggleStatus(c.id)}
+                              style={{ 
+                                border: 'none', 
+                                background: c.is_banned ? '#16a34a' : '#ef4444', 
+                                color: 'white',
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                minWidth: '60px'
+                              }}
+                              title={c.is_banned ? 'Unban User' : 'Ban User'}
+                            >
+                              {c.is_banned ? 'UnBan' : 'Ban'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setItemToDelete({ id: c.id, type: 'user' });
+                                setIsDeleteModalOpen(true);
+                              }}
+                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
+                              title="Delete User"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {data.clients.length === 0 && <tr><td colSpan="4" style={{ padding: '16px' }}>No clients found.</td></tr>}
+                    {data.clients.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No clients found.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -574,6 +639,8 @@ export default function ManagerDashboard() {
                       <th style={{ padding: '12px 16px' }}>Name</th>
                       <th style={{ padding: '12px 16px' }}>Email</th>
                       <th style={{ padding: '12px 16px' }}>License</th>
+                      <th style={{ padding: '12px 16px' }}>Status</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -584,9 +651,49 @@ export default function ManagerDashboard() {
                         <td style={{ padding: '12px 16px' }}>{d.name}</td>
                         <td style={{ padding: '12px 16px' }}>{d.email}</td>
                         <td style={{ padding: '12px 16px' }}>{d.license_number}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ 
+                            color: d.is_banned ? '#ef4444' : '#16a34a',
+                            background: d.is_banned ? '#fee2e2' : '#dcfce7',
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600
+                          }}>
+                            {d.is_banned ? 'Banned' : 'Active'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                            <button
+                              onClick={() => handleToggleStatus(d.id)}
+                              style={{ 
+                                border: 'none', 
+                                background: d.is_banned ? '#16a34a' : '#ef4444', 
+                                color: 'white',
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                minWidth: '60px'
+                              }}
+                              title={d.is_banned ? 'Unban User' : 'Ban User'}
+                            >
+                              {d.is_banned ? 'UnBan' : 'Ban'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setItemToDelete({ id: d.id, type: 'user' });
+                                setIsDeleteModalOpen(true);
+                              }}
+                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
+                              title="Delete User"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {data.drivers.length === 0 && <tr><td colSpan="5" style={{ padding: '16px' }}>No drivers found.</td></tr>}
+                    {data.drivers.length === 0 && <tr><td colSpan="7" style={{ padding: '16px' }}>No drivers found.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -636,7 +743,7 @@ export default function ManagerDashboard() {
                         <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                           <button
                             onClick={() => {
-                              setShiftToDelete(s.id);
+                              setItemToDelete({ id: s.id, type: 'shift' });
                               setIsDeleteModalOpen(true);
                             }}
                             style={{

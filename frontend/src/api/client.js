@@ -93,6 +93,9 @@ export const listDrivers = () => api.get('driver/');
 export const createDriver = (data) => 
   api.post('auth/create/driver/', data);
 
+export const toggleUserStatus = (id) => api.patch(`user/${id}/toggle-status/`);
+export const deleteUser = (id) => api.delete(`user/${id}/delete/`);
+
 // ── Taxis ───────────────────────────────────────
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
 export const listTaxis = () => api.get('taxi/');
