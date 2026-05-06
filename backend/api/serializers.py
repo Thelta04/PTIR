@@ -3,6 +3,8 @@ from datetime import date
 from rest_framework import serializers
 from .models import *
 from django.utils import timezone as tz
+from .models import Refueling
+
 
 
 #Validators that are commomn to multiple serializers
@@ -277,3 +279,8 @@ class TripCompleteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip
         fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_name', 'driver_name', 'taxi_plate', 'interval']
+
+class RefuelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Refueling
+        fields = '__all__'

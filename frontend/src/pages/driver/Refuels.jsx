@@ -36,26 +36,11 @@ export default function Refuels() {
 
   return (
     <div className="refuel-page">
-      <header className="refuel-header">
-        <button className="refuel-icon-btn" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={22} />
-        </button>
-
-        <div className="refuel-brand">
-          <span className="refuel-logo">TUXY</span>
-          <span className="refuel-role">Motorista</span>
-        </div>
-
-        <button className="refuel-icon-btn">
-          <Bell size={18} />
-        </button>
-      </header>
 
       <main className="refuel-main">
-        <h1>Registar reabastecimento</h1>
+        <h1>Registar Reabastecimento ⛽</h1>
 
         <section className="refuel-card">
-          <label>Quantidade de combustível</label>
 
           <div className="refuel-inputs refuel-inputs--clean">
             <input
@@ -138,28 +123,28 @@ export default function Refuels() {
                 className="refuel-drawer-link"
                 onClick={() => handleMenuClick('/driver')}
               >
-                Página principal
+                Página Principal
               </button>
 
               <button
                 className="refuel-drawer-link"
                 onClick={() => handleMenuClick('/driver')}
               >
-                Registar turno
+                Registar Turno
               </button>
 
               <button
                 className="refuel-drawer-link active"
                 onClick={() => handleMenuClick('/driver/refuels')}
               >
-                Registar reabastecimento
+                Registar Reabastecimento
               </button>
 
               <button
                 className="refuel-drawer-link"
                 onClick={() => handleMenuClick('/driver')}
               >
-                Consultar turnos
+                Consultar Turnos
               </button>
 
               <button
@@ -204,7 +189,15 @@ export default function Refuels() {
               <strong>{price} €</strong>
             </div>
 
-            <button className="popup-button" onClick={() => setShowPopup(false)}>
+            <button
+              className="popup-button"
+              onClick={() => {
+                setShowPopup(false);
+                setAmount('');
+                setPrice('');
+                setUnit('L');
+              }}
+            >
               Fechar
             </button>
           </div>

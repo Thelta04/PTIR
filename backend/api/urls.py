@@ -47,6 +47,10 @@ urlpatterns = [
     path('rating/create/', views.RatingCreateView.as_view(), name='rate_trip'),
     path('rating/<int:driver_id>/', views.RatingListView.as_view(), name='list_ratings'),
 
+    # Refuels
+    path('refuels/', views.RefuelListCreateView.as_view(), name='refuels'),
+
+
     # Health Check
     path('check/', views.CheckHealthView.as_view(), name='check_health'),
 ]
