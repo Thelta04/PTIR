@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
-import { ArrowLeft, Check, Car } from 'lucide-react';
+import { ArrowLeft, Check, Car, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const DAYS = [
   { label: 'Segunda', val: 1 },
@@ -31,6 +32,10 @@ export default function DriverScheduleView() {
   const [allTaxis, setAllTaxis] = useState([]);
   const [allSystemShifts, setAllSystemShifts] = useState([]);
   const [preferredTaxiPlate, setPreferredTaxiPlate] = useState('');
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState(null);
 
   // Global View State
   const [loading, setLoading] = useState(false);
@@ -191,6 +196,13 @@ export default function DriverScheduleView() {
     }));
   };
 
+  const handleDeleteGeneratedShift = () => {
+    if (shiftToDelete === null) return;
+    setGeneratedShifts(prev => prev.filter(s => s.id !== shiftToDelete));
+    setIsDeleteModalOpen(false);
+    setShiftToDelete(null);
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setMsg('');
@@ -344,11 +356,12 @@ export default function DriverScheduleView() {
                     <strong>{formatShortDate(shift.startDt)}</strong>
                     <span>{formatShortTime(shift.startDt)} - {formatShortTime(shift.endDt)}</span>
                   </div>
-                  <div className="schedule-shift-taxi">
+                  <div className="schedule-shift-taxi" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <select
                       className="schedule-input"
                       value={shift.selectedTaxiPlate}
                       onChange={e => handleTaxiChange(shift.id, e.target.value)}
+                      style={{ flex: 1 }}
                     >
                       <option value="" disabled>Selecione um carro...</option>
                       {availableTaxis.map(t => (
@@ -358,6 +371,31 @@ export default function DriverScheduleView() {
                       ))}
                     </select>
                     {shift.isAuto && <span className="auto-label">Automático</span>}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShiftToDelete(shift.id);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      }}
+                      title="Remover turno"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
               );
@@ -374,6 +412,60 @@ export default function DriverScheduleView() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <motion.div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              style={{
+                background: '#fff', padding: '24px', borderRadius: '12px',
+                width: '350px', maxWidth: '90%', textAlign: 'center',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+              }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Remover Turno</h3>
+              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
+                Tem a certeza que deseja remover este turno da sua seleção?
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
+                    background: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteGeneratedShift}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                >
+                  Remover
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
