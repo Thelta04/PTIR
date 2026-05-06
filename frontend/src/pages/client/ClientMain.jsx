@@ -30,47 +30,25 @@ export default function ClientMain() {
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
 
-  const handleUseCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
+  const handleUseCurrentLocation = () => {
+    // MOCKED LOCATIONS for testing
+    const originCoords = { lat: 38.7111, lon: -9.1368 };
+    const destCoords = { lat: 38.7369, lon: -9.1427 };
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const ponto = { lat: latitude, lon: longitude };
-        const address = await getAddressFromCoords(latitude, longitude);
+    // Set Origin
+    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+      setOrigem(originCoords);
+      setOriginAddress(address);
+    });
 
-        setOrigem(ponto);
-        setOriginAddress(address);
-      },
-      (error) => {
-        alert('Unable to retrieve your location: ' + error.message);
-      }
-    );
-  }, []);
+    // Set Destination automatically for easier testing
+    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
+      setDestino(destCoords);
+      setDestinationAddress(address);
+      setSearchValue(address);
+    });
+  };
 
-  const handleUseCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const ponto = { lat: latitude, lon: longitude };
-        const address = await getAddressFromCoords(latitude, longitude);
-
-        setOrigem(ponto);
-        setOriginAddress(address);
-      },
-      (error) => {
-        alert('Unable to retrieve your location: ' + error.message);
-      }
-    );
-  }, []);
 
   const checkActiveTrip = async () => {
     try {
@@ -243,24 +221,6 @@ export default function ClientMain() {
     }
   }
 
-  const handleUseCurrentLocation = () => {
-    // MOCKED LOCATIONS for testing
-    const originCoords = { lat: 38.7111, lon: -9.1368 };
-    const destCoords = { lat: 38.7369, lon: -9.1427 };
-
-    // Set Origin
-    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
-      setOrigem(originCoords);
-      setOriginAddress(address);
-    });
-
-    // Set Destination automatically for easier testing
-    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
-      setDestino(destCoords);
-      setDestinationAddress(address);
-      setSearchValue(address);
-    });
-  };
   const handleCancelTrip = async () => {
     if (!activeTrip) return;
     try {
