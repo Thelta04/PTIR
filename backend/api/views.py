@@ -809,37 +809,30 @@ class TripAcceptView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.status not in ['PENDING', 'DRIVER_ACCEPTED']:
+        if trip.status != 'PENDING':
             return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if trip.status == 'PENDING':
-            shift_id = request.data.get('shift_id')
-            if not shift_id:
-                return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        shift_id = request.data.get('shift_id')
+        if not shift_id:
+            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
-            except Shift.DoesNotExist:
-                return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            if shift.real_interval is None:
-                return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+        if shift.real_interval is None:
+            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if shift.real_interval.end_time is not None:
-                return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+        if shift.real_interval.end_time is not None:
+            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-            trip.shift = shift
-            trip.status = 'DRIVER_ACCEPTED'
-        else: # DRIVER_ACCEPTED
-            trip.status = 'IN_PROGRESS'
-            # Update start_time to now
-            trip.interval.start_time = timezone.now()
-            trip.interval.save()
-
+        trip.shift = shift
+        trip.status = 'DRIVER_ACCEPTED'
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
-    
+
 class TripClientAcceptView(views.APIView):
     @extend_schema(
         summary="Accept a trip (Client)",
@@ -899,6 +892,50 @@ class TripPickupView(views.APIView):
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+
+class RouteGeometryView(views.APIView):
+    @extend_schema(
+        summary="Get route geometry (Driver)",
+        description="Proxies request to OpenRouteService to get the route geometry between origin and destination.",
+        responses={200: inline_serializer(name='RouteResponse', fields={'geometry': serializers.CharField(), 'distance': serializers.FloatField(), 'duration': serializers.FloatField()})}
+    )
+    def get(self, request):
+        origin = request.query_params.get('origin')
+        dest = request.query_params.get('dest')
+        if not origin or not dest:
+            return Response({"error": "Origin and destination are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='
+            o_lat, o_lon = origin.split(',')
+            d_lat, d_lon = dest.split(',')
+            
+            response = requests.post(
+                'https://api.openrouteservice.org/v2/directions/driving-car',
+                headers={
+                    'Authorization': ORS_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'coordinates': [
+                        [float(o_lon), float(o_lat)],
+                        [float(d_lon), float(d_lat)]
+                    ]
+                },
+                timeout=5
+            )
+            data = response.json()
+            if 'routes' not in data or not data['routes']:
+                 return Response({"error": "No route found"}, status=status.HTTP_404_NOT_FOUND)
+                 
+            route = data['routes'][0]
+            return Response({
+                "geometry": route['geometry'],
+                "distance": route['summary']['distance'],
+                "duration": route['summary']['duration']
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RatingListView(views.APIView):
     @extend_schema(
@@ -999,7 +1036,11 @@ class TripCompleteView(views.APIView):
         
         # Calcular duração em minutos e preço final
         now = timezone.now()
-        minutes = (now - trip.interval.start_time).total_seconds() / 60
+        start_time = trip.interval.start_time
+        if timezone.is_naive(start_time):
+            start_time = timezone.make_aware(start_time)
+            
+        minutes = (now - start_time).total_seconds() / 60
         trip.price = calculate_price(minutes, trip.comfort_level)
 
         trip.status = 'COMPLETED'

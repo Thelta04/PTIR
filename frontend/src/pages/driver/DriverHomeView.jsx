@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
-import { MapPin } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { listPendingTrips, listShifts, acceptTrip } from '../../api/client';
+import { 
+  listPendingTrips, 
+  listShifts, 
+  acceptTrip, 
+  listTrips, 
+  pickupTrip, 
+  completeTrip, 
+  getRouteGeometry 
+} from '../../api/client';
 import 'leaflet/dist/leaflet.css';
 
 // Custom icons using standard markers or SVG
@@ -36,10 +44,43 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+const decodePolyline = (encoded) => {
+  if (!encoded) return [];
+  let poly = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    poly.push([lat / 1e5, lng / 1e5]);
+  }
+  return poly;
+};
+
 export default function DriverHomeView() {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [activeShift, setActiveShift] = useState(null);
+  const [activeTrip, setActiveTrip] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
 
   // Sheet states: 'closed' (peek), 'open' (expanded)
@@ -51,8 +92,23 @@ export default function DriverHomeView() {
       const active = shifts.find(s => s.real_interval && !s.real_interval.end_time);
       setActiveShift(active);
 
-      const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
-      setTrips(pending);
+      // Check for active trip assigned to this driver
+      const { data: allTrips } = await listTrips();
+      const myActive = allTrips.find(t => 
+        t.driver_id === user.id && 
+        ['CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+      );
+
+      if (myActive) {
+        setActiveTrip(myActive);
+        setTrips([]); // Don't show other pending trips
+        setSheetState('open');
+      } else {
+        setActiveTrip(null);
+        setRouteCoords([]);
+        const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
+        setTrips(pending);
+      }
     } catch (err) {
       console.error('Error fetching driver home data:', err);
     }
@@ -65,11 +121,35 @@ export default function DriverHomeView() {
     }
     try {
       await acceptTrip(tripId, user.id, activeShift.id);
-      alert('Viagem aceita com sucesso!');
+      alert('Viagem aceita com sucesso! Aguarde a confirmação do passageiro.');
       fetchData();
     } catch (err) {
       console.error('Error accepting trip:', err);
       alert('Erro ao aceitar viagem.');
+    }
+  };
+
+  const handlePickup = async () => {
+    if (!activeTrip) return;
+    try {
+      await pickupTrip(activeTrip.id);
+      alert('Passageiro recolhido! Iniciando viagem para o destino.');
+      fetchData();
+    } catch (err) {
+      console.error('Error picking up client:', err);
+      alert('Erro ao iniciar viagem.');
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!activeTrip) return;
+    try {
+      await completeTrip(activeTrip.id);
+      alert('Viagem concluída com sucesso!');
+      fetchData();
+    } catch (err) {
+      console.error('Error completing trip:', err);
+      alert('Erro ao concluir viagem.');
     }
   };
 
@@ -79,9 +159,42 @@ export default function DriverHomeView() {
     }
   }, [user]);
 
+  // Fetch route geometry when active trip changes
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!activeTrip) {
+        setRouteCoords([]);
+        return;
+      }
+      
+      let origin, dest;
+      if (activeTrip.status === 'CLIENT_ACCEPTED') {
+        // Route to the client
+        origin = `${driverLoc.lat},${driverLoc.lon}`;
+        dest = activeTrip.originCoords;
+      } else if (activeTrip.status === 'IN_PROGRESS') {
+        // Route to destination
+        origin = activeTrip.originCoords; // Ideally driverLoc if dynamic
+        dest = activeTrip.destCoords;
+      }
+
+      if (origin && dest) {
+        try {
+          const { data } = await getRouteGeometry(origin, dest);
+          if (data.geometry) {
+            setRouteCoords(decodePolyline(data.geometry));
+          }
+        } catch (err) {
+          console.error('Error fetching route:', err);
+        }
+      }
+    };
+    fetchRoute();
+  }, [activeTrip, driverLoc]);
+
   const sheetVariants = {
-    closed: { y: 'calc(100% - 160px)' }, // Peeks 160px instead of 100px
-    open: { y: '15%' }, // Expanded
+    closed: { y: 'calc(100% - 160px)' }, 
+    open: { y: '15%' }, 
   };
 
   return (
@@ -97,16 +210,37 @@ export default function DriverHomeView() {
             <Popup>Você está aqui</Popup>
           </Marker>
 
-          {trips.map((trip, index) => {
-            if (!trip.originCoords) return null;
-            const [tLat, tLon] = trip.originCoords.split(',').map(Number);
-            if (isNaN(tLat) || isNaN(tLon)) return null;
-            return (
-              <Marker key={trip.id} position={[tLat, tLon]} icon={createIcon(pinColors[index % pinColors.length])}>
-                <Popup>{trip.client_name}</Popup>
-              </Marker>
-            );
-          })}
+          {activeTrip ? (
+            <>
+              {/* Pickup location marker */}
+              {activeTrip.originCoords && (
+                <Marker position={activeTrip.originCoords.split(',').map(Number)} icon={createIcon('#ef4444')}>
+                  <Popup>Recolha: {activeTrip.originAddress}</Popup>
+                </Marker>
+              )}
+              {/* Destination location marker (only if in progress) */}
+              {activeTrip.status === 'IN_PROGRESS' && activeTrip.destCoords && (
+                <Marker position={activeTrip.destCoords.split(',').map(Number)} icon={createIcon('#10b981')}>
+                  <Popup>Destino: {activeTrip.destAddress}</Popup>
+                </Marker>
+              )}
+              {/* Route line */}
+              {routeCoords.length > 0 && (
+                <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.7} />
+              )}
+            </>
+          ) : (
+            trips.map((trip, index) => {
+              if (!trip.originCoords) return null;
+              const [tLat, tLon] = trip.originCoords.split(',').map(Number);
+              if (isNaN(tLat) || isNaN(tLon)) return null;
+              return (
+                <Marker key={trip.id} position={[tLat, tLon]} icon={createIcon(pinColors[index % pinColors.length])}>
+                  <Popup>{trip.client_name}</Popup>
+                </Marker>
+              );
+            })
+          )}
         </MapContainer>
       </div>
 
@@ -129,11 +263,50 @@ export default function DriverHomeView() {
         </div>
 
         <div className="sheet-header">
-          <h2 className="sheet-title">Escolher Passageiro</h2>
+          <h2 className="sheet-title">
+            {activeTrip ? 'Viagem Ativa' : 'Escolher Passageiro'}
+          </h2>
         </div>
 
         <div className="passenger-list">
-          {trips.length === 0 ? (
+          {activeTrip ? (
+            <div className="active-trip-card">
+              <div className="card-info">
+                <div className="card-top">
+                  <span className="passenger-name">{activeTrip.client_name}</span>
+                  <span className="trip-status-badge">
+                    {activeTrip.status === 'CLIENT_ACCEPTED' ? 'A caminho' : 'Em curso'}
+                  </span>
+                </div>
+                <div className="card-bottom">
+                  <div className="address-item">
+                    <MapPin size={16} className="text-red" />
+                    <span>{activeTrip.originAddress}</span>
+                  </div>
+                  {activeTrip.status === 'IN_PROGRESS' && (
+                    <div className="address-item">
+                      <Navigation size={16} className="text-green" />
+                      <span>{activeTrip.destAddress}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="active-trip-actions">
+                {activeTrip.status === 'CLIENT_ACCEPTED' ? (
+                  <button className="btn-pickup" onClick={handlePickup}>
+                    <Navigation size={20} />
+                    Recolher Passageiro
+                  </button>
+                ) : (
+                  <button className="btn-complete" onClick={handleComplete}>
+                    <CheckCircle size={20} />
+                    Concluir Viagem
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : trips.length === 0 ? (
             <div className="no-trips">Nenhuma viagem pendente encontrada.</div>
           ) : (
             trips.map((trip, index) => {
@@ -169,3 +342,4 @@ export default function DriverHomeView() {
     </div>
   );
 }
+
