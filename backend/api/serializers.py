@@ -93,11 +93,12 @@ class TripCreateSerializer(serializers.Serializer):
     destAddress    = serializers.CharField(max_length=255)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
+    scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
 
 
     def validate(self, data):
-        origin = data.get('origin')
-        destination = data.get('destination')
+        origin = data.get('originAddress')
+        destination = data.get('destAddress')
         
         if origin and destination and origin == destination:
             raise serializers.ValidationError("Origin and destination cannot be the same.")

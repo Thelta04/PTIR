@@ -44,6 +44,7 @@ services:
     volumes:
       - ./frontend:/app             # Espelha a pasta local para /app no container
       - /app/node_modules           # Protege os node_modules do container (evita conflitos)
+      - ./nginx/ssl:/etc/nginx/ssl  # Mount SSL certificates
     environment:
       - CHOKIDAR_USEPOLLING=true    # Garante que o Vite deteta mudanças em todos os sistemas
     command: npm run dev            # Executa o servidor de desenvolvimento, não o build
@@ -51,6 +52,6 @@ services:
       - backend
     ports:
       - "80:80"
-
+      - "443:443"
 volumes:
   pgdata:
