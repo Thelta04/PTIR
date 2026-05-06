@@ -50,6 +50,7 @@ urlpatterns = [
     path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
     path('trip/<int:id>/client-accept/', views.TripClientAcceptView.as_view(), name='accept_trip_client'),
     path('trip/<int:id>/pickup/', views.TripPickupView.as_view(), name='start_trip'),
+    path('route/', views.RouteGeometryView.as_view(), name='route_geometry'),
 
 
     # Ratting
@@ -58,4 +59,5 @@ urlpatterns = [
 
     # Health Check
     path('check/', views.CheckHealthView.as_view(), name='check_health'),
+    path('pricing/', views.PricingConfigView.as_view(), name= 'pricing'),
 ]

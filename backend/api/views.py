@@ -21,6 +21,12 @@ from .serializers import (
 
 
  
+ 
+PRICING_CONFIG = {
+    'BASE_FARE': 2.50,
+    'PRICE_PER_MIN_BASIC': 0.25,
+    'PRICE_PER_MIN_LUXURY': 0.50,
+}
 # --- Views with Business Logic ---
 
 class UserDeleteView(views.APIView):
@@ -725,18 +731,14 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
         return 0
 
 def calculate_price(minutes: float, comfort_level: str) -> float:
-    BASE_FARE = 2.50
-    PRICE_PER_MIN_BASIC = 0.25
-    PRICE_PER_MIN_LUXURY = 0.50
-
-    price_per_min = PRICE_PER_MIN_LUXURY if comfort_level == 'luxury' else PRICE_PER_MIN_BASIC
-    price = BASE_FARE + (minutes * price_per_min)
+    price_per_min = PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] if comfort_level == 'luxury' else PRICING_CONFIG['PRICE_PER_MIN_BASIC']
+    price = PRICING_CONFIG['BASE_FARE'] + (minutes * price_per_min)
     return round(price, 2)
 
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
-        description="Client requests a new trip. Coordinates are automaticaly fetched via Nominatim.",
+        description="Client requests a new trip. Coordinates are automatically fetched via Nominatim.",
         request=TripCreateSerializer,
         responses={201: TripListSerializer}
     )
@@ -751,27 +753,23 @@ class TripCreateView(views.APIView):
             client = Client.objects.get(user__id=data['client_id'])
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
         active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
         if Trip.objects.filter(client=client, status__in=active_statuses).exists():
             return Response(
                 {"error": "Client already has an active trip."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         origin_coords = geocode_address(data['originAddress'])
-        dest_coords   = geocode_address(data['destAddress'])
+        dest_coords = geocode_address(data['destAddress'])
         
         kilometers = 0
         if origin_coords and dest_coords:
             kilometers = calculate_distance(origin_coords, dest_coords)
-        price = 0
-
-
-        scheduled_time = data.get('scheduled_time')
-        if not scheduled_time:
-            scheduled_time = timezone.now()
 
         interval = TimeInterval.objects.create(
-            start_time=scheduled_time,
+            start_time=timezone.now(),
             end_time=None
         )
         
@@ -786,13 +784,13 @@ class TripCreateView(views.APIView):
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
             kilometers=int(round(kilometers)),
-            price=price,
+            price=0,
             status='PENDING'
         )
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
+    
 class TripAcceptView(views.APIView):
     @extend_schema(
         summary="Accept a trip (Driver)",
@@ -809,37 +807,30 @@ class TripAcceptView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.status not in ['PENDING', 'DRIVER_ACCEPTED']:
+        if trip.status != 'PENDING':
             return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if trip.status == 'PENDING':
-            shift_id = request.data.get('shift_id')
-            if not shift_id:
-                return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        shift_id = request.data.get('shift_id')
+        if not shift_id:
+            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
-            except Shift.DoesNotExist:
-                return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            if shift.real_interval is None:
-                return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+        if shift.real_interval is None:
+            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if shift.real_interval.end_time is not None:
-                return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+        if shift.real_interval.end_time is not None:
+            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-            trip.shift = shift
-            trip.status = 'DRIVER_ACCEPTED'
-        else: # DRIVER_ACCEPTED
-            trip.status = 'IN_PROGRESS'
-            # Update start_time to now
-            trip.interval.start_time = timezone.now()
-            trip.interval.save()
-
+        trip.shift = shift
+        trip.status = 'DRIVER_ACCEPTED'
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
-    
+
 class TripClientAcceptView(views.APIView):
     @extend_schema(
         summary="Accept a trip (Client)",
@@ -893,12 +884,59 @@ class TripPickupView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        trip.status = 'IN_PROGRESS'
+        # Atualiza o intervalo existente em vez de criar um novo
         trip.interval.start_time = timezone.now()
+        trip.interval.end_time = None
         trip.interval.save()
+
+        trip.status = 'IN_PROGRESS'
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+
+class RouteGeometryView(views.APIView):
+    @extend_schema(
+        summary="Get route geometry (Driver)",
+        description="Proxies request to OpenRouteService to get the route geometry between origin and destination.",
+        responses={200: inline_serializer(name='RouteResponse', fields={'geometry': serializers.CharField(), 'distance': serializers.FloatField(), 'duration': serializers.FloatField()})}
+    )
+    def get(self, request):
+        origin = request.query_params.get('origin')
+        dest = request.query_params.get('dest')
+        if not origin or not dest:
+            return Response({"error": "Origin and destination are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='
+            o_lat, o_lon = origin.split(',')
+            d_lat, d_lon = dest.split(',')
+            
+            response = requests.post(
+                'https://api.openrouteservice.org/v2/directions/driving-car',
+                headers={
+                    'Authorization': ORS_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'coordinates': [
+                        [float(o_lon), float(o_lat)],
+                        [float(d_lon), float(d_lat)]
+                    ]
+                },
+                timeout=5
+            )
+            data = response.json()
+            if 'routes' not in data or not data['routes']:
+                 return Response({"error": "No route found"}, status=status.HTTP_404_NOT_FOUND)
+                 
+            route = data['routes'][0]
+            return Response({
+                "geometry": route['geometry'],
+                "distance": route['summary']['distance'],
+                "duration": route['summary']['duration']
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RatingListView(views.APIView):
     @extend_schema(
@@ -971,9 +1009,8 @@ class TripCancelView(views.APIView):
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-
+    
 class TripCompleteView(views.APIView):
-    #FALTA CONVERTER COORDS PARA ENDEREÇO
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
@@ -999,8 +1036,16 @@ class TripCompleteView(views.APIView):
         
         # Calcular duração em minutos e preço final
         now = timezone.now()
-        minutes = (now - trip.interval.start_time).total_seconds() / 60
+        start_time = trip.interval.start_time
+        if timezone.is_naive(start_time):
+            start_time = timezone.make_aware(start_time)
+            
+        minutes = (now - start_time).total_seconds() / 60
         trip.price = calculate_price(minutes, trip.comfort_level)
+
+        # Fechar o intervalo da viagem
+        trip.interval.end_time = now
+        trip.interval.save()
 
         trip.status = 'COMPLETED'
         trip.interval.end_time = now
@@ -1052,3 +1097,61 @@ class CheckHealthView(views.APIView):
             return Response(health, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
         return Response(health, status=status.HTTP_200_OK)
+    
+class PricingConfigView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Get pricing config (Manager only)",
+        description="Returns the current pricing configuration.",
+        request=None,
+        responses={200: inline_serializer(
+            name='PricingConfigResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def get(self, request):
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update pricing config (Manager only)",
+        description="Updates the current pricing configuration. All fields are optional.",
+        request=inline_serializer(
+            name='PricingConfigUpdateRequest',
+            fields={
+                'base_fare': serializers.FloatField(required=False),
+                'price_per_min_basic': serializers.FloatField(required=False),
+                'price_per_min_luxury': serializers.FloatField(required=False),
+            }
+        ),
+        responses={200: inline_serializer(
+            name='PricingConfigUpdateResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def patch(self, request):
+        if 'base_fare' in request.data:
+            PRICING_CONFIG['BASE_FARE'] = float(request.data['base_fare'])
+        if 'price_per_min_basic' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_BASIC'] = float(request.data['price_per_min_basic'])
+        if 'price_per_min_luxury' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] = float(request.data['price_per_min_luxury'])
+
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)
