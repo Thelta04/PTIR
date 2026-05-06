@@ -1,17 +1,23 @@
-from django.db import connection
+import math
 import socket
-from rest_framework import generics, views, status
+import requests
+
+from django.db import connection, transaction
+from django.utils import timezone
+from rest_framework import views, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip
-from .serializers import *
-from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import serializers
-from django.db import transaction
-from django.utils import timezone
-import requests
-import math
+
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Rating, Invoice
+from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .serializers import (
+    CreateClientSerializer, UserSerializer, CreateDriverSerializer,
+    DriverSerializer, CreateManagerSerializer, CreateTaxiSerializer,
+    TaxiDetailSerializer, ShiftCreateSerializer, ShiftDetailSerializer,
+    TripListSerializer, TripCreateSerializer, RatingListSerializer,
+    RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer
+)
 
 
  
@@ -100,7 +106,6 @@ class ClientListView(views.APIView):
     )
     def get(self, request):
         clients = Client.objects.all()
-        from .serializers import UserSerializer
         serializer = UserSerializer(clients, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -150,7 +155,6 @@ class DriverDetailView(views.APIView):
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # 2. Serialize and return the data
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -162,7 +166,6 @@ class DriverListView(views.APIView):
     )
     def get(self, request):
         drivers = Driver.objects.all()
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -432,8 +435,6 @@ class ShiftStartView(views.APIView):
         if shift.real_interval is not None:
             return Response({"error": "Shift has already started."}, status=status.HTTP_400_BAD_REQUEST)
         
-        from django.utils import timezone
-        
         interval = TimeInterval.objects.create(
             start_time=timezone.now(),
             end_time=None
@@ -462,7 +463,6 @@ class ShiftEndView(views.APIView):
         if shift.real_interval.end_time is not None:
             return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
             
-        from django.utils import timezone
         shift.real_interval.end_time = timezone.now()
         shift.real_interval.save()
         
@@ -836,66 +836,6 @@ class TripAcceptView(views.APIView):
             trip.interval.start_time = timezone.now()
             trip.interval.save()
 
-        trip.save()
-
-        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
-    
-class TripClientAcceptView(views.APIView):
-    @extend_schema(
-        summary="Accept a trip (Client)",
-        description="Client confirms the trip after the driver has accepted it.",
-        request=None,
-        responses={200: TripListSerializer}
-    )
-    def patch(self, request, id):
-        try:
-            trip = Trip.objects.select_related(
-                'client__user',
-                'shift__driver__user',
-                'shift__taxi',
-                'interval'
-            ).get(id=id)
-        except Trip.DoesNotExist:
-            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        if trip.status != 'DRIVER_ACCEPTED':
-            return Response(
-                {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        trip.status = 'CLIENT_ACCEPTED'
-        trip.save()
-
-        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
-    
-class TripPickupView(views.APIView):
-    @extend_schema(
-        summary="Pickup client (Driver)",
-        description="Driver confirms the client pickup, setting the trip to IN_PROGRESS.",
-        request=None,
-        responses={200: TripListSerializer}
-    )
-    def patch(self, request, id):
-        try:
-            trip = Trip.objects.select_related(
-                'client__user',
-                'shift__driver__user',
-                'shift__taxi',
-                'interval'
-            ).get(id=id)
-        except Trip.DoesNotExist:
-            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        if trip.status != 'CLIENT_ACCEPTED':
-            return Response(
-                {"error": f"Trip cannot be started. Current status: {trip.status}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        trip.status = 'IN_PROGRESS'
-        trip.interval.start_time = timezone.now()
-        trip.interval.save()
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
