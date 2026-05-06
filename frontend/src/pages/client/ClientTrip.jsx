@@ -1,26 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Bell, Target, ChevronLeft } from 'lucide-react';
+import { Menu, Bell, Target, ChevronLeft, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import './client.css';
 
 export default function ClientTrip() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { tripId, origem, destino } = location.state || {};
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeTrip, setActiveTrip] = useState(null);
+  const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'in_progress'
 
   // If no trip state, redirect back
   useEffect(() => {
-    if (!location.state) {
+    if (!location.state || !tripId) {
       navigate('/client');
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, tripId]);
+
+  // Polling for trip status
+  useEffect(() => {
+    let interval;
+    if (tripId) {
+      interval = setInterval(async () => {
+        try {
+          const { data } = await listTrips();
+          const updatedTrip = data.find(t => t.id === tripId);
+
+          if (updatedTrip) {
+            setActiveTrip(updatedTrip);
+            if (updatedTrip.status === 'DRIVER_ACCEPTED') {
+              setStatus('accepted');
+            } else if (updatedTrip.status === 'CLIENT_ACCEPTED' || updatedTrip.status === 'IN_PROGRESS') {
+              setStatus('in_progress');
+            } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
+              navigate('/client');
+            }
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [tripId, navigate]);
 
   const handleCancel = async () => {
     if (tripId) {
@@ -36,6 +65,16 @@ export default function ClientTrip() {
     }
   };
 
+  const handleClientAccept = async () => {
+    if (!tripId) return;
+    try {
+      await clientAcceptTrip(tripId);
+      setStatus('in_progress');
+    } catch (err) {
+      alert('Error accepting trip');
+    }
+  };
+
   const handleMenuClick = (path) => {
     setIsMenuOpen(false);
     if (path) navigate(path);
@@ -44,6 +83,71 @@ export default function ClientTrip() {
   const handleLogout = () => {
     logout();
     navigate('/login-client');
+  };
+
+  const renderStatusPanel = () => {
+    switch (status) {
+      case 'accepted':
+        return (
+          <div className="status-panel accepted">
+            <div className="driver-header-info">
+              <div className="driver-avatar">
+                <img src="https://via.placeholder.com/60" alt="Driver" />
+              </div>
+              <div className="driver-details">
+                <h3>{activeTrip?.driver_name || 'Motorista'}</h3>
+                <div className="rating">
+                  <Star size={14} fill="#f1af3d" color="#f1af3d" />
+                  <span>4.9 (531)</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="car-details">
+              <div className="car-text">
+                <strong>{activeTrip?.taxi_brand || 'Tesla'} {activeTrip?.taxi_model || 'Model 3'}</strong>
+                <span>{activeTrip?.taxi_plate || 'AA-00-BB'}</span>
+              </div>
+              <div className="car-icon">🚗</div>
+            </div>
+
+            <div className="panel-actions">
+              <button className="panel-btn panel-btn--refuse" onClick={handleCancel}>
+                Recusar
+              </button>
+              <button className="panel-btn panel-btn--accept" onClick={handleClientAccept}>
+                Aceitar
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'in_progress':
+        return (
+          <div className="status-panel in-progress">
+            <h2 className="panel-title">Viagem em curso</h2>
+            <p>O seu motorista está a caminho!</p>
+            <div className="driver-mini-card">
+              <span className="car-emoji">🚗</span>
+              <strong>{activeTrip?.driver_name}</strong>
+              <span className="plate-badge">{activeTrip?.taxi_plate}</span>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="status-panel searching">
+            <h2 className="panel-title">A procurar um motorista...</h2>
+            <div className="pulse-loader">
+              <div className="pulse-ring"></div>
+            </div>
+            <button className="panel-btn panel-btn--cancel" onClick={handleCancel}>
+              Cancelar
+            </button>
+          </div>
+        );
+    }
   };
 
   return (
@@ -67,17 +171,14 @@ export default function ClientTrip() {
           <MapaPedido
             origem={origem}
             destino={destino}
-            onEscolherPonto={() => {}} // Disable picking on this view
+            onEscolherPonto={() => {}} 
           />
         </div>
 
-        {/* Searching Panel at the top */}
-        <div className="searching-panel">
-          <h2 className="searching-text">A procurar um motorista...</h2>
-          <button className="cancel-trip-btn" onClick={handleCancel}>
-            Cancelar
-          </button>
-        </div>
+        {/* Dynamic Status Panel */}
+        <section className="trip-status-overlay">
+          {renderStatusPanel()}
+        </section>
 
         <button className="gps-btn" title="Use current location">
           <Target size={24} color="#000" />
@@ -132,3 +233,4 @@ export default function ClientTrip() {
     </div>
   );
 }
+

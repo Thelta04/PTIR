@@ -100,6 +100,8 @@ export const deleteUser = (id) => api.delete(`user/${id}/delete/`);
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
 export const listTaxis = () => api.get('taxi/');
 export const createTaxi = (data) => api.post('taxi/create/', data);
+export const deleteTaxi = (plate) => api.delete(`taxi/${plate}/delete/`);
+export const updateTaxiMileage = (plate, mileage) => api.patch(`taxi/${plate}/mileage/`, { mileage });
 
 // ── Shifts ──────────────────────────────────────
 export const listShifts = (driverId) => api.get(`shift/get/${driverId}/`);

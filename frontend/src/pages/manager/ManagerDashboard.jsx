@@ -13,12 +13,16 @@ import {
   X,
   User,
   MapPin,
-  Trash2
+  Trash2,
+  ShieldCheck,
+  ShieldAlert,
+  Edit2
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { 
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, 
-  listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser 
+  listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
+  deleteTaxi, updateTaxiMileage
 } from '../../api/client';
 
 const sidebarItems = [
@@ -48,8 +52,14 @@ export default function ManagerDashboard() {
 
   // Delete State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null); // { id, type: 'shift' | 'user' }
+  const [itemToDelete, setItemToDelete] = useState(null); // { id, type: 'shift' | 'user' | 'taxi' }
   const [deleting, setDeleting] = useState(false);
+
+  // Mileage Edit State
+  const [isMileageModalOpen, setIsMileageModalOpen] = useState(false);
+  const [taxiToEditMileage, setTaxiToEditMileage] = useState(null);
+  const [newMileage, setNewMileage] = useState('');
+  const [updatingMileage, setUpdatingMileage] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -170,16 +180,21 @@ export default function ManagerDashboard() {
     if (!itemToDelete) return;
     setDeleting(true);
     
-    const request = itemToDelete.type === 'shift' 
-      ? deleteShift(itemToDelete.id)
-      : deleteUser(itemToDelete.id);
+    let request;
+    if (itemToDelete.type === 'shift') {
+      request = deleteShift(itemToDelete.id);
+    } else if (itemToDelete.type === 'user') {
+      request = deleteUser(itemToDelete.id);
+    } else if (itemToDelete.type === 'taxi') {
+      request = deleteTaxi(itemToDelete.id);
+    }
 
     request
       .then(() => {
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
         fetchData();
-        setApiStatus(`${itemToDelete.type === 'shift' ? 'Shift' : 'User'} deleted successfully`);
+        setApiStatus(`${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} deleted successfully`);
         setTimeout(() => setApiStatus(''), 4000);
       })
       .catch(err => {
@@ -189,6 +204,29 @@ export default function ManagerDashboard() {
       })
       .finally(() => {
         setDeleting(false);
+      });
+  };
+
+  const handleUpdateMileage = (e) => {
+    e.preventDefault();
+    if (!taxiToEditMileage) return;
+    setUpdatingMileage(true);
+    updateTaxiMileage(taxiToEditMileage.license_plate, parseInt(newMileage, 10))
+      .then(() => {
+        setIsMileageModalOpen(false);
+        setTaxiToEditMileage(null);
+        setNewMileage('');
+        fetchData();
+        setApiStatus('Mileage updated successfully');
+        setTimeout(() => setApiStatus(''), 4000);
+      })
+      .catch(err => {
+        const errData = err.response?.data;
+        const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
+        alert('Failed to update mileage: ' + errorMsg);
+      })
+      .finally(() => {
+        setUpdatingMileage(false);
       });
   };
 
@@ -277,28 +315,32 @@ export default function ManagerDashboard() {
     }
     if (activeSection === 'taxis') {
       return (
-        <>
-          <div className="auth-field" style={{marginBottom: 12}}>
-            <label className="auth-label">License Plate (XX-XX-XX)</label>
-            <input className="auth-input" name="license_plate" required onChange={handleInputChange} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '4px' }}>
+          <div className="auth-field">
+            <label className="auth-label">License Plate</label>
+            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} />
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
+          <div className="auth-field">
             <label className="auth-label">Purchase Year</label>
             <input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} />
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
-            <label className="auth-label">Mileage</label>
+          <div className="auth-field">
+            <label className="auth-label">Mileage (km)</label>
             <input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} />
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
+          <div className="auth-field">
             <label className="auth-label">Brand</label>
-            <input className="auth-input" name="brand" required onChange={handleInputChange} />
+            <input className="auth-input" name="brand" placeholder="e.g. Tesla" required onChange={handleInputChange} />
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
+          <div className="auth-field">
             <label className="auth-label">Model</label>
-            <input className="auth-input" name="model" required onChange={handleInputChange} />
+            <input className="auth-input" name="model" placeholder="e.g. Model 3" required onChange={handleInputChange} />
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
+          <div className="auth-field">
+            <label className="auth-label">Passengers</label>
+            <input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} />
+          </div>
+          <div className="auth-field">
             <label className="auth-label">Comfort Level</label>
             <select className="auth-input" name="comfort_level" required onChange={handleInputChange} defaultValue="">
               <option value="" disabled>Select Level</option>
@@ -306,15 +348,15 @@ export default function ManagerDashboard() {
               <option value="luxury">Luxury</option>
             </select>
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
+          <div className="auth-field">
             <label className="auth-label">Engine Type</label>
-            <input className="auth-input" name="engine_type" required onChange={handleInputChange} />
+            <select className="auth-input" name="engine_type" required onChange={handleInputChange} defaultValue="">
+              <option value="" disabled>Select Engine</option>
+              <option value="combustion">Combustion</option>
+              <option value="electric">Electric</option>
+            </select>
           </div>
-          <div className="auth-field" style={{marginBottom: 12}}>
-            <label className="auth-label">Num Passengers</label>
-            <input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} />
-          </div>
-        </>
+        </div>
       );
     }
     if (activeSection === 'shifts') {
@@ -373,8 +415,8 @@ export default function ManagerDashboard() {
           >
             <motion.div
               style={{
-                background: '#fff', padding: '24px', borderRadius: '12px',
-                width: '400px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto',
+                background: '#fff', padding: '32px', borderRadius: '16px',
+                width: '600px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto',
                 position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
               }}
               initial={{ y: -20, opacity: 0 }}
@@ -403,6 +445,62 @@ export default function ManagerDashboard() {
                 
                 <button type="submit" className="auth-btn" disabled={submitting}>
                   {submitting ? 'Creating...' : 'Create'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mileage Update Modal */}
+      <AnimatePresence>
+        {isMileageModalOpen && (
+          <motion.div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              style={{
+                background: '#fff', padding: '32px', borderRadius: '16px',
+                width: '500px', maxWidth: '95%',
+                position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+              }}
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+            >
+              <button 
+                onClick={() => setIsMileageModalOpen(false)}
+                style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
+              >
+                <X size={20} />
+              </button>
+              
+              <h2 style={{ marginBottom: '20px', color: '#1f2937', fontWeight: 600 }}>
+                Update Mileage: {taxiToEditMileage?.license_plate}
+              </h2>
+              
+              <form onSubmit={handleUpdateMileage}>
+                <div className="auth-field" style={{marginBottom: 20}}>
+                  <label className="auth-label">New Mileage (km)</label>
+                  <input 
+                    className="auth-input" 
+                    type="number" 
+                    value={newMileage} 
+                    onChange={(e) => setNewMileage(e.target.value)} 
+                    required 
+                    min={taxiToEditMileage?.mileage || 0}
+                  />
+                </div>
+                
+                <button type="submit" className="auth-btn" disabled={updatingMileage}>
+                  {updatingMileage ? 'Updating...' : 'Update Mileage'}
                 </button>
               </form>
             </motion.div>
@@ -703,7 +801,9 @@ export default function ManagerDashboard() {
                       <th style={{ padding: '12px 16px' }}>Plate</th>
                       <th style={{ padding: '12px 16px' }}>Brand</th>
                       <th style={{ padding: '12px 16px' }}>Model</th>
+                      <th style={{ padding: '12px 16px' }}>Mileage</th>
                       <th style={{ padding: '12px 16px' }}>Engine</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -712,10 +812,48 @@ export default function ManagerDashboard() {
                         <td style={{ padding: '12px 16px' }}>{t.license_plate}</td>
                         <td style={{ padding: '12px 16px' }}>{t.brand}</td>
                         <td style={{ padding: '12px 16px' }}>{t.model}</td>
+                        <td style={{ padding: '12px 16px' }}>{t.mileage.toLocaleString()} km</td>
                         <td style={{ padding: '12px 16px' }}>{t.engine_type}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                            <button
+                              onClick={() => {
+                                setTaxiToEditMileage(t);
+                                setNewMileage(t.mileage.toString());
+                                setIsMileageModalOpen(true);
+                              }}
+                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#16a34a' }}
+                              title="Update Mileage"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setItemToDelete({ id: t.license_plate, type: 'taxi' });
+                                setIsDeleteModalOpen(true);
+                              }}
+                              style={{
+                                backgroundColor: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                              title="Delete Taxi"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {data.taxis.length === 0 && <tr><td colSpan="4" style={{ padding: '16px' }}>No taxis found.</td></tr>}
+                    {data.taxis.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No taxis found.</td></tr>}
                   </tbody>
                 </table>
               </div>

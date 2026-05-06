@@ -512,3 +512,173 @@ html, body, #root {
     width: 95%;
   }
 }
+
+/* Trip Status Overlay for ClientTrip */
+.trip-status-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  z-index: 20;
+  pointer-events: none; /* Let clicks pass to map except for the panel */
+}
+
+.status-panel {
+  pointer-events: auto;
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  max-width: 450px;
+  margin: 0 auto;
+  border: 2px solid #f1cf58;
+}
+
+.status-panel.searching {
+  text-align: center;
+}
+
+.status-panel.searching .panel-btn {
+  width: 80%;
+  margin: 0 auto;
+}
+
+.panel-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+.pulse-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  margin-bottom: 20px;
+}
+
+.pulse-ring {
+  width: 60px;
+  height: 60px;
+  background: #f1cf58;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(241, 207, 88, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(241, 207, 88, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(241, 207, 88, 0); }
+}
+
+.driver-header-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.driver-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.driver-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.driver-details h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f1af3d;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.car-details {
+  background: #f9fafb;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.car-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.car-text strong {
+  font-size: 1.1rem;
+}
+
+.car-text span {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.car-icon {
+  font-size: 1.5rem;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.panel-btn {
+  flex: 1;
+  height: 56px;
+  border-radius: 12px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel-btn--cancel, .panel-btn--refuse {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.panel-btn--accept {
+  background: #f1cf58;
+  color: #fff;
+}
+
+.driver-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 12px;
+  margin-top: 16px;
+}
+
+.plate-badge {
+  margin-left: auto;
+  background: #000;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}

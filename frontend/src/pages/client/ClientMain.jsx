@@ -62,13 +62,8 @@ export default function ClientMain() {
       if (mine.length > 0) {
         const trip = mine[0];
         setActiveTrip(trip);
-        if (trip.status === 'PENDING') {
-          setCurrentView('searching');
-        } else if (trip.status === 'DRIVER_ACCEPTED') {
-          setCurrentView('accepted');
-        } else if (trip.status === 'CLIENT_ACCEPTED' || trip.status === 'IN_PROGRESS') {
-          setCurrentView('in_progress');
-        }
+        // If trip is in a state that should be shown in ClientTrip, navigate there
+        navigate('/client/trip', { state: { tripId: trip.id, origem, destino } });
       }
     } catch (err) {
       console.error('Error checking active trip:', err);
@@ -80,34 +75,6 @@ export default function ClientMain() {
     handleUseCurrentLocation();
     checkActiveTrip();
   }, []);
-
-  // Polling for trip status
-  useEffect(() => {
-    let interval;
-    if (activeTrip && (currentView === 'searching' || currentView === 'accepted')) {
-      interval = setInterval(async () => {
-        try {
-          const { data } = await listTrips();
-          const updatedTrip = data.find(t => t.id === activeTrip.id);
-
-          if (updatedTrip) {
-            setActiveTrip(updatedTrip);
-            if (updatedTrip.status === 'DRIVER_ACCEPTED' && currentView === 'searching') {
-              setCurrentView('accepted');
-            } else if ((updatedTrip.status === 'CLIENT_ACCEPTED' || updatedTrip.status === 'IN_PROGRESS') && currentView === 'accepted') {
-              setCurrentView('in_progress');
-            } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
-              setActiveTrip(null);
-              setCurrentView('initial');
-            }
-          }
-        } catch (err) {
-          console.error('Polling error:', err);
-        }
-      }, 3000);
-    }
-    return () => clearInterval(interval);
-  }, [activeTrip, currentView]);
 
   const handleSearchAddress = async (type) => {
     const addressToSearch = type === 'origin' ? origin_address : (type === 'destination' ? dest_address : searchValue);
@@ -193,8 +160,15 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      setActiveTrip(data);
-      setCurrentView('searching');
+      
+      // Navigate to the trip tracking page
+      navigate('/client/trip', { 
+        state: { 
+          tripId: data.id, 
+          origem, 
+          destino 
+        } 
+      });
     } catch (error) {
       const errorData = error.response?.data;
       let errorMsg = error.message;
@@ -236,23 +210,6 @@ export default function ClientMain() {
 
   const renderSearchPanel = () => {
     switch (currentView) {
-      case 'searching':
-        return (
-          <div className="searching-view" style={{ textAlign: 'center', padding: '20px' }}>
-            <h2 className="view-title" style={{ marginBottom: '30px' }}>A procurar um motorista...</h2>
-            <div className="pulse-container" style={{ margin: '40px 0' }}>
-              <div className="pulse-circle"></div>
-            </div>
-            <button
-              className="search-btn search-btn--primary"
-              onClick={handleCancelTrip}
-              style={{ backgroundColor: '#f1cf58', color: '#fff' }}
-            >
-              Cancelar
-            </button>
-          </div>
-        );
-
       case 'accepted':
         return (
           <div className="accepted-view" style={{ textAlign: 'center' }}>
