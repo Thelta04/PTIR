@@ -557,3 +557,69 @@ img { max-width: 100%; display: block; }
     radial-gradient(ellipse at 80% 80%, rgba(217,184,74,0.15) 0%, transparent 60%),
     var(--gray-100);
 }
+
+/* ── Form Styling (Dashboard Modals) ───────────── */
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.auth-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gray-600);
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-family: var(--font);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--gray-50);
+  color: var(--gray-800);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.auth-input:focus {
+  background: #fff;
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 4px rgba(217, 184, 74, 0.12);
+}
+
+.auth-input::placeholder {
+  color: var(--gray-400);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-600));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(201, 160, 32, 0.15);
+  margin-top: 1rem;
+}
+
+.auth-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(201, 160, 32, 0.25);
+}
+
+.auth-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
