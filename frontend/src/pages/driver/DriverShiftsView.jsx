@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { listShifts, startShift, endShift } from '../../api/client';
-import { motion } from 'framer-motion';
-import { Play, Square, Clock } from 'lucide-react';
+import { listShifts, startShift, endShift, deleteShift } from '../../api/client';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Square, Clock, Trash2 } from 'lucide-react';
 
 function formatDt(iso) {
   if (!iso) return '—';
@@ -18,6 +18,11 @@ export default function DriverShiftsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchShifts = async () => {
     try {
@@ -51,6 +56,24 @@ export default function DriverShiftsView() {
       fetchShifts();
     } catch (err) {
       setActionMsg(err.response?.data?.error || 'Failed to end shift.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!shiftToDelete) return;
+    try {
+      setDeleting(true);
+      await deleteShift(shiftToDelete);
+      setActionMsg('Turno apagado com sucesso!');
+      setIsDeleteModalOpen(false);
+      setShiftToDelete(null);
+      fetchShifts();
+    } catch (err) {
+      const errData = err.response?.data;
+      const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
+      alert(`Falha ao apagar turno: ${errorMsg}`);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -108,9 +131,33 @@ export default function DriverShiftsView() {
 
               <div className="shift-card-actions">
                 {!started && (
-                  <button className="btn btn--primary" onClick={() => handleStart(s.id)}>
-                    <Play size={14} /> Clock In
-                  </button>
+                  <>
+                    <button className="btn btn--primary" onClick={() => handleStart(s.id)}>
+                      <Play size={14} /> Clock In
+                    </button>
+                    <button 
+                      className="btn btn--danger-outline" 
+                      onClick={() => {
+                        setShiftToDelete(s.id);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid #ef4444',
+                        color: '#ef4444',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Trash2 size={14} /> Apagar
+                    </button>
+                  </>
                 )}
                 {started && !ended && (
                   <button className="btn btn--danger" onClick={() => handleEnd(s.id)}>
@@ -122,6 +169,60 @@ export default function DriverShiftsView() {
           );
         })}
       </div>
+
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <motion.div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              style={{
+                background: '#fff', padding: '24px', borderRadius: '12px',
+                width: '350px', maxWidth: '90%', textAlign: 'center',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+              }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Confirmar Eliminação</h3>
+              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
+                Tem a certeza que deseja apagar este turno? Esta ação não pode ser desfeita.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
+                    background: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                  disabled={deleting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDelete}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                  disabled={deleting}
+                >
+                  {deleting ? 'A apagar...' : 'Apagar'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
