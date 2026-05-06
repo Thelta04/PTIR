@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import *
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift
 from django.utils import timezone as tz
 
 
