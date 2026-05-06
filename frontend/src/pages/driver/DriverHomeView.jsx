@@ -156,6 +156,9 @@ export default function DriverHomeView() {
   useEffect(() => {
     if (user?.id) {
       fetchData();
+      // Poll every 5 seconds for updates (e.g. client accepted)
+      const intervalId = setInterval(fetchData, 5000);
+      return () => clearInterval(intervalId);
     }
   }, [user]);
 
@@ -174,7 +177,7 @@ export default function DriverHomeView() {
         dest = activeTrip.originCoords;
       } else if (activeTrip.status === 'IN_PROGRESS') {
         // Route to destination
-        origin = activeTrip.originCoords; // Ideally driverLoc if dynamic
+        origin = `${driverLoc.lat},${driverLoc.lon}`;
         dest = activeTrip.destCoords;
       }
 
