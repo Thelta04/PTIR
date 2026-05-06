@@ -15,6 +15,12 @@ import math
 
 
  
+ 
+PRICING_CONFIG = {
+    'BASE_FARE': 2.50,
+    'PRICE_PER_MIN_BASIC': 0.25,
+    'PRICE_PER_MIN_LUXURY': 0.50,
+}
 # --- Views with Business Logic ---
 
 class UserDeleteView(views.APIView):
@@ -725,18 +731,14 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
         return 0
 
 def calculate_price(minutes: float, comfort_level: str) -> float:
-    BASE_FARE = 2.50
-    PRICE_PER_MIN_BASIC = 0.25
-    PRICE_PER_MIN_LUXURY = 0.50
-
-    price_per_min = PRICE_PER_MIN_LUXURY if comfort_level == 'luxury' else PRICE_PER_MIN_BASIC
-    price = BASE_FARE + (minutes * price_per_min)
+    price_per_min = PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] if comfort_level == 'luxury' else PRICING_CONFIG['PRICE_PER_MIN_BASIC']
+    price = PRICING_CONFIG['BASE_FARE'] + (minutes * price_per_min)
     return round(price, 2)
 
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
-        description="Client requests a new trip. Coordinates are automaticaly fetched via Nominatim.",
+        description="Client requests a new trip. Coordinates are automatically fetched via Nominatim.",
         request=TripCreateSerializer,
         responses={201: TripListSerializer}
     )
@@ -751,27 +753,23 @@ class TripCreateView(views.APIView):
             client = Client.objects.get(user__id=data['client_id'])
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
         active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
         if Trip.objects.filter(client=client, status__in=active_statuses).exists():
             return Response(
                 {"error": "Client already has an active trip."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         origin_coords = geocode_address(data['originAddress'])
-        dest_coords   = geocode_address(data['destAddress'])
+        dest_coords = geocode_address(data['destAddress'])
         
         kilometers = 0
         if origin_coords and dest_coords:
             kilometers = calculate_distance(origin_coords, dest_coords)
-        price = 0
-
-
-        scheduled_time = data.get('scheduled_time')
-        if not scheduled_time:
-            scheduled_time = timezone.now()
 
         interval = TimeInterval.objects.create(
-            start_time=scheduled_time,
+            start_time=timezone.now(),
             end_time=None
         )
         
@@ -786,13 +784,13 @@ class TripCreateView(views.APIView):
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
             kilometers=int(round(kilometers)),
-            price=price,
+            price=0,
             status='PENDING'
         )
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
+    
 class TripAcceptView(views.APIView):
     @extend_schema(
         summary="Accept a trip (Driver)",
@@ -886,13 +884,16 @@ class TripPickupView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        trip.status = 'IN_PROGRESS'
+        # Atualiza o intervalo existente em vez de criar um novo
         trip.interval.start_time = timezone.now()
+        trip.interval.end_time = None
         trip.interval.save()
+
+        trip.status = 'IN_PROGRESS'
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
-
+    
 class RatingListView(views.APIView):
     @extend_schema(
         summary="List all ratings of a driver",
@@ -964,9 +965,8 @@ class TripCancelView(views.APIView):
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-
+    
 class TripCompleteView(views.APIView):
-    #FALTA CONVERTER COORDS PARA ENDEREÇO
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
@@ -992,8 +992,17 @@ class TripCompleteView(views.APIView):
         
         # Calcular duração em minutos e preço final
         now = timezone.now()
-        minutes = (now - trip.interval.start_time).total_seconds() / 60
+        start = trip.interval.start_time
+        if start.tzinfo is None:
+            from django.utils.timezone import make_aware
+            start = make_aware(start)
+        
+        minutes = (now - start).total_seconds() / 60
         trip.price = calculate_price(minutes, trip.comfort_level)
+
+        # Fechar o intervalo da viagem
+        trip.interval.end_time = now
+        trip.interval.save()
 
         trip.status = 'COMPLETED'
         trip.save()
@@ -1043,3 +1052,61 @@ class CheckHealthView(views.APIView):
             return Response(health, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
         return Response(health, status=status.HTTP_200_OK)
+    
+class PricingConfigView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Get pricing config (Manager only)",
+        description="Returns the current pricing configuration.",
+        request=None,
+        responses={200: inline_serializer(
+            name='PricingConfigResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def get(self, request):
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update pricing config (Manager only)",
+        description="Updates the current pricing configuration. All fields are optional.",
+        request=inline_serializer(
+            name='PricingConfigUpdateRequest',
+            fields={
+                'base_fare': serializers.FloatField(required=False),
+                'price_per_min_basic': serializers.FloatField(required=False),
+                'price_per_min_luxury': serializers.FloatField(required=False),
+            }
+        ),
+        responses={200: inline_serializer(
+            name='PricingConfigUpdateResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def patch(self, request):
+        if 'base_fare' in request.data:
+            PRICING_CONFIG['BASE_FARE'] = float(request.data['base_fare'])
+        if 'price_per_min_basic' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_BASIC'] = float(request.data['price_per_min_basic'])
+        if 'price_per_min_luxury' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] = float(request.data['price_per_min_luxury'])
+
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)
