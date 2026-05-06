@@ -1,20 +1,63 @@
-from django.db import connection
+import math
 import socket
-from rest_framework import generics, views, status
+import requests
+
+from django.db import connection, transaction
+from django.utils import timezone
+from rest_framework import views, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling
 from .serializers import *
 from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import serializers
-from django.db import transaction
-from django.utils import timezone
-import requests
-import math
+
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Rating, Invoice
+from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .serializers import (
+    CreateClientSerializer, UserSerializer, CreateDriverSerializer,
+    DriverSerializer, CreateManagerSerializer, CreateTaxiSerializer,
+    TaxiDetailSerializer, ShiftCreateSerializer, ShiftDetailSerializer,
+    TripListSerializer, TripCreateSerializer, RatingListSerializer,
+    RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer
+)
+
 
  
+ 
+PRICING_CONFIG = {
+    'BASE_FARE': 2.50,
+    'PRICE_PER_MIN_BASIC': 0.25,
+    'PRICE_PER_MIN_LUXURY': 0.50,
+}
 # --- Views with Business Logic ---
+
+class UserDeleteView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @extend_schema(
+        summary="Delete a User (Manager only)",
+        description="Deletes a user and all associated profiles (Client, Driver, Manager). Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="UserDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="UserDeleteNotFound", fields={'error': serializers.CharField()})
+        }
+    )
+    def delete(self, request, id):
+        try:
+            user = User.objects.get(pk=id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
+        if Trip.objects.filter(client__user=user, status__in=active_statuses).exists():
+            return Response({"error": "Cannot delete a user that has active trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ClientCreateView(views.APIView):
@@ -72,7 +115,6 @@ class ClientListView(views.APIView):
     )
     def get(self, request):
         clients = Client.objects.all()
-        from .serializers import UserSerializer
         serializer = UserSerializer(clients, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -122,7 +164,6 @@ class DriverDetailView(views.APIView):
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # 2. Serialize and return the data
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -134,7 +175,6 @@ class DriverListView(views.APIView):
     )
     def get(self, request):
         drivers = Driver.objects.all()
-        from .serializers import DriverSerializer
         serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -192,6 +232,39 @@ class TaxiCreateView(views.APIView):
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class TaxiUpdateMileageView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Update Taxi mileage (Manager only)",
+        description="Updates the mileage of a specific taxi. Requires a valid Manager JWT token.",
+        request=inline_serializer(
+            name='TaxiUpdateMileageRequest',
+            fields={'mileage': serializers.IntegerField()}
+        ),
+        responses={
+            200: TaxiDetailSerializer,
+            404: inline_serializer(name="TaxiUpdateNotFound", fields={'error': serializers.CharField()})
+        }
+    )
+    def patch(self, request, license_plate):
+        try:
+            taxi = Taxi.objects.get(license_plate=license_plate)
+        except Taxi.DoesNotExist:
+            return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        mileage = request.data.get('mileage')
+        if mileage is None:
+            return Response({"error": "mileage is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if int(mileage) < 0:
+            return Response({"error": "mileage cannot be negative."}, status=status.HTTP_400_BAD_REQUEST)
+
+        taxi.mileage = mileage
+        taxi.save()
+
+        return Response(TaxiDetailSerializer(taxi).data, status=status.HTTP_200_OK)
+
 class TaxiDetailView(views.APIView):
     @extend_schema(
         summary="Get Taxi details",
@@ -214,7 +287,31 @@ class TaxiListView(views.APIView):
         taxis = Taxi.objects.all()
         serializer = TaxiDetailSerializer(taxis, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class TaxiDeleteView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
 
+    @extend_schema(
+        summary="Delete a Taxi (Manager only)",
+        description="Deletes a taxi from the fleet. Only possible if it has no associated shifts. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="TaxiDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="TaxiDeleteNotFound", fields={'error': serializers.CharField()})
+        }
+    )
+    def delete(self, request, license_plate):
+        try:
+            taxi = Taxi.objects.get(license_plate=license_plate)
+            if Shift.objects.filter(taxi=taxi).exists():
+                return Response({"error": "Cannot delete a taxi that has associated shifts."}, status=status.HTTP_403_FORBIDDEN)
+            taxi.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Taxi.DoesNotExist:
+            return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
+        
 class ShiftCreateView(views.APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -297,14 +394,14 @@ class ShiftListViews(views.APIView):
 
 class ShiftDeleteView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Delete a Shift (Manager only)",
-        description="Deletes a scheduled shift. Only possible if the shift has not started and has no trips. Requires a valid Manager JWT token.",
+        summary="Delete a Shift (Manager or Driver)",
+        description="Deletes a scheduled shift. Managers can delete any shift, drivers can only delete their own. Only possible if the shift has not started and has no trips.",
         request=None,
         responses={
-            204: None, 
+            204: None,
             403: inline_serializer(name="ShiftDeleteForbidden", fields={'error': serializers.CharField()}),
             404: inline_serializer(name="ShiftDeleteNotFound", fields={'error': serializers.CharField()})
         }
@@ -312,14 +409,24 @@ class ShiftDeleteView(views.APIView):
     def delete(self, request, id):
         try:
             shift = Shift.objects.get(pk=id)
-            if shift.real_interval is not None:
-                 return Response({"error": "Cannot delete a shift that has already started."}, status=status.HTTP_403_FORBIDDEN)
-            if Trip.objects.filter(shift=shift).exists():
-                return Response({"error": "Cannot delete a shift that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
-            shift.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
         except Shift.DoesNotExist:
             return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        is_manager = Manager.objects.filter(user=user).exists()
+        is_driver = Driver.objects.filter(user=user).exists()
+
+        if not is_manager:
+            if not is_driver or shift.driver.user != user:
+                return Response({"error": "You can only delete your own shifts."}, status=status.HTTP_403_FORBIDDEN)
+
+        if shift.real_interval is not None:
+            return Response({"error": "Cannot delete a shift that has already started."}, status=status.HTTP_403_FORBIDDEN)
+        if Trip.objects.filter(shift=shift).exists():
+            return Response({"error": "Cannot delete a shift that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        shift.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ShiftStartView(views.APIView):
     @extend_schema(
@@ -336,8 +443,6 @@ class ShiftStartView(views.APIView):
         
         if shift.real_interval is not None:
             return Response({"error": "Shift has already started."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        from django.utils import timezone
         
         interval = TimeInterval.objects.create(
             start_time=timezone.now(),
@@ -367,7 +472,6 @@ class ShiftEndView(views.APIView):
         if shift.real_interval.end_time is not None:
             return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
             
-        from django.utils import timezone
         shift.real_interval.end_time = timezone.now()
         shift.real_interval.save()
         
@@ -441,7 +545,7 @@ class LoginView(views.APIView):
     
 class BanView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated, IsManager]
 
     @extend_schema(
         summary="Ban or Activate User (Manager only)",
@@ -629,13 +733,9 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
     except Exception:
         return 0
 
-def calculate_price(kilometers: float, comfort_level: str, num_passengers: int) -> float:
-    BASE_FARE = 2.50        # taxa de base
-    PRICE_PER_KM_BASIC = 0.80
-    PRICE_PER_KM_LUXURY = 1.50
-
-    price_per_km = PRICE_PER_KM_LUXURY if comfort_level == 'luxury' else PRICE_PER_KM_BASIC
-    price = BASE_FARE + (kilometers * price_per_km)
+def calculate_price(minutes: float, comfort_level: str) -> float:
+    price_per_min = PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] if comfort_level == 'luxury' else PRICING_CONFIG['PRICE_PER_MIN_BASIC']
+    price = PRICING_CONFIG['BASE_FARE'] + (minutes * price_per_min)
     return round(price, 2)
 
 class TripCreateView(views.APIView):
@@ -656,22 +756,23 @@ class TripCreateView(views.APIView):
             client = Client.objects.get(user__id=data['client_id'])
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+
+        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
+        if Trip.objects.filter(client=client, status__in=active_statuses).exists():
+            return Response(
+                {"error": "Client already has an active trip."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         origin_coords = geocode_address(data['originAddress'])
-        dest_coords   = geocode_address(data['destAddress'])
+        dest_coords = geocode_address(data['destAddress'])
         
         kilometers = 0
         if origin_coords and dest_coords:
             kilometers = calculate_distance(origin_coords, dest_coords)
-        price = calculate_price(kilometers, data['comfort_level'], data['num_passengers'])
-
-
-        scheduled_time = data.get('scheduled_time')
-        if not scheduled_time:
-            scheduled_time = timezone.now()
 
         interval = TimeInterval.objects.create(
-            start_time=scheduled_time,
+            start_time=timezone.now(),
             end_time=None
         )
         
@@ -686,70 +787,159 @@ class TripCreateView(views.APIView):
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
             kilometers=int(round(kilometers)),
-            price=price,
+            price=0,
             status='PENDING'
         )
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
+    
 class TripAcceptView(views.APIView):
     @extend_schema(
-        summary="Driver accepts a trip",
-        description="Driver assigns themselves to a PENDING trip by providing their shift_id. Status changes to DRIVER_ACCEPTED.",
-        request=TripAcceptSerializer,
+        summary="Accept a trip (Driver)",
+        description="Driver accepts a PENDING trip by associating a shift.",
+        request=inline_serializer(
+            name='TripAcceptRequest',
+            fields={'shift_id': serializers.IntegerField()}
+        ),
         responses={200: TripListSerializer}
     )
     def patch(self, request, id):
-        # 1. Find the trip
+        try:
+            trip = Trip.objects.select_related('client__user', 'interval').get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if trip.status != 'PENDING':
+            return Response({"error": f"Trip cannot be accepted. Current status: {trip.status}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        shift_id = request.data.get('shift_id')
+        if not shift_id:
+            return Response({"error": "shift_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            shift = Shift.objects.select_related('taxi', 'driver').get(id=shift_id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if shift.real_interval is None:
+            return Response({"error": "Shift has not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if shift.real_interval.end_time is not None:
+            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
+
+        trip.shift = shift
+        trip.status = 'DRIVER_ACCEPTED'
+        trip.save()
+
+        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+
+class TripClientAcceptView(views.APIView):
+    @extend_schema(
+        summary="Accept a trip (Client)",
+        description="Client confirms the trip after the driver has accepted it.",
+        request=None,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
         try:
             trip = Trip.objects.select_related(
                 'client__user',
+                'shift__driver__user',
+                'shift__taxi',
                 'interval'
             ).get(id=id)
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Trip must be PENDING to be accepted
-        if trip.status != 'PENDING':
+        if trip.status != 'DRIVER_ACCEPTED':
             return Response(
                 {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 3. Validate request body
-        serializer = TripAcceptSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        driver_id = serializer.validated_data['driver_id']
-        shift_id  = serializer.validated_data['shift_id']
-
-        # 4. Confirm driver exists
-        try:
-            driver = Driver.objects.get(user__id=driver_id)
-        except Driver.DoesNotExist:
-            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # 5. Confirm the shift exists, belongs to this driver, and has started
-        try:
-            shift = Shift.objects.select_related('taxi').get(id=shift_id, driver=driver)
-        except Shift.DoesNotExist:
-            return Response({"error": "Shift not found or does not belong to this driver."}, status=status.HTTP_404_NOT_FOUND)
-
-        if shift.real_interval is None:
-            return Response({"error": "Shift has not started yet (no clock-in)."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if shift.real_interval.end_time is not None:
-            return Response({"error": "Shift has already ended."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # 6. Assign shift to trip and update status
-        trip.shift  = shift
-        trip.status = 'DRIVER_ACCEPTED'
+        trip.status = 'CLIENT_ACCEPTED'
         trip.save()
 
-        response_serializer = TripListSerializer(trip)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+    
+class TripPickupView(views.APIView):
+    @extend_schema(
+        summary="Pickup client (Driver)",
+        description="Driver confirms the client pickup, setting the trip to IN_PROGRESS.",
+        request=None,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'shift__driver__user',
+                'shift__taxi',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if trip.status != 'CLIENT_ACCEPTED':
+            return Response(
+                {"error": f"Trip cannot be started. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Atualiza o intervalo existente em vez de criar um novo
+        trip.interval.start_time = timezone.now()
+        trip.interval.end_time = None
+        trip.interval.save()
+
+        trip.status = 'IN_PROGRESS'
+        trip.save()
+
+        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+
+class RouteGeometryView(views.APIView):
+    @extend_schema(
+        summary="Get route geometry (Driver)",
+        description="Proxies request to OpenRouteService to get the route geometry between origin and destination.",
+        responses={200: inline_serializer(name='RouteResponse', fields={'geometry': serializers.CharField(), 'distance': serializers.FloatField(), 'duration': serializers.FloatField()})}
+    )
+    def get(self, request):
+        origin = request.query_params.get('origin')
+        dest = request.query_params.get('dest')
+        if not origin or not dest:
+            return Response({"error": "Origin and destination are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='
+            o_lat, o_lon = origin.split(',')
+            d_lat, d_lon = dest.split(',')
+            
+            response = requests.post(
+                'https://api.openrouteservice.org/v2/directions/driving-car',
+                headers={
+                    'Authorization': ORS_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'coordinates': [
+                        [float(o_lon), float(o_lat)],
+                        [float(d_lon), float(d_lat)]
+                    ]
+                },
+                timeout=5
+            )
+            data = response.json()
+            if 'routes' not in data or not data['routes']:
+                 return Response({"error": "No route found"}, status=status.HTTP_404_NOT_FOUND)
+                 
+            route = data['routes'][0]
+            return Response({
+                "geometry": route['geometry'],
+                "distance": route['summary']['distance'],
+                "duration": route['summary']['duration']
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RatingListView(views.APIView):
     @extend_schema(
@@ -822,9 +1012,8 @@ class TripCancelView(views.APIView):
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-
+    
 class TripCompleteView(views.APIView):
-    #FALTA CONVERTER COORDS PARA ENDEREÇO
     @extend_schema(
         summary="Complete a trip and generate invoice",
         description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
@@ -842,23 +1031,33 @@ class TripCompleteView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # Só pode completar se estiver IN_PROGRESS
         if trip.status != 'IN_PROGRESS':
             return Response(
                 {"error": f"Trip cannot be completed. Current status: {trip.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Atualizar estado
+        # Calcular duração em minutos e preço final
+        now = timezone.now()
+        start_time = trip.interval.start_time
+        if timezone.is_naive(start_time):
+            start_time = timezone.make_aware(start_time)
+            
+        minutes = (now - start_time).total_seconds() / 60
+        trip.price = calculate_price(minutes, trip.comfort_level)
+
+        # Fechar o intervalo da viagem
+        trip.interval.end_time = now
+        trip.interval.save()
+
         trip.status = 'COMPLETED'
+        trip.interval.end_time = now
+        trip.interval.save()
         trip.save()
         
-        # Gerar fatura
-        # Buscar o último número de fatura do ano atual para incrementar
-        from django.utils import timezone
         current_year = timezone.now().year
         last_invoice = Invoice.objects.filter(date__year=current_year).order_by('-number').first()
-        next_number  = (last_invoice.number + 1) if last_invoice else 1
+        next_number = (last_invoice.number + 1) if last_invoice else 1
         
         Invoice.objects.create(
             trip=trip,
@@ -926,4 +1125,60 @@ class CheckHealthView(views.APIView):
             
         return Response(health, status=status.HTTP_200_OK)
     
-    
+class PricingConfigView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
+    @extend_schema(
+        summary="Get pricing config (Manager only)",
+        description="Returns the current pricing configuration.",
+        request=None,
+        responses={200: inline_serializer(
+            name='PricingConfigResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def get(self, request):
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update pricing config (Manager only)",
+        description="Updates the current pricing configuration. All fields are optional.",
+        request=inline_serializer(
+            name='PricingConfigUpdateRequest',
+            fields={
+                'base_fare': serializers.FloatField(required=False),
+                'price_per_min_basic': serializers.FloatField(required=False),
+                'price_per_min_luxury': serializers.FloatField(required=False),
+            }
+        ),
+        responses={200: inline_serializer(
+            name='PricingConfigUpdateResponse',
+            fields={
+                'base_fare': serializers.FloatField(),
+                'price_per_min_basic': serializers.FloatField(),
+                'price_per_min_luxury': serializers.FloatField(),
+            }
+        )}
+    )
+    def patch(self, request):
+        if 'base_fare' in request.data:
+            PRICING_CONFIG['BASE_FARE'] = float(request.data['base_fare'])
+        if 'price_per_min_basic' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_BASIC'] = float(request.data['price_per_min_basic'])
+        if 'price_per_min_luxury' in request.data:
+            PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] = float(request.data['price_per_min_luxury'])
+
+        return Response({
+            'base_fare': PRICING_CONFIG['BASE_FARE'],
+            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
+            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+        }, status=status.HTTP_200_OK)

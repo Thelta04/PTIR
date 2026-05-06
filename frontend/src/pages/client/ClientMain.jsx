@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createTrip } from '../../api/client';
+import { createTrip, listTrips, clientAcceptTrip, cancelTrip } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
@@ -10,8 +10,7 @@ import './client.css';
 import '../../components/map-background.css';
 
 export default function ClientMain() {
-  const { user } = useAuth();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -25,17 +24,56 @@ export default function ClientMain() {
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
-  const [engine, setEngine] = useState('fuel');  // NOT USED
-  const [status, setState] = useState('PENDING'); // NOT USED
-  const [scheduled_time, setScheduledTime] = useState(null); // NOT USED
+  const [activeTrip, setActiveTrip] = useState(null);
 
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
 
-  // Set current location as default origin on mount
+  const handleUseCurrentLocation = () => {
+    // MOCKED LOCATIONS for testing
+    const originCoords = { lat: 38.7111, lon: -9.1368 };
+    const destCoords = { lat: 38.7369, lon: -9.1427 };
+
+    // Set Origin
+    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+      setOrigem(originCoords);
+      setOriginAddress(address);
+    });
+
+    // Set Destination automatically for easier testing
+    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
+      setDestino(destCoords);
+      setDestinationAddress(address);
+      setSearchValue(address);
+    });
+  };
+
+
+  const checkActiveTrip = async () => {
+    try {
+      const { data } = await listTrips();
+      // Filter active trips for this client
+      const mine = data.filter(t =>
+        t.client_id === user.id &&
+        ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+      );
+
+      if (mine.length > 0) {
+        const trip = mine[0];
+        setActiveTrip(trip);
+        // If trip is in a state that should be shown in ClientTrip, navigate there
+        navigate('/client/trip', { state: { tripId: trip.id, origem, destino } });
+      }
+    } catch (err) {
+      console.error('Error checking active trip:', err);
+    }
+  };
+
+  // Set current location as default origin on mount and check for active trips
   useEffect(() => {
     handleUseCurrentLocation();
+    checkActiveTrip();
   }, []);
 
   const handleSearchAddress = async (type) => {
@@ -104,7 +142,7 @@ export default function ClientMain() {
     if (searchValue && dest_address !== searchValue) {
       setDestinationAddress(searchValue);
     }
-    
+
     // Also sync origin_address if we are in more options but didn't search
     // (though usually origin_address state is updated on every keystroke)
 
@@ -112,19 +150,9 @@ export default function ClientMain() {
     setCurrentView('selection');
   };
 
-  const handleConfirmSchedule = () => {
-    if (!dateTime) {
-      alert('Please select a date and time for your scheduled ride.');
-      return;
-    }
-    setCurrentView('searching');
-    setState('PENDING');
-  };
-
   const handleConfirmRide = async () => {
-    setState('PENDING');
     try {
-      await createTrip({
+      const { data } = await createTrip({
         client_id: user.id,
         originAddress: origin_address,
         destAddress: dest_address || searchValue,
@@ -132,12 +160,19 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      alert('Trip Confirmed! We are processing your request.');
-      setCurrentView('initial');
+      
+      // Navigate to the trip tracking page
+      navigate('/client/trip', { 
+        state: { 
+          tripId: data.id, 
+          origem, 
+          destino 
+        } 
+      });
     } catch (error) {
       const errorData = error.response?.data;
       let errorMsg = error.message;
-      
+
       if (errorData) {
         if (typeof errorData === 'object') {
           errorMsg = Object.entries(errorData)
@@ -147,34 +182,85 @@ export default function ClientMain() {
           errorMsg = errorData;
         }
       }
-      
+
       alert('Error creating trip:\n' + errorMsg);
     }
   }
 
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
+  const handleCancelTrip = async () => {
+    if (!activeTrip) return;
+    try {
+      await cancelTrip(activeTrip.id);
+      setActiveTrip(null);
+      setCurrentView('initial');
+    } catch (err) {
+      alert('Error canceling trip');
     }
+  };
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const ponto = { lat: latitude, lon: longitude };
-        const address = await getAddressFromCoords(latitude, longitude);
-        
-        setOrigem(ponto);
-        setOriginAddress(address);
-      },
-      (error) => {
-        alert('Unable to retrieve your location: ' + error.message);
-      }
-    );
+  const handleClientAccept = async () => {
+    if (!activeTrip) return;
+    try {
+      await clientAcceptTrip(activeTrip.id);
+      setCurrentView('in_progress');
+    } catch (err) {
+      alert('Error accepting trip');
+    }
   };
 
   const renderSearchPanel = () => {
     switch (currentView) {
+      case 'accepted':
+        return (
+          <div className="accepted-view" style={{ textAlign: 'center' }}>
+            <div className="driver-info" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+              <div className="driver-photo" style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#eee', overflow: 'hidden' }}>
+                <img src="https://via.placeholder.com/80" alt="Driver" />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{activeTrip?.driver_name}</h3>
+                <div style={{ color: '#f1af3d', fontWeight: 'bold' }}>⭐ 4.9 (531 reviews)</div>
+              </div>
+            </div>
+            <div className="car-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid #eee', borderRadius: '12px', marginBottom: '20px' }}>
+              <div style={{ textAlign: 'left' }}>
+                <h4 style={{ margin: 0 }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</h4>
+                <div style={{ fontSize: '0.8rem', color: '#666' }}>{activeTrip?.taxi_plate}</div>
+              </div>
+              <div className="car-icon">🚗</div>
+            </div>
+            <div className="actions" style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="search-btn"
+                onClick={handleCancelTrip}
+                style={{ flex: 1, backgroundColor: '#e53e3e', color: '#fff' }}
+              >
+                Recusar
+              </button>
+              <button
+                className="search-btn"
+                onClick={handleClientAccept}
+                style={{ flex: 1, backgroundColor: '#f1cf58', color: '#fff' }}
+              >
+                Aceitar
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'in_progress':
+        return (
+          <div className="in-progress-view" style={{ textAlign: 'center', padding: '20px' }}>
+            <h2 className="view-title">Trip in Progress</h2>
+            <p>Your driver is on the way!</p>
+            <div className="driver-brief" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '10px' }}>
+              <span>🚗</span>
+              <strong>{activeTrip?.driver_name}</strong>
+              <span style={{ marginLeft: 'auto' }}>{activeTrip?.taxi_plate}</span>
+            </div>
+          </div>
+        );
+
       case 'selection':
         return (
           <div className="selection-view">
@@ -188,7 +274,7 @@ export default function ClientMain() {
               </button>
               <h2 className="view-title">When would you like to go?</h2>
             </div>
-            
+
             <div className="form-group" style={{ width: '100%' }}>
               <input
                 type="datetime-local"
@@ -214,7 +300,7 @@ export default function ClientMain() {
               <button
                 className="search-btn search-btn--primary"
                 onClick={() => {
-                  setDateTime(''); 
+                  setDateTime('');
                   setCurrentView('confirmation');
                 }}
               >
@@ -226,9 +312,9 @@ export default function ClientMain() {
 
       case 'confirmation':
         return (
-          <div className="confirmation-view" style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
+          <div className="confirmation-view" style={{
+            display: 'flex',
+            flexDirection: 'column',
             gap: '20px',
             minHeight: '350px',
             justifyContent: 'space-between'
@@ -244,10 +330,10 @@ export default function ClientMain() {
               <h2 className="view-title" style={{ fontSize: '1.4rem' }}>Trip Summary</h2>
             </div>
 
-            <div className="details-list" style={{ 
-              background: '#fff', 
-              border: '2px solid #f1cf58', 
-              borderRadius: '16px', 
+            <div className="details-list" style={{
+              background: '#fff',
+              border: '2px solid #f1cf58',
+              borderRadius: '16px',
               padding: '20px',
               textAlign: 'left',
               display: 'flex',
@@ -260,16 +346,16 @@ export default function ClientMain() {
                 <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>From</span>
                 <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{origin_address || 'Current Location'}</div>
               </div>
-              
+
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>To</span>
                 <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{dest_address || searchValue}</div>
               </div>
-              
+
               <div style={{ display: 'flex', gap: '40px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service</span>
-                  <div style={{ fontSize: '1.05rem', color: '#1f2937'}}>{comfort_level}</div>
+                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{comfort_level}</div>
                 </div>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</span>
@@ -288,9 +374,9 @@ export default function ClientMain() {
             <button
               className="search-btn search-btn--primary"
               onClick={handleConfirmRide}
-              style={{ 
+              style={{
                 marginTop: '10px',
-                padding: '12px 0',  
+                padding: '12px 0',
                 height: '64px',
                 fontSize: '1.1rem',
                 letterSpacing: '0.5px'
@@ -327,7 +413,7 @@ export default function ClientMain() {
             <div className="trip-settings-row">
               <div className="setting-item">
                 <label>Comfort</label>
-                <select 
+                <select
                   className="setting-input"
                   value={comfort_level}
                   onChange={(e) => setComfort((e.target.value))}
@@ -339,14 +425,14 @@ export default function ClientMain() {
               <div className="setting-item">
                 <label>Passengers</label>
                 <div className="number-control">
-                  <button 
+                  <button
                     className="number-btn"
                     onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
                   >
                     <Minus size={16} />
                   </button>
                   <span className="number-value">{num_passengers}</span>
-                  <button 
+                  <button
                     className="number-btn"
                     onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
                   >
@@ -437,7 +523,7 @@ export default function ClientMain() {
             <div className="trip-settings-row">
               <div className="setting-item">
                 <label>Comfort Level</label>
-                <select 
+                <select
                   className="setting-input"
                   value={comfort_level}
                   onChange={(e) => setComfort(e.target.value)}
@@ -449,14 +535,14 @@ export default function ClientMain() {
               <div className="setting-item">
                 <label>Passengers</label>
                 <div className="number-control">
-                  <button 
+                  <button
                     className="number-btn"
                     onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
                   >
                     <Minus size={16} />
                   </button>
                   <span className="number-value">{num_passengers}</span>
-                  <button 
+                  <button
                     className="number-btn"
                     onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
                   >
@@ -487,87 +573,88 @@ export default function ClientMain() {
   };
 
   return (
-  <div className="client-layout">
-    <header className="client-header">
-      <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-        <Menu size={24} color="#000" />
-      </button>
+    <div className="client-layout">
+      <header className="client-header">
+        <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
+          <Menu size={24} color="#000" />
+        </button>
 
-      <div className="client-brand">
-        <span className="client-brand-name">TUXY</span>
-      </div>
+        <div className="client-brand">
+          <span className="client-brand-name">TUXY</span>
+        </div>
 
-      <button className="bell-btn">
-        <Bell size={24} color="#000" />
-      </button>
-    </header>
+        <button className="bell-btn">
+          <Bell size={24} color="#000" />
+        </button>
+      </header>
 
-    <main className="client-main-content">
-      <div className="map-wrapper">
-        <MapaPedido
-          origem={origem}
-          destino={destino}
-          onEscolherPonto={handleEscolherPonto}
-        />
-      </div>
-
-      <section className="search-panel">
-        {renderSearchPanel()}
-      </section>
-
-      <button
-        className="gps-btn"
-        onClick={handleUseCurrentLocation}
-        title="Use current location"
-      >
-        <Target size={24} color="#000" />
-      </button>
-    </main>
-
-    <AnimatePresence>
-      {isMenuOpen && (
-        <>
-          <motion.div
-            className="drawer-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsMenuOpen(false)}
+      <main className="client-main-content">
+        <div className="map-wrapper">
+          <MapaPedido
+            origem={origem}
+            destino={destino}
+            onEscolherPonto={handleEscolherPonto}
           />
-          <motion.div
-            className="drawer-menu"
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'tween', duration: 0.3 }}
-          >
-            <div className="drawer-header">
-              <span className="drawer-title">Menu</span>
-              <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
-                <ChevronLeft size={24} />
-              </button>
-            </div>
+        </div>
 
-            <nav className="drawer-nav">
-              <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                Request Trip
-              </button>
-              <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                Reservations
-              </button>
-              <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                History
-              </button>
-            </nav>
+        <section className="search-panel">
+          {renderSearchPanel()}
+        </section>
 
-            <div className="drawer-footer">
-              <button className="drawer-logout" onClick={handleLogout}>
-                Logout
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  </div>
-); }
+        <button
+          className="gps-btn"
+          onClick={handleUseCurrentLocation}
+          title="Use current location"
+        >
+          <Target size={24} color="#000" />
+        </button>
+      </main>
+
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              className="drawer-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <motion.div
+              className="drawer-menu"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'tween', duration: 0.3 }}
+            >
+              <div className="drawer-header">
+                <span className="drawer-title">Menu</span>
+                <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
+                  <ChevronLeft size={24} />
+                </button>
+              </div>
+
+              <nav className="drawer-nav">
+                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                  Request Trip
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                  Reservations
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                  History
+                </button>
+              </nav>
+
+              <div className="drawer-footer">
+                <button className="drawer-logout" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

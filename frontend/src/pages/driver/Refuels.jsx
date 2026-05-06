@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Menu, Bell, X, Check, ChevronLeft } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import './refuels.css';
 
 export default function Refuels() {
-  const navigate = useNavigate();
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [price, setPrice] = useState('');
   const [unit, setUnit] = useState('L');
@@ -29,56 +25,57 @@ export default function Refuels() {
     setShowPopup(true);
   };
 
-  const handleMenuClick = (path) => {
-    setIsMenuOpen(false);
-    navigate(path);
-  };
-
   return (
     <div className="refuel-page">
-
       <main className="refuel-main">
         <h1>Registar Reabastecimento ⛽</h1>
 
         <section className="refuel-card">
+          <div className="refuel-inputs">
+            <div className="refuel-input-row">
+              <label>Quantidade de combustível</label>
+              <div className="refuel-field-group">
+                <input
+                  className="refuel-field"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || Number(value) >= 0) setAmount(value);
+                  }}
+                />
+                <select
+                  className="refuel-unit"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                >
+                  <option value="L">L</option>
+                  <option value="kWh">kWh</option>
+                </select>
+              </div>
+            </div>
 
-          <div className="refuel-inputs refuel-inputs--clean">
-            <input
-              className="refuel-field"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Quantidade"
-              value={amount}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '' || Number(value) >= 0) setAmount(value);
-              }}
-            />
-
-            <select
-              className="refuel-unit"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-            >
-              <option value="L">L</option>
-              <option value="kWh">kWh</option>
-            </select>
-
-            <input
-              className="refuel-field"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Valor pago"
-              value={price}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '' || Number(value) >= 0) setPrice(value);
-              }}
-            />
-
-            <span className="refuel-currency">€</span>
+            <div className="refuel-input-row">
+              <label>Valor pago</label>
+              <div className="refuel-field-group">
+                <input
+                  className="refuel-field"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={price}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || Number(value) >= 0) setPrice(value);
+                  }}
+                />
+                <span className="refuel-currency">€</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -91,72 +88,14 @@ export default function Refuels() {
               setUnit('L');
             }}
           >
-            Cancelar
+            Limpar
           </button>
 
           <button className="refuel-submit" onClick={handleSubmit}>
-            Registar Reabastecimento
+            Confirmar
           </button>
         </div>
       </main>
-
-      {isMenuOpen && (
-        <>
-          <div
-            className="refuel-drawer-overlay"
-            onClick={() => setIsMenuOpen(false)}
-          />
-
-          <aside className="refuel-drawer-menu">
-            <div className="refuel-drawer-header">
-              <span className="refuel-drawer-title">Menu</span>
-              <button
-                className="refuel-drawer-close"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <ChevronLeft size={24} />
-              </button>
-            </div>
-
-            <nav className="refuel-drawer-nav">
-              <button
-                className="refuel-drawer-link"
-                onClick={() => handleMenuClick('/driver')}
-              >
-                Página Principal
-              </button>
-
-              <button
-                className="refuel-drawer-link"
-                onClick={() => handleMenuClick('/driver')}
-              >
-                Registar Turno
-              </button>
-
-              <button
-                className="refuel-drawer-link active"
-                onClick={() => handleMenuClick('/driver/refuels')}
-              >
-                Registar Reabastecimento
-              </button>
-
-              <button
-                className="refuel-drawer-link"
-                onClick={() => handleMenuClick('/driver')}
-              >
-                Consultar Turnos
-              </button>
-
-              <button
-                className="refuel-drawer-link"
-                onClick={() => handleMenuClick('/driver')}
-              >
-                Histórico de viagens
-              </button>
-            </nav>
-          </aside>
-        </>
-      )}
 
       {showPopup && (
         <div className="refuel-popup-overlay">

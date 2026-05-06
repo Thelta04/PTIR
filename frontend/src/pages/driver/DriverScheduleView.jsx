@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
-import { ArrowLeft, Check, Car } from 'lucide-react';
+import { ArrowLeft, Check, Car, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const DAYS = [
   { label: 'Segunda', val: 1 },
@@ -17,6 +18,7 @@ export default function DriverScheduleView() {
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
+  const [isMultipleDays, setIsMultipleDays] = useState(false);
 
   // Step 1 State
   const [startTime, setStartTime] = useState('10:00');
@@ -30,6 +32,10 @@ export default function DriverScheduleView() {
   const [allTaxis, setAllTaxis] = useState([]);
   const [allSystemShifts, setAllSystemShifts] = useState([]);
   const [preferredTaxiPlate, setPreferredTaxiPlate] = useState('');
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState(null);
 
   // Global View State
   const [loading, setLoading] = useState(false);
@@ -47,13 +53,18 @@ export default function DriverScheduleView() {
     setError('');
     setMsg('');
 
-    if (!startDate || !endDate) {
+    if (isMultipleDays && (!startDate || !endDate)) {
       setError('Por favor preencha as datas.');
       return;
     }
 
+    if (!isMultipleDays && !startDate) {
+      setError('Por favor preencha a data.');
+      return;
+    }
+
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    const end = isMultipleDays ? new Date(endDate) : new Date(startDate);
 
     if (start > end) {
       setError('Data de fim tem de ser posterior à data de início.');
@@ -75,7 +86,7 @@ export default function DriverScheduleView() {
       let idCounter = 1;
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        if (selectedDays.length === 0 || selectedDays.includes(d.getDay())) {
+        if (!isMultipleDays || selectedDays.length === 0 || selectedDays.includes(d.getDay())) {
 
           const [sh, sm] = startTime.split(':');
           const stDt = new Date(d);
@@ -185,6 +196,13 @@ export default function DriverScheduleView() {
     }));
   };
 
+  const handleDeleteGeneratedShift = () => {
+    if (shiftToDelete === null) return;
+    setGeneratedShifts(prev => prev.filter(s => s.id !== shiftToDelete));
+    setIsDeleteModalOpen(false);
+    setShiftToDelete(null);
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setMsg('');
@@ -240,6 +258,17 @@ export default function DriverScheduleView() {
 
       {step === 1 && (
         <form onSubmit={handleNextStep} className="schedule-form">
+          <div className="schedule-card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.1rem' }}>
+              <input type="radio" name="scheduleMode" checked={!isMultipleDays} onChange={() => setIsMultipleDays(false)} />
+              Único dia
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.1rem' }}>
+              <input type="radio" name="scheduleMode" checked={isMultipleDays} onChange={() => setIsMultipleDays(true)} />
+              Vários dias
+            </label>
+          </div>
+
           <div className="schedule-card">
             <div className="schedule-row">
               <span className="schedule-label">Horas:</span>
@@ -250,31 +279,42 @@ export default function DriverScheduleView() {
             </div>
           </div>
 
-          <div className="schedule-card">
-            <div className="schedule-row">
-              <span className="schedule-label">Datas:</span>
-              <label className="schedule-sublabel">De</label>
-              <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
-              <label className="schedule-sublabel">Até:</label>
-              <input type="date" className="schedule-input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+          {!isMultipleDays ? (
+            <div className="schedule-card">
+              <div className="schedule-row">
+                <span className="schedule-label">Data:</span>
+                <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="schedule-card">
+                <div className="schedule-row">
+                  <span className="schedule-label">Datas:</span>
+                  <label className="schedule-sublabel">De</label>
+                  <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+                  <label className="schedule-sublabel">Até:</label>
+                  <input type="date" className="schedule-input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                </div>
+              </div>
 
-          <div className="schedule-card" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span className="schedule-label" style={{ marginBottom: '1rem' }}>Repetir:</span>
-            <div className="schedule-days-grid">
-              {DAYS.map(day => (
-                <label key={day.val} className="schedule-day-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedDays.includes(day.val)}
-                    onChange={() => toggleDay(day.val)}
-                  />
-                  <span>{day.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+              <div className="schedule-card" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="schedule-label" style={{ marginBottom: '1rem' }}>Repetir:</span>
+                <div className="schedule-days-grid">
+                  {DAYS.map(day => (
+                    <label key={day.val} className="schedule-day-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedDays.includes(day.val)}
+                        onChange={() => toggleDay(day.val)}
+                      />
+                      <span>{day.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ marginTop: '2rem', textAlign: 'center' }}>
             <button type="submit" className="btn btn--warning schedule-submit-btn" disabled={loading} style={{ width: '100%', maxWidth: '300px', fontSize: '1.2rem', padding: '1rem' }}>
@@ -316,11 +356,12 @@ export default function DriverScheduleView() {
                     <strong>{formatShortDate(shift.startDt)}</strong>
                     <span>{formatShortTime(shift.startDt)} - {formatShortTime(shift.endDt)}</span>
                   </div>
-                  <div className="schedule-shift-taxi">
+                  <div className="schedule-shift-taxi" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <select
                       className="schedule-input"
                       value={shift.selectedTaxiPlate}
                       onChange={e => handleTaxiChange(shift.id, e.target.value)}
+                      style={{ flex: 1 }}
                     >
                       <option value="" disabled>Selecione um carro...</option>
                       {availableTaxis.map(t => (
@@ -330,6 +371,31 @@ export default function DriverScheduleView() {
                       ))}
                     </select>
                     {shift.isAuto && <span className="auto-label">Automático</span>}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShiftToDelete(shift.id);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      }}
+                      title="Remover turno"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
               );
@@ -346,6 +412,60 @@ export default function DriverScheduleView() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <motion.div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              style={{
+                background: '#fff', padding: '24px', borderRadius: '12px',
+                width: '350px', maxWidth: '90%', textAlign: 'center',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+              }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Remover Turno</h3>
+              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
+                Tem a certeza que deseja remover este turno da sua seleção?
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
+                    background: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteGeneratedShift}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
+                  }}
+                >
+                  Remover
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

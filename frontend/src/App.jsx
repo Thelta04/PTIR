@@ -7,6 +7,7 @@ import ManagerDashboard from './pages/manager/ManagerDashboard';
 import DriverMain from './pages/driver/DriverMain';
 import DecisionDriver from './pages/driver/DecisionDriver';
 import ClientMain from './pages/client/ClientMain';
+import ClientTrip from './pages/client/ClientTrip';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
@@ -59,9 +60,13 @@ function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="/driver/refuels" element={<Refuels />} />
+          <Route path="/client/trip" element={
+            <ProtectedRoute allowedRoles={['CLIENT']}>
+              <ClientTrip />
+            </ProtectedRoute>
+          } />
 
-          {/* <Route path="/Client" element={<ClientMain />} /> */}
+          <Route path="/driver/refuels" element={<Refuels />} />
 
           <Route path="*" element={<HomeRedirect />} />
         </Routes>

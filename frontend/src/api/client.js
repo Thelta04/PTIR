@@ -8,9 +8,18 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const stored = localStorage.getItem('tuxy_user');
   if (stored) {
-    const { access } = JSON.parse(stored);
-    if (access) {
-      config.headers.Authorization = `Bearer ${access}`;
+    try {
+      const userData = JSON.parse(stored);
+      if (userData && userData.access) {
+        config.headers = config.headers || {};
+        if (typeof config.headers.set === 'function') {
+          config.headers.set('Authorization', `Bearer ${userData.access}`);
+        } else {
+          config.headers.Authorization = `Bearer ${userData.access}`;
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing auth token', e);
     }
   }
   return config;
@@ -29,29 +38,33 @@ api.interceptors.response.use(
     if (error.response && (error.response.status === 401 || error.response.status === 403) && !originalRequest._retry && !isAuthPath) {
       originalRequest._retry = true;
       const stored = localStorage.getItem('tuxy_user');
-      
+
       if (stored) {
         try {
           const userData = JSON.parse(stored);
           const { refresh } = userData;
-          
+
           if (refresh) {
             const res = await axios.post('/api/auth/token/refresh/', { refresh });
-            
+
             if (res.data && res.data.access) {
               userData.access = res.data.access;
               if (res.data.refresh) {
                 userData.refresh = res.data.refresh;
               }
               localStorage.setItem('tuxy_user', JSON.stringify(userData));
-              
-              originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+
+              if (typeof originalRequest.headers.set === 'function') {
+                originalRequest.headers.set('Authorization', `Bearer ${res.data.access}`);
+              } else {
+                originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+              }
               return api(originalRequest);
             }
           }
         } catch {
           localStorage.removeItem('tuxy_user');
-          window.location.href = '/'; 
+          window.location.href = '/';
         }
       }
     }
@@ -71,19 +84,24 @@ export const refreshToken = (refresh) =>
 export const getClient = (id) => api.get(`client/${id}`);
 export const listClients = () => api.get('client/');
 
-export const createClient = (data) => 
+export const createClient = (data) =>
   api.post('auth/create/client/', data);
 
 export const getDriver = (id) => api.get(`driver/${id}`);
 export const listDrivers = () => api.get('driver/');
 
-export const createDriver = (data) => 
+export const createDriver = (data) =>
   api.post('auth/create/driver/', data);
+
+export const toggleUserStatus = (id) => api.patch(`user/${id}/toggle-status/`);
+export const deleteUser = (id) => api.delete(`user/${id}/delete/`);
 
 // ── Taxis ───────────────────────────────────────
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
 export const listTaxis = () => api.get('taxi/');
 export const createTaxi = (data) => api.post('taxi/create/', data);
+export const deleteTaxi = (plate) => api.delete(`taxi/${plate}/delete/`);
+export const updateTaxiMileage = (plate, mileage) => api.patch(`taxi/${plate}/mileage/`, { mileage });
 
 // ── Shifts ──────────────────────────────────────
 export const listShifts = (driverId) => api.get(`shift/get/${driverId}/`);
@@ -91,6 +109,7 @@ export const listAllShifts = () => api.get('shift/');
 export const createShift = (data) => api.post('shift/create/', data);
 export const startShift = (id) => api.patch(`shift/${id}/start`);
 export const endShift = (id) => api.patch(`shift/${id}/end`);
+export const deleteShift = (id) => api.delete(`shift/${id}/delete/`);
 
 // ── Trips ───────────────────────────────────────
 export const listTrips = (status) => {
@@ -106,6 +125,10 @@ export const listPendingTrips = (driverId, lat, lon) => {
 export const createTrip = (data) => api.post('trip/create/', data);
 export const acceptTrip = (id, driverId, shiftId) =>
   api.patch(`trip/${id}/accept/`, { driver_id: driverId, shift_id: shiftId });
+export const clientAcceptTrip = (id) => api.patch(`trip/${id}/client-accept/`);
+export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
+export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
+export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 
 export default api;
