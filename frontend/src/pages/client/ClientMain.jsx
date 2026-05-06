@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createTrip, listTrips, clientAcceptTrip, cancelTrip } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
@@ -181,14 +181,6 @@ export default function ClientMain() {
 
     setShowMoreOptions(false);
     setCurrentView('selection');
-  };
-
-  const handleConfirmSchedule = () => {
-    if (!dateTime) {
-      alert('Please select a date and time for your scheduled ride.');
-      return;
-    }
-    handleConfirmRide();
   };
 
   const handleConfirmRide = async () => {
