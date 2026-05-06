@@ -68,8 +68,6 @@ function App() {
 
           <Route path="/driver/refuels" element={<Refuels />} />
 
-          {/* <Route path="/Client" element={<ClientMain />} /> */}
-
           <Route path="*" element={<HomeRedirect />} />
         </Routes>
       </BrowserRouter>

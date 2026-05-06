@@ -13,9 +13,7 @@ import {
   X,
   User,
   MapPin,
-  Trash2,
-  ShieldCheck,
-  ShieldAlert
+  Trash2
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { 
