@@ -34,6 +34,9 @@ INTERFACE=$(ip -o link show | awk -F': ' '$2 != "lo" {print $2; exit}')
 sudo cp "$SCRIPT_DIR_VAL/check_nginx.sh" /usr/local/bin/check_nginx.sh
 sudo chmod +x /usr/local/bin/check_nginx.sh
 
+sudo cp "$SCRIPT_DIR_VAL/notify_master.sh" /usr/local/bin/notify_master.sh
+sudo chmod +x /usr/local/bin/notify_master.sh
+
 cat <<EOF | sudo tee /etc/keepalived/keepalived.conf
 vrrp_script check_nginx {
     script "/usr/local/bin/check_nginx.sh"
@@ -63,10 +66,20 @@ vrrp_instance VI_1 {
     track_script {
         check_nginx
     }
+    notify_master /usr/local/bin/notify_master.sh
 }
 EOF
 
 sudo systemctl restart keepalived
+
+# 2.5 Install SSL Certificates
+sudo mkdir -p /etc/letsencrypt/live/tuxy.pt/
+if [ -f /tmp/fullchain.pem ] && [ -f /tmp/privkey.pem ]; then
+    sudo mv /tmp/fullchain.pem /etc/letsencrypt/live/tuxy.pt/fullchain.pem
+    sudo mv /tmp/privkey.pem /etc/letsencrypt/live/tuxy.pt/privkey.pem
+    sudo chown -R root:root /etc/letsencrypt/live/tuxy.pt/
+    sudo chmod 600 /etc/letsencrypt/live/tuxy.pt/privkey.pem
+fi
 
 # 3. Configure Nginx Load Balancer
 IPS=$(echo $1 | tr ',' ' ')

@@ -47,10 +47,12 @@ The application is structured into three main layers, ensuring modularity and sc
 
 The infrastructure is designed for maximum uptime on GCP using a multi-layered redundancy strategy:
 
-### 1. Load Balancer Failover (Keepalived)
-Utilizes the **VRRP** protocol via **Keepalived** to manage a **Virtual IP (VIP) 10.10.10.100**.
+### 1. Load Balancer Failover (Keepalived & GCP API)
+Utilizes the **VRRP** protocol via **Keepalived** to manage high availability at two layers:
+- **Internal VIP (`10.10.10.100`):** Managed natively by Keepalived via gratuitous ARP for internal network failover.
+- **External Public IP (`34.175.164.1`):** Managed via a custom Keepalived `notify_master.sh` script that hooks into the **Google Cloud API**. When a node is promoted to MASTER, it actively detaches the external IP from its peer and attaches it to its own network interface, ensuring seamless browser failover for external users.
 - **lb-01 (MASTER):** Primary entry point.
-- **lb-02 (BACKUP):** Automatically assumes the VIP if the Master fails (VM down or Nginx process stopped).
+- **lb-02 (BACKUP):** Automatically assumes the VIP and External IP if the Master fails (VM down or Nginx process stopped).
 
 ### 2. Database Failover (Auto-Promotion)
 The database operates in a **Primary-Replica** model. A custom `db_healthcheck.sh` script monitors the primary; if it becomes unreachable, the replica is automatically promoted to Primary (`pg_promote()`).
@@ -61,6 +63,7 @@ The database operates in a **Primary-Replica** model. A custom `db_healthcheck.s
                     Internet
                        │
                 ┌──────┴──────┐
+                │ Public IP   │  ← 34.175.164.1 (Floats via GCP API script)
                 │   LB VIP    │  ← 10.10.10.100 (Keepalived / VRRP)
                 └──────┬──────┘
                        │

@@ -54,14 +54,17 @@ for LB_INSTANCE in $LB_INSTANCES; do
         "$DEPLOY_DIR/../healthchecks/lb_healthcheck.sh" \
         "$DEPLOY_DIR/../common/config.sh" \
         "$DEPLOY_DIR/../common/utils.sh" \
-        "$DEPLOY_DIR/../healthchecks/check_nginx.sh"
+        "$DEPLOY_DIR/../healthchecks/check_nginx.sh" \
+        "$DEPLOY_DIR/../healthchecks/notify_master.sh" \
+        "$ROOT_DIR/nginx/ssl/fullchain.pem" \
+        "$ROOT_DIR/nginx/ssl/privkey.pem"
 
     remote_exec "$LB_INSTANCE" "
         set -e
         source /tmp/config.sh
         sudo mkdir -p \$TARGET_DIR/scripts
-        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh \$TARGET_DIR/scripts/
-        sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh
+        sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh /tmp/notify_master.sh \$TARGET_DIR/scripts/
+        sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh \$TARGET_DIR/scripts/notify_master.sh
         sudo \$TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS' '$PEER_IP'
     " || echo "WARNING: Failed to update LB $LB_INSTANCE"
 done
