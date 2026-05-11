@@ -80,7 +80,8 @@
   font-weight: 400;
 }
 
-.refuel-unit, .refuel-currency {
+.refuel-unit,
+.refuel-currency {
   font-size: 16px;
   font-weight: 700;
   color: #868e96;

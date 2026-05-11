@@ -73,7 +73,7 @@ for IP in $IPS; do
     UPSTREAM_BLOCK+="    server $IP:8000;\n"
 done
 
-cat <<EOF | sudo tee /etc/nginx/sites-available/loadbalancer
+cat <<EOF | sudo tee /etc/nginx/sites-available/tuxy.pt
 upstream webapp_servers {
 $(echo -e "$UPSTREAM_BLOCK")
 }
@@ -81,15 +81,7 @@ $(echo -e "$UPSTREAM_BLOCK")
 server {
     listen 80;
     server_name tuxy.pt;
-
-    location / {
-        proxy_pass http://webapp_servers;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_pass_header X-Served-By;
-    }
+    return 301 https://\$host\$request_uri;
 }
 server {
     listen 443 ssl http2;
@@ -106,45 +98,23 @@ server {
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
 
-    # Performance: Gzip
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml;
-
-    # Standard Proxy Headers (Inherited by all location blocks)
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-
-    # Frontend: Serve Vite Static Files
     location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-        expires 30d; # Cache static assets
-    }
-
-    # Backend: Proxy API and Admin to Upstream
-    location ~ ^/(api|admin)/ {
         proxy_pass http://webapp_servers;
-        
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_pass_header X-Served-By;
+
         # Stability: Buffer tuning for production
         proxy_buffers 8 16k;
         proxy_buffer_size 32k;
-
-        # Keep the custom header from your previous config
-        proxy_pass_header X-Served-By;
-    }
-
-    # Django Static/Media (Avoid proxying these to Python)
-    location /static/ {
-        alias /var/www/tuxy/static/; 
     }
 }
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/loadbalancer /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/tuxy.pt /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/loadbalancer
 sudo systemctl restart nginx
 
 # 4. Setup dynamic list for healthcheck script

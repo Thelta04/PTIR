@@ -28,7 +28,7 @@ export default function Refuels() {
   return (
     <div className="refuel-page">
       <main className="refuel-main">
-        <h1>Registar reabastecimento</h1>
+        <h1>Registar Reabastecimento ⛽</h1>
 
         <section className="refuel-card">
           <div className="refuel-inputs">
@@ -128,7 +128,15 @@ export default function Refuels() {
               <strong>{price} €</strong>
             </div>
 
-            <button className="popup-button" onClick={() => setShowPopup(false)}>
+            <button
+              className="popup-button"
+              onClick={() => {
+                setShowPopup(false);
+                setAmount('');
+                setPrice('');
+                setUnit('L');
+              }}
+            >
               Fechar
             </button>
           </div>

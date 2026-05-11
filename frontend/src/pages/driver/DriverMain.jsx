@@ -98,25 +98,25 @@ export default function DriverMain() {
                   className={`drawer-link ${activeTab === 'schedule' ? 'active' : ''}`}
                   onClick={() => handleNav('schedule')}
                 >
-                  Registar turno
+                  Registar Turno
                 </button>
                 <button 
                   className={`drawer-link ${activeTab === 'refuels' ? 'active' : ''}`}
                   onClick={() => handleNav('refuels')}
                 >
-                  Registar reabastecimento
+                  Registar Reabastecimento
                 </button>
                 <button 
                   className={`drawer-link ${activeTab === 'shifts' ? 'active' : ''}`}
                   onClick={() => handleNav('shifts')}
                 >
-                  Consultar turnos
+                  Consultar Turnos
                 </button>
                 <button 
                   className="drawer-link"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Ver histórico de viagens
+                  Ver Histórico de Viagens
                 </button>
               </nav>
               
