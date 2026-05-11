@@ -24,7 +24,7 @@ echo "=================================================="
 echo ""
 echo "▶ TEST 0: API Operational Check"
 echo "  Checking if API is reachable through LB ($LB_IP)..."
-HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo "  ✅ PASS: API is reachable (HTTP 200)."
@@ -44,7 +44,7 @@ SERVED_BY_WEB2=0
 
 for i in {1..10}; do
     # Get all headers and grep for X-Served-By
-    HEADERS=$(curl -s -I "http://$LB_IP/")
+    HEADERS=$(curl -k -L -s -I "http://$LB_IP/")
     SERVER=$(echo "$HEADERS" | grep -i "X-Served-By" | awk '{print $2}' | tr -d '\r' | xargs)
     
     if [ "$SERVER" = "web-1" ]; then
@@ -79,7 +79,7 @@ remote_exec "db-01" "sudo systemctl stop postgresql"
 echo "  Checking API Health (Expecting Failure)..."
 # Wait a few seconds for connections to actually fail
 sleep 2
-HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 
 if [ "$HTTP_CODE" = "500" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "000" ]; then
     echo "  ✅ PASS: API failed as expected when DB is down (HTTP $HTTP_CODE)."
@@ -106,7 +106,7 @@ SERVED_BY_WEB1=0
 SERVED_BY_WEB2=0
 
 for i in {1..5}; do
-    SERVER=$(curl -s -I "http://$LB_IP/" | grep -i "X-Served-By" | awk '{print $2}' | tr -d '\r' | xargs)
+    SERVER=$(curl -k -L -s -I "http://$LB_IP/" | grep -i "X-Served-By" | awk '{print $2}' | tr -d '\r' | xargs)
     if [ "$SERVER" = "web-1" ]; then ((SERVED_BY_WEB1++)); fi
     if [ "$SERVER" = "web-2" ]; then ((SERVED_BY_WEB2++)); fi
 done
@@ -148,7 +148,7 @@ if [ "$VIP_DETECTED" = "false" ]; then
 fi
 
 echo "  Verifying if API is reachable through 'lb-02' internal IP..."
-HTTP_CODE=$(remote_exec "web-2" "curl -s -o /dev/null -w '%{http_code}' --max-time 2 'http://10.10.10.11/api/check/'" | xargs)
+HTTP_CODE=$(remote_exec "web-2" "curl -k -L -s -o /dev/null -w '%{http_code}' --max-time 2 'http://10.10.10.11/api/check/'" | xargs)
 if [ "$HTTP_CODE" = "200" ]; then
     echo "  ✅ PASS: API is reachable through 'lb-02' internal IP!"
 else
@@ -196,7 +196,7 @@ if [ "$PROMOTED" = "false" ]; then
 fi
 
 echo "  Verifying API Health (should point to promoted DB)..."
-HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
+HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 if [ "$HTTP_CODE" = "200" ]; then
     echo "  ✅ PASS: API is still healthy after automatic failover!"
 else

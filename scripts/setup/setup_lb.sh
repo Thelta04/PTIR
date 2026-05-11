@@ -38,7 +38,9 @@ cat <<EOF | sudo tee /etc/keepalived/keepalived.conf
 vrrp_script check_nginx {
     script "/usr/local/bin/check_nginx.sh"
     interval 2
-    weight 2
+    weight -10
+    fall 2
+    rise 2
 }
 
 vrrp_instance VI_1 {

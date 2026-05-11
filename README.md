@@ -125,6 +125,7 @@ npm run dev
 
 1.  **Create VMs:** `bash scripts/infra/create_vms.sh`
 2.  **Deploy Stack:** `bash scripts/deploy/deploy_all.sh` (Orchestrates DB → WebApp → LB)
+3.  **Scale Out (Add WebApp):** `bash scripts/infra/add_webapp.sh` (Creates a new webapp VM with the next available IP, then run `deploy_webapp.sh` and `deploy_lb.sh` to provision it)
 
 ---
 

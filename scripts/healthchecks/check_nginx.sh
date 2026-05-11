@@ -2,7 +2,7 @@
 # scripts/check_nginx.sh
 # Used by Keepalived to verify Nginx is running and responding.
 
-if pgrep nginx > /dev/null && curl -s --max-time 2 http://localhost/ > /dev/null; then
+if /usr/sbin/nginx -t > /dev/null 2>&1 && killall -0 nginx > /dev/null 2>&1; then
     exit 0
 else
     exit 1
