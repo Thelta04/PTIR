@@ -6,6 +6,14 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common/config.sh"
 
+# Load DB credentials from .env
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -f "$ROOT_DIR/.env" ]; then
+    DB_NAME=$(grep '^DB_NAME=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+    DB_USER=$(grep '^DB_USER=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+    DB_PASSWORD=$(grep '^DB_PASSWORD=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+fi
+
 # Use provided IP or fallback to the one used before
 LB_IP="${1:-34.175.164.1}"
 
@@ -13,6 +21,44 @@ LB_IP="${1:-34.175.164.1}"
 remote_exec() {
     gcloud compute ssh "$1" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap --command="$2" 2>/dev/null
 }
+
+# Cleanup function to restore system to default state
+cleanup() {
+    echo ""
+    echo "=================================================="
+    echo " Restoring System to Default State..."
+    echo "=================================================="
+    
+    # 1. Restore Database Tier
+    echo "  Ensuring PostgreSQL is running on db-01..."
+    remote_exec "db-01" "sudo systemctl start postgresql"
+    
+    # Wait for db-01 to be ready
+    sleep 5
+
+    # Check if db-02 was promoted to primary
+    IS_DB2_PRIMARY=$(remote_exec "db-02" "sudo -u postgres psql -c 'select pg_is_in_recovery();' -t" | xargs)
+    if [ "$IS_DB2_PRIMARY" = "f" ]; then
+        echo "  Detected: db-02 was promoted to PRIMARY. Reverting to REPLICA..."
+        # Re-run setup_db.sh on db-02 to restore replication
+        # Upload setup_db.sh if it might be missing or to ensure latest
+        gcloud compute scp "$SCRIPT_DIR/../setup/setup_db.sh" "db-02:/tmp/setup_db.sh" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap 2>/dev/null
+        remote_exec "db-02" "chmod +x /tmp/setup_db.sh && sudo /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' 'replica' '$DB_PRIMARY_IP'"
+    else
+        echo "  db-02 is already in replica mode."
+    fi
+
+    # 2. Restore Other Tiers
+    echo "  Ensuring Nginx is running on web-1..."
+    remote_exec "web-1" "sudo systemctl start nginx"
+    echo "  Ensuring Nginx is running on lb-01..."
+    remote_exec "lb-01" "sudo systemctl start nginx"
+    
+    echo " Restoration complete."
+}
+
+# Register the cleanup function to run on exit (success or failure)
+trap cleanup EXIT
 
 echo "=================================================="
 echo " Starting Architecture Verification Suite"
