@@ -29,6 +29,7 @@ PRICING_CONFIG = {
     'BASE_FARE': 2.50,
     'PRICE_PER_MIN_BASIC': 0.25,
     'PRICE_PER_MIN_LUXURY': 0.50,
+    'NIGHT_MULTIPLIER': 1.25,
 }
 # --- Views with Business Logic ---
 
@@ -706,7 +707,7 @@ def geocode_address(address: str) -> str:
         pass
     return ''
 
-def calculate_distance(origin_coords: str, dest_coords: str) -> float:
+def calculate_route_summary(origin_coords: str, dest_coords: str) -> tuple[float, float]:
     try:
         ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='        
         # coords vêm em formato "lat,lon" mas ORS quer [lon, lat]
@@ -728,14 +729,26 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
             timeout=5
         )
         data = response.json()
-        distance_meters = data['routes'][0]['summary']['distance']
-        return round(distance_meters / 1000, 2)  # converte para km
+        summary = data['routes'][0]['summary']
+        distance_km = round(summary['distance'] / 1000, 2)
+        duration_minutes = round(summary['duration'] / 60, 2)
+        return distance_km, duration_minutes
     except Exception:
-        return 0
+        return 0, 0
 
-def calculate_price(minutes: float, comfort_level: str) -> float:
+def calculate_distance(origin_coords: str, dest_coords: str) -> float:
+    distance_km, _ = calculate_route_summary(origin_coords, dest_coords)
+    return distance_km
+
+def is_night_period(dt) -> bool:
+    local_time = timezone.localtime(dt).time()
+    return local_time.hour >= 22 or local_time.hour < 7
+
+def calculate_price(minutes: float, comfort_level: str, trip_time=None) -> float:
     price_per_min = PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] if comfort_level == 'luxury' else PRICING_CONFIG['PRICE_PER_MIN_BASIC']
     price = PRICING_CONFIG['BASE_FARE'] + (minutes * price_per_min)
+    if trip_time and is_night_period(trip_time):
+        price *= PRICING_CONFIG['NIGHT_MULTIPLIER']
     return round(price, 2)
 
 class TripCreateView(views.APIView):
@@ -768,8 +781,12 @@ class TripCreateView(views.APIView):
         dest_coords = geocode_address(data['destAddress'])
         
         kilometers = 0
+        estimated_minutes = 0
         if origin_coords and dest_coords:
-            kilometers = calculate_distance(origin_coords, dest_coords)
+            kilometers, estimated_minutes = calculate_route_summary(origin_coords, dest_coords)
+
+        trip_time = data.get('scheduled_time') or timezone.now()
+        estimated_price = calculate_price(estimated_minutes, data['comfort_level'], trip_time) if estimated_minutes > 0 else 0
 
         interval = TimeInterval.objects.create(
             start_time=timezone.now(),
@@ -787,7 +804,7 @@ class TripCreateView(views.APIView):
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
             kilometers=int(round(kilometers)),
-            price=0,
+            price=estimated_price,
             status='PENDING'
         )
         
@@ -1044,7 +1061,7 @@ class TripCompleteView(views.APIView):
             start_time = timezone.make_aware(start_time)
             
         minutes = (now - start_time).total_seconds() / 60
-        trip.price = calculate_price(minutes, trip.comfort_level)
+        trip.price = calculate_price(minutes, trip.comfort_level, start_time)
 
         # Fechar o intervalo da viagem
         trip.interval.end_time = now
