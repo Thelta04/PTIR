@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
-import { MapPin, Navigation, CheckCircle } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { 
   listPendingTrips, 
   listShifts, 
@@ -82,6 +83,29 @@ export default function DriverHomeView() {
   const [activeTrip, setActiveTrip] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
+  const [shiftDuration, setShiftDuration] = useState('');
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+  const showConfirm = (title, message, onConfirm) => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        closeModal();
+      }
+    });
+  };
 
   // Sheet states: 'closed' (peek), 'open' (expanded)
   const [sheetState, setSheetState] = useState('closed');
@@ -119,38 +143,57 @@ export default function DriverHomeView() {
       alert('Você precisa estar em um turno ativo para aceitar viagens.');
       return;
     }
-    try {
-      await acceptTrip(tripId, user.id, activeShift.id);
-      alert('Viagem aceita com sucesso! Aguarde a confirmação do passageiro.');
-      fetchData();
-    } catch (err) {
-      console.error('Error accepting trip:', err);
-      alert('Erro ao aceitar viagem.');
-    }
+
+    showConfirm(
+      'Aceitar Viagem?',
+      'Deseja aceitar este pedido de viagem?',
+      async () => {
+        try {
+          await acceptTrip(tripId, user.id, activeShift.id);
+          alert('Viagem aceita com sucesso! Aguarde a confirmação do passageiro.');
+          fetchData();
+        } catch (err) {
+          console.error('Error accepting trip:', err);
+          alert('Erro ao aceitar viagem.');
+        }
+      }
+    );
   };
 
   const handlePickup = async () => {
     if (!activeTrip) return;
-    try {
-      await pickupTrip(activeTrip.id);
-      alert('Passageiro recolhido! Iniciando viagem para o destino.');
-      fetchData();
-    } catch (err) {
-      console.error('Error picking up client:', err);
-      alert('Erro ao iniciar viagem.');
-    }
+
+    showConfirm(
+      'Iniciar Viagem?',
+      'O passageiro já entrou no veículo?',
+      async () => {
+        try {
+          await pickupTrip(activeTrip.id);
+          fetchData();
+        } catch (err) {
+          console.error('Error picking up client:', err);
+          alert('Erro ao iniciar viagem.');
+        }
+      }
+    );
   };
 
   const handleComplete = async () => {
     if (!activeTrip) return;
-    try {
-      await completeTrip(activeTrip.id);
-      alert('Viagem concluída com sucesso!');
-      fetchData();
-    } catch (err) {
-      console.error('Error completing trip:', err);
-      alert('Erro ao concluir viagem.');
-    }
+
+    showConfirm(
+      'Terminar Viagem?',
+      'Chegou ao destino final?',
+      async () => {
+        try {
+          await completeTrip(activeTrip.id);
+          fetchData();
+        } catch (err) {
+          console.error('Error completing trip:', err);
+          alert('Erro ao concluir viagem.');
+        }
+      }
+    );
   };
 
   useEffect(() => {
@@ -161,6 +204,26 @@ export default function DriverHomeView() {
       return () => clearInterval(intervalId);
     }
   }, [user]);
+
+  // Timer for active shift duration
+  useEffect(() => {
+    let timer;
+    if (activeShift?.real_interval?.start_time) {
+      const updateTimer = () => {
+        const start = new Date(activeShift.real_interval.start_time);
+        const now = new Date();
+        const diff = now - start;
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        setShiftDuration(`${hours}h ${minutes}m`);
+      };
+      updateTimer();
+      timer = setInterval(updateTimer, 60000);
+    } else {
+      setShiftDuration('');
+    }
+    return () => clearInterval(timer);
+  }, [activeShift]);
 
   // Fetch route geometry when active trip changes
   useEffect(() => {
@@ -202,6 +265,13 @@ export default function DriverHomeView() {
 
   return (
     <div className="driver-home-container">
+      {activeShift && (
+        <div className="shift-status-bar">
+          <Clock size={18} />
+          <span>Turno em curso: {shiftDuration} decorridos</span>
+        </div>
+      )}
+      
       <div className="map-full">
         <MapContainer center={[driverLoc.lat, driverLoc.lon]} zoom={14} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
           <TileLayer
@@ -342,6 +412,14 @@ export default function DriverHomeView() {
           )}
         </div>
       </motion.div>
+
+      <ConfirmationModal 
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={closeModal}
+      />
     </div>
   );
 }
