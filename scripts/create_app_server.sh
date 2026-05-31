@@ -137,4 +137,4 @@ remote_exec "$NEW_NAME" "
 rm -f /tmp/webapp_artifacts.tar.gz
 
 echo ""
-echo "NEW_NAME ($NEW_IP) is live."
+echo "$NEW_NAME ($NEW_IP) is live."
