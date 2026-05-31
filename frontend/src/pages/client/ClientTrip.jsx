@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Bell, Target, ChevronLeft, Star } from 'lucide-react';
+import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import ProfileModal from '../../components/ProfileModal';
 import './client.css';
@@ -17,8 +18,19 @@ export default function ClientTrip() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
-  const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'in_progress'
+  const activeTripRef = useRef(null);
+  const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'waiting_pickup', 'in_progress'
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [driverPos, setDriverPos] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [eta, setEta] = useState(null);
+  const lastFetchedRouteKey = useRef('');
+
+  useEffect(() => {
+    activeTripRef.current = activeTrip;
+  }, [activeTrip]);
 
   const simplifyAddress = (addr) => {
     if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
@@ -73,7 +85,7 @@ export default function ClientTrip() {
   useEffect(() => {
     let interval;
     if (tripId) {
-      interval = setInterval(async () => {
+      const fetchData = async () => {
         try {
           const { data } = await listTrips();
           const updatedTrip = data.find(t => t.id === tripId);
@@ -82,7 +94,9 @@ export default function ClientTrip() {
             setActiveTrip(updatedTrip);
             if (updatedTrip.status === 'DRIVER_ACCEPTED') {
               setStatus('accepted');
-            } else if (updatedTrip.status === 'CLIENT_ACCEPTED' || updatedTrip.status === 'IN_PROGRESS') {
+            } else if (updatedTrip.status === 'CLIENT_ACCEPTED') {
+              setStatus('waiting_pickup');
+            } else if (updatedTrip.status === 'IN_PROGRESS') {
               setStatus('in_progress');
             } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
               navigate('/client');
@@ -90,8 +104,13 @@ export default function ClientTrip() {
           }
         } catch (err) {
           console.error('Polling error:', err);
+        } finally {
+          setLoading(false);
         }
-      }, 3000);
+      };
+
+      fetchData(); // Initial fetch
+      interval = setInterval(fetchData, 3000);
     }
     return () => clearInterval(interval);
   }, [tripId, navigate]);
@@ -127,6 +146,71 @@ export default function ClientTrip() {
     );
   };
 
+  // Mock Driver Logic
+  useEffect(() => {
+    if ((status === 'accepted' || status === 'waiting_pickup') && activeTrip && !driverPos) {
+      // Mock a driver position near origin (e.g., ~1km away)
+      const coords = activeTrip.originCoords.split(',').map(Number);
+      if (coords.length === 2) {
+        const [oLat, oLon] = coords;
+        const mLat = oLat + 0.008;
+        const mLon = oLon + 0.008;
+        setDriverPos({ lat: mLat, lon: mLon });
+      }
+    }
+  }, [status, activeTrip, driverPos]);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (driverPos && activeTrip && (status === 'accepted' || status === 'waiting_pickup')) {
+        const routeKey = `pickup-${status}-${driverPos.lat},${driverPos.lon}`;
+        if (lastFetchedRouteKey.current === routeKey) return;
+
+        try {
+          const originStr = `${driverPos.lat},${driverPos.lon}`;
+          const destStr = activeTrip.originCoords;
+          const { data } = await getRouteGeometry(originStr, destStr);
+          if (data.geometry) {
+            setRouteCoords(decodePolyline(data.geometry));
+          } else if (data.is_fallback) {
+            // Straight line fallback
+            const destCoords = activeTrip.originCoords.split(',').map(Number);
+            setRouteCoords([[driverPos.lat, driverPos.lon], [destCoords[0], destCoords[1]]]);
+          }
+          lastFetchedRouteKey.current = routeKey;
+          if (data.duration) {
+            setEta(Math.round(data.duration / 60));
+          }
+        } catch (err) {
+          console.error('Error fetching driver route:', err);
+        }
+      } else if (status === 'in_progress' && activeTrip) {
+        const routeKey = `trip-${activeTrip.id}`;
+        if (lastFetchedRouteKey.current === routeKey) return;
+
+        // Trip route (Origin to Destination)
+        try {
+          const { data } = await getRouteGeometry(activeTrip.originCoords, activeTrip.destCoords);
+          if (data.geometry) {
+            setRouteCoords(decodePolyline(data.geometry));
+          } else if (data.is_fallback) {
+            const o = activeTrip.originCoords.split(',').map(Number);
+            const d = activeTrip.destCoords.split(',').map(Number);
+            setRouteCoords([[o[0], o[1]], [d[0], d[1]]]);
+          }
+          lastFetchedRouteKey.current = routeKey;
+          if (data.duration) {
+            setEta(Math.round(data.duration / 60));
+          }
+          setDriverPos(null);
+        } catch (err) {
+          console.error('Error fetching trip route:', err);
+        }
+      }
+    };
+    fetchRoute();
+  }, [driverPos, activeTrip, status]);
+
   const handleMenuClick = (path) => {
     setIsMenuOpen(false);
     if (path) navigate(path);
@@ -137,14 +221,27 @@ export default function ClientTrip() {
     navigate('/login-client');
   };
 
+  const translateEngine = (engine) => {
+    if (!engine) return 'Elétrico';
+    const mapping = {
+      'Electric': 'Elétrico',
+      'Gasoline': 'Gasolina',
+      'Diesel': 'Diesel',
+      'Hybrid': 'Híbrido'
+    };
+    return mapping[engine] || engine;
+  };
+
   const renderStatusPanel = () => {
+    if (loading) return null;
+
     switch (status) {
       case 'accepted':
         return (
           <div className="status-panel accepted">
             <div className="driver-header-info">
               <div className="driver-avatar">
-                <img src="https://via.placeholder.com/60" alt="Driver" />
+                <img src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} alt="Driver" />
               </div>
               <div className="driver-details">
                 <h3>{activeTrip?.driver_name || 'Motorista'}</h3>
@@ -163,6 +260,50 @@ export default function ClientTrip() {
               <div className="car-icon">🚗</div>
             </div>
 
+            <div className="trip-specs" style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr 1fr', 
+              gap: '10px',
+              padding: '15px 0',
+              borderTop: '1px solid #f0f0f0',
+              borderBottom: '1px solid #f0f0f0',
+              textAlign: 'center'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Conforto</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>{activeTrip?.comfort_level === 'luxury' ? 'Luxo' : 'Básico'}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Motor</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>{activeTrip?.taxi_engine === "combustion" ? "Combustão": 'Elétrico'}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Lugares</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>{activeTrip?.taxi_passengers || activeTrip?.num_passengers}</span>
+              </div>
+            </div>
+
+            <div className="trip-route-summary" style={{ fontSize: '1.05rem', color: '#333', margin: '15px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Origem</span>
+                  <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
+                    {simplifyAddress(activeTrip?.originAddress)}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Destino</span>
+                  <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
+                    {simplifyAddress(activeTrip?.destAddress)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="panel-actions">
               <button className="panel-btn panel-btn--refuse" onClick={handleCancel}>
                 Recusar
@@ -174,14 +315,122 @@ export default function ClientTrip() {
           </div>
         );
 
+      case 'waiting_pickup':
+        return (
+          <div className="status-panel waiting-pickup">
+            <h2 className="panel-title">O motorista está a caminho</h2>
+            
+            {eta !== null && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                color: '#f1af3d', 
+                fontWeight: '700', 
+                fontSize: '1.2rem',
+                margin: '10px 0'
+              }}>
+                <Clock size={20} />
+                Chega em {eta} min
+              </div>
+            )}
+
+            <div className="pickup-animation-container" style={{ 
+              position: 'relative', 
+              height: '60px', 
+              width: '100%', 
+              background: '#f9f9f9', 
+              borderRadius: '30px', 
+              margin: '15px 0',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 15px'
+            }}>
+              <div style={{ position: 'absolute', left: '0', right: '0', height: '2px', background: '#eee', zIndex: 1 }}></div>
+              <motion.div 
+                animate={{ x: [0, 250, 0] }}
+                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                style={{ fontSize: '1.8rem', zIndex: 2 }}
+              >
+                🚕
+              </motion.div>
+              <div style={{ position: 'absolute', right: '15px', zIndex: 2 }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></div>
+              </div>
+            </div>
+
+            <div className="driver-mini-card">
+              <img 
+                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
+                alt="Driver" 
+                className="user-pfp-small" 
+                style={{ width: '32px', height: '32px' }} 
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '0.9rem' }}>{activeTrip?.driver_name}</strong>
+                <span style={{ fontSize: '0.8rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+              </div>
+              <span className="plate-badge">{activeTrip?.taxi_plate}</span>
+            </div>
+          </div>
+        );
+
       case 'in_progress':
         return (
           <div className="status-panel in-progress">
-            <h2 className="panel-title">Viagem em curso</h2>
-            <p>O seu motorista está a caminho!</p>
+            <h2 className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Viagem em curso</h2>
+            
+            {eta !== null && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                color: '#000', 
+                fontWeight: '700', 
+                fontSize: '1.2rem',
+                margin: '10px 0'
+              }}>
+                <Target size={20} />
+                Destino em {eta} min
+              </div>
+            )}
+
+            <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
+              <motion.div 
+                animate={{ 
+                  opacity: [0.3, 1, 0.3],
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: 3, 
+                  ease: "easeInOut" 
+                }}
+                style={{ 
+                  height: '8px', 
+                  width: '100%', 
+                  background: '#f1cf58', 
+                  borderRadius: '4px',
+                  boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
+                }}
+              />
+            </div>
+
+            <p style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>A caminho do seu destino...</p>
+            
             <div className="driver-mini-card">
-              <span className="car-emoji">🚗</span>
-              <strong>{activeTrip?.driver_name}</strong>
+              <img 
+                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
+                alt="Driver" 
+                className="user-pfp-small" 
+                style={{ width: '48px', height: '48px' }} 
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '1rem' }}>{activeTrip?.driver_name}</strong>
+                <span style={{ fontSize: '0.85rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+              </div>
               <span className="plate-badge">{activeTrip?.taxi_plate}</span>
             </div>
           </div>
@@ -233,6 +482,9 @@ export default function ClientTrip() {
             origem={origem}
             destino={destino}
             onEscolherPonto={() => {}} 
+            routeCoords={routeCoords}
+            carPos={driverPos}
+            isInProgress={status === 'in_progress'}
           />
         </div>
 

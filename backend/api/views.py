@@ -1123,17 +1123,34 @@ class RouteGeometryView(views.APIView):
                 },
                 timeout=5
             )
+            print(f"ORS Response Status: {response.status_code}")
             data = response.json()
-            if 'routes' not in data or not data['routes']:
-                 return Response({"error": "No route found"}, status=status.HTTP_404_NOT_FOUND)
-                 
-            route = data['routes'][0]
+            if response.status_code == 200 and 'routes' in data and data['routes']:
+                route = data['routes'][0]
+                return Response({
+                    "geometry": route['geometry'],
+                    "distance": route['summary']['distance'],
+                    "duration": route['summary']['duration']
+                }, status=status.HTTP_200_OK)
+            
+            # Fallback if ORS fails (Rate Limit 429, etc)
+            print(f"ORS Failed (Status {response.status_code}), using fallback.")
+            dist_km = haversine_dist(origin, dest)
+            # 2 mins per km, 1000m per km
+            duration_sec = dist_km * 2.0 * 60
+            distance_m = dist_km * 1000
+
+            # Simple encoded polyline for a straight line (two points)
+            # This is a very basic "mock" geometry if real routing fails
             return Response({
-                "geometry": route['geometry'],
-                "distance": route['summary']['distance'],
-                "duration": route['summary']['duration']
+                "geometry": None, # Frontend handles null geometry
+                "distance": distance_m,
+                "duration": duration_sec,
+                "is_fallback": True
             }, status=status.HTTP_200_OK)
+
         except Exception as e:
+            print(f"RouteGeometryView Exception: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RatingListView(views.APIView):

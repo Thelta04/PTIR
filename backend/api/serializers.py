@@ -264,17 +264,19 @@ class TaxiDetailSerializer(serializers.ModelSerializer):
 class TripListSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='shift.driver.user.name', read_only=True, default=None)
     driver_id   = serializers.IntegerField(source='shift.driver.user_id', read_only=True, default=None)
+    driver_pfp  = serializers.IntegerField(source='shift.driver.user.profile_pic', read_only=True, default=1)
     taxi_plate  = serializers.CharField(source='shift.taxi.license_plate', read_only=True, default=None)
     taxi_brand  = serializers.CharField(source='shift.taxi.brand', read_only=True, default=None)
     taxi_model  = serializers.CharField(source='shift.taxi.model', read_only=True, default=None)
     taxi_engine = serializers.CharField(source='shift.taxi.engine_type', read_only=True, default=None)
+    taxi_passengers = serializers.IntegerField(source='shift.taxi.num_passengers', read_only=True, default=None)
     client_id   = serializers.IntegerField(source='client.user_id', read_only=True)
     client_name = serializers.CharField(source='client.user.name', read_only=True)
     interval    = TimeIntervalSerializer(read_only=True)
 
     class Meta:
         model = Trip    
-        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'driver_pfp', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'taxi_passengers', 'interval']
 
 class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
