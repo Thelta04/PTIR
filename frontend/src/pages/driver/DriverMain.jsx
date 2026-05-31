@@ -6,6 +6,7 @@ import { Menu, Bell, ChevronLeft, X } from 'lucide-react';
 import DriverHomeView from './DriverHomeView';
 import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
+import ProfileModal from '../../components/ProfileModal';
 import './driver.css';
 import '../../components/map-background.css';
 import Refuels from './Refuels';
@@ -16,6 +17,7 @@ export default function DriverMain() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -53,8 +55,17 @@ export default function DriverMain() {
         <div className="driver-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
           <span className="driver-brand-name">TUXY</span>
         </div>
-        <div className="header-actions">
+        <div 
+          className="header-actions" 
+          onClick={() => setIsProfileModalOpen(true)}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="user-name-display">{user?.name}</span>
+          <img 
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
+            alt="Profile" 
+            className="user-pfp-small"
+          />
         </div>
       </header>
 
@@ -120,16 +131,22 @@ export default function DriverMain() {
                   Ver Histórico de Viagens
                 </button>
               </nav>
-              
+
               <div className="drawer-footer">
                 <button className="drawer-logout" onClick={handleLogout}>
                   Terminar Sessão
                 </button>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+              </motion.div>
+              </>
+              )}
+              </AnimatePresence>
+
+              <ProfileModal 
+              isOpen={isProfileModalOpen}
+              onClose={() => setIsProfileModalOpen(false)}
+              />
+              </div>
+              );
+              }
+

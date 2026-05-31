@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { PSelect, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
+import PFPSelector from '../components/PFPSelector';
 
 
 const ROLE_ROUTES = {
@@ -23,6 +24,7 @@ export default function Signup() {
   const [opcao, setGender] = useState("");
   const [name, setName] = useState("");
   const [nif, setNif] = useState("");
+  const [profilePic, setProfilePic] = useState(1);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +37,8 @@ export default function Signup() {
         password,
         name,
         nif,
-        gender: opcao
+        gender: opcao,
+        profile_pic: profilePic
       });
       navigate(ROLE_ROUTES[user.type] || '/client');
     } catch (err) {
@@ -61,6 +64,8 @@ export default function Signup() {
 
 
           <form onSubmit={handleSubmit} className="login-form">
+
+            <PFPSelector selectedPfp={profilePic} onSelect={setProfilePic} />
 
             <PInputText 
             label="Nome" 

@@ -102,7 +102,7 @@ class Refueling(models.Model):
 
 
 class Trip(models.Model):
-    kilometers = models.IntegerField()
+    kilometers = models.FloatField()
     originCoords = models.CharField(max_length=255, db_column='origin_coords')
     destCoords = models.CharField(max_length=255, db_column='dest_coords')
     originAddress = models.CharField(max_length=255, db_column='origin_address')

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createTrip, listTrips, clientAcceptTrip, cancelTrip } from '../../api/client';
+import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import ProfileModal from '../../components/ProfileModal';
+import { calculateEstimatedPrice } from '../../utils/pricing';
 import './client.css';
 import '../../components/map-background.css';
 
@@ -31,6 +33,12 @@ export default function ClientMain() {
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
 
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  const [pricingConfig, setPricingConfig] = useState(null);
+  const [estimatedPrice, setEstimatedPrice] = useState(0);
+  const [estimatedDuration, setEstimatedDuration] = useState(0); // in minutes
+
   // Modal State
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -54,36 +62,40 @@ export default function ClientMain() {
   };
 
   const simplifyAddress = (addr) => {
-    if (!addr || addr === 'Current Location') return addr;
+    if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
     const parts = addr.split(',').map(p => p.trim());
     
-    // 1. Identify street and number
-    let streetInfo = '';
-    let startIdx = 0;
-    if (/^\d/.test(parts[0])) {
-      streetInfo = `${parts[0]} ${parts[1]}`;
-      startIdx = 2;
-    } else {
-      streetInfo = parts[0];
-      startIdx = 1;
-    }
-
-    // 2. Identify City (Skip country, postcode, and small neighborhoods)
-    // We filter out parts that look like postcodes or are the country (last part)
-    const filtered = parts.slice(startIdx).filter(p => {
-      const isPostcode = /\d{4}/.test(p);
-      return !isPostcode;
-    });
-
-    // Remove the country (last remaining part usually)
-    if (filtered.length > 1) {
-      filtered.pop(); 
-    }
-
-    // The city is usually the last one left now (e.g., "Lisboa" instead of "Baixa")
-    const city = filtered[filtered.length - 1] || '';
+    // Portuguese street prefixes to identify the main street part
+    const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
     
-    return city ? `${streetInfo}, ${city}` : streetInfo;
+    let streetIdx = -1;
+    // Look for the street name in the first 3 parts (skipping POI name if present)
+    for (let i = 0; i < Math.min(parts.length, 3); i++) {
+      if (streetPrefixes.some(prefix => parts[i].toLowerCase().startsWith(prefix.toLowerCase()))) {
+        streetIdx = i;
+        break;
+      }
+    }
+
+    // Fallback: if we couldn't find a prefix, check if part 1 is a number and part 2 is the street
+    if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
+      streetIdx = 2;
+    }
+    
+    // Final fallback to part 0
+    if (streetIdx === -1) streetIdx = 0;
+
+    let street = parts[streetIdx];
+    // If the previous part is a building number, include it
+    if (streetIdx > 0 && /^\d/.test(parts[streetIdx - 1])) {
+      street = `${parts[streetIdx - 1]} ${street}`;
+    }
+
+    // Freguesia is usually the next part, Concelho the one after
+    const freguesia = parts[streetIdx + 1] || '';
+    const concelho = parts[streetIdx + 2] || '';
+
+    return [street, freguesia, concelho].filter(Boolean).join(', ');
   };
 
   const handleUseCurrentLocation = () => {
@@ -126,10 +138,20 @@ export default function ClientMain() {
     }
   };
 
+  const fetchPricing = async () => {
+    try {
+      const { data } = await getPricing();
+      setPricingConfig(data);
+    } catch (err) {
+      console.error('Error fetching pricing:', err);
+    }
+  };
+
   // Set current location as default origin on mount and check for active trips
   useEffect(() => {
     handleUseCurrentLocation();
     checkActiveTrip();
+    fetchPricing();
   }, []);
 
   const handleSearchAddress = async (type) => {
@@ -183,7 +205,7 @@ export default function ClientMain() {
     }
   }
 
-  const handleProceedToSelection = () => {
+  const handleProceedToSelection = async () => {
     // Basic validation
     if (!origin_address && !origem) {
       alert('Por favor, especifique uma origem.');
@@ -194,13 +216,52 @@ export default function ClientMain() {
       return;
     }
 
+    let finalOrigem = origem;
+    let finalDestino = destino;
+    const finalOriginAddr = origin_address || 'Localização Atual';
+    const finalDestAddr = dest_address || searchValue;
+
+    // Ensure we have coordinates even if the user didn't click/search specifically
+    if (!finalOrigem && finalOriginAddr && finalOriginAddr !== 'Localização Atual') {
+      const coords = await getCoordsFromAddress(finalOriginAddr);
+      if (coords) {
+        finalOrigem = { lat: coords.lat, lon: coords.lon };
+        setOrigem(finalOrigem);
+      }
+    }
+    if (!finalDestino && finalDestAddr) {
+      const coords = await getCoordsFromAddress(finalDestAddr);
+      if (coords) {
+        finalDestino = { lat: coords.lat, lon: coords.lon };
+        setDestino(finalDestino);
+      }
+    }
+
     // Ensure state matches what's in the text inputs if they were typed manually
     if (searchValue && dest_address !== searchValue) {
       setDestinationAddress(searchValue);
     }
 
-    // Also sync origin_address if we are in more options but didn't search
-    // (though usually origin_address state is updated on every keystroke)
+    // Fetch Route Geometry and calculate price estimate
+    if (finalOrigem && finalDestino) {
+      try {
+        const originStr = `${finalOrigem.lat},${finalOrigem.lon}`;
+        const destStr = `${finalDestino.lat},${finalDestino.lon}`;
+        const { data } = await getRouteGeometry(originStr, destStr);
+        
+        if (data.duration) {
+          const minutes = data.duration / 60;
+          setEstimatedDuration(Math.round(minutes));
+          
+          if (pricingConfig) {
+            const price = calculateEstimatedPrice(minutes, comfort_level, pricingConfig);
+            setEstimatedPrice(price);
+          }
+        }
+      } catch (err) {
+        console.error('Error calculating estimate:', err);
+      }
+    }
 
     setShowMoreOptions(false);
     setCurrentView('selection');
@@ -212,6 +273,8 @@ export default function ClientMain() {
         client_id: user.id,
         originAddress: origin_address,
         destAddress: dest_address || searchValue,
+        originCoords: origem ? `${origem.lat},${origem.lon}` : null,
+        destCoords: destino ? `${destino.lat},${destino.lon}` : null,
         comfort_level,
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
@@ -350,7 +413,12 @@ export default function ClientMain() {
             }}>
               <div style={{ marginBottom: '6px' }}><strong>De:</strong> {simplifyAddress(origin_address) || 'Localização Atual'}</div>
               <div style={{ marginBottom: '6px' }}><strong>Para:</strong> {simplifyAddress(dest_address || searchValue)}</div>
-              <div><strong>Serviço:</strong> {comfort_level === 'basic' ? 'Básico' : 'Luxo'} • {num_passengers} {num_passengers > 1 ? 'passageiros' : 'passageiro'}</div>
+              <div style={{ marginBottom: '6px' }}><strong>Serviço:</strong> {comfort_level === 'basic' ? 'Básico' : 'Luxo'} • {num_passengers} {num_passengers > 1 ? 'passageiros' : 'passageiro'}</div>
+              {estimatedPrice > 0 && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #f1cf58', fontWeight: '800', color: '#000', fontSize: '1.2rem' }}>
+                  Estimativa: €{estimatedPrice.toFixed(2)} ({estimatedDuration} min)
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ width: '100%', marginBottom: '20px' }}>
@@ -393,11 +461,11 @@ export default function ClientMain() {
           <div className="confirmation-view" style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
-            minHeight: '350px',
+            gap: '15px',
+            minHeight: '320px',
             justifyContent: 'space-between'
           }}>
-            <div className="view-header" style={{ marginBottom: '10px' }}>
+            <div className="view-header" style={{ marginBottom: '5px' }}>
               <button
                 className="back-btn"
                 onClick={() => setCurrentView('selection')}
@@ -405,46 +473,57 @@ export default function ClientMain() {
               >
                 <ChevronLeft size={24} />
               </button>
-              <h2 className="view-title" style={{ fontSize: '1.4rem' }}>Resumo da Viagem</h2>
+              <h2 className="view-title" style={{ fontSize: '1.3rem' }}>Resumo da Viagem</h2>
             </div>
 
             <div className="details-list" style={{
               background: '#fff',
               border: '2px solid #f1cf58',
               borderRadius: '16px',
-              padding: '20px',
+              padding: '16px',
               textAlign: 'left',
               display: 'flex',
               flexDirection: 'column',
-              gap: '18px',
+              gap: '12px',
               flex: 1,
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+              overflowY: 'auto'
             }}>
-              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>De</span>
-                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{origin_address || 'Localização Atual'}</div>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>De</span>
+                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{origin_address || 'Localização Atual'}</div>
               </div>
 
-              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Para</span>
-                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{dest_address || searchValue}</div>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Para</span>
+                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{dest_address || searchValue}</div>
               </div>
 
-              <div style={{ display: 'flex', gap: '40px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
-                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Serviço</span>
-                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{comfort_level === 'basic' ? 'Básico' : 'Luxo'}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', borderTop: '2px dashed #f3f4f6', paddingTop: '12px' }}>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Serviço</span>
+                  <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>{comfort_level === 'basic' ? 'Básico' : 'Luxo'}</div>
                 </div>
-                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lugares</span>
-                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{num_passengers}</div>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lugares</span>
+                  <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>{num_passengers}</div>
+                </div>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Duração</span>
+                  <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>{estimatedDuration} min</div>
                 </div>
               </div>
 
-              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hora de Recolha</span>
-                <div style={{ fontSize: '1.1rem', color: '#f1af3d', fontWeight: '700' }}>
-                  {dateTime ? new Date(dateTime).toLocaleString('pt-PT', { dateStyle: 'medium', timeStyle: 'short' }) : 'Imediata (Partir Agora)'}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '15px', borderTop: '2px dashed #f3f4f6', paddingTop: '12px' }}>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hora de Recolha</span>
+                  <div style={{ fontSize: '1rem', color: '#f1af3d', fontWeight: '700' }}>
+                    {dateTime ? new Date(dateTime).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : 'Imediata'}
+                  </div>
+                </div>
+                <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Preço</span>
+                  <div style={{ fontSize: '1.1rem', color: '#000', fontWeight: '800' }}>€{estimatedPrice.toFixed(2)}</div>
                 </div>
               </div>
             </div>
@@ -453,9 +532,9 @@ export default function ClientMain() {
               className="search-btn search-btn--primary"
               onClick={handleConfirmRide}
               style={{
-                marginTop: '10px',
-                padding: '12px 0',
-                height: '64px',
+                marginTop: '5px',
+                padding: '10px 0',
+                height: '56px',
                 fontSize: '1.1rem',
                 letterSpacing: '0.5px'
               }}
@@ -661,8 +740,17 @@ export default function ClientMain() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <div className="user-name-container">
+        <div 
+          className="user-name-container" 
+          onClick={() => setIsProfileModalOpen(true)}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="user-name-text">{user?.name}</span>
+          <img 
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
+            alt="Profile" 
+            className="user-pfp-small"
+          />
         </div>
       </header>
 
@@ -743,6 +831,11 @@ export default function ClientMain() {
         message={modalConfig.message}
         onConfirm={modalConfig.onConfirm}
         onCancel={closeModal}
+      />
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
       </div>
       );

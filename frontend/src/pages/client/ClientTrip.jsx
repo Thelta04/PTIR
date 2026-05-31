@@ -6,6 +6,7 @@ import MapaPedido from '../../components/MapaPedido';
 import { cancelTrip, listTrips, clientAcceptTrip } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import ProfileModal from '../../components/ProfileModal';
 import './client.css';
 
 export default function ClientTrip() {
@@ -17,6 +18,27 @@ export default function ClientTrip() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
   const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'in_progress'
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  const simplifyAddress = (addr) => {
+    if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
+    const parts = addr.split(',').map(p => p.trim());
+    const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
+    let streetIdx = -1;
+    for (let i = 0; i < Math.min(parts.length, 3); i++) {
+      if (streetPrefixes.some(prefix => parts[i].toLowerCase().startsWith(prefix.toLowerCase()))) {
+        streetIdx = i;
+        break;
+      }
+    }
+    if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) streetIdx = 2;
+    if (streetIdx === -1) streetIdx = 0;
+    let street = parts[streetIdx];
+    if (streetIdx > 0 && /^\d/.test(parts[streetIdx - 1])) street = `${parts[streetIdx - 1]} ${street}`;
+    const freguesia = parts[streetIdx + 1] || '';
+    const concelho = parts[streetIdx + 2] || '';
+    return [street, freguesia, concelho].filter(Boolean).join(', ');
+  };
 
   // Modal State
   const [modalConfig, setModalConfig] = useState({
@@ -191,8 +213,17 @@ export default function ClientTrip() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <div className="user-name-container">
+        <div 
+          className="user-name-container" 
+          onClick={() => setIsProfileModalOpen(true)}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="user-name-text">{user?.name}</span>
+          <img 
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
+            alt="Profile" 
+            className="user-pfp-small"
+          />
         </div>
       </header>
 
@@ -270,6 +301,11 @@ export default function ClientTrip() {
         message={modalConfig.message}
         onConfirm={modalConfig.onConfirm}
         onCancel={closeModal}
+      />
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </div>
   );

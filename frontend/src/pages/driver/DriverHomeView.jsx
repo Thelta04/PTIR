@@ -12,8 +12,11 @@ import {
   listTrips, 
   pickupTrip, 
   completeTrip, 
-  getRouteGeometry 
+  getRouteGeometry,
+  getPricing
 } from '../../api/client';
+import { calculateEstimatedPrice } from '../../utils/pricing';
+import { getCoordsFromAddress } from '../../components/geocoding';
 import 'leaflet/dist/leaflet.css';
 
 // Custom icons using standard markers or SVG
@@ -32,6 +35,43 @@ const carIcon = new L.DivIcon({
 });
 
 const pinColors = ['#ef4444', '#facc15', '#f97316']; // Red, Yellow, Orange
+
+const simplifyAddress = (addr) => {
+  if (!addr || addr === 'Current Location') return addr;
+  const parts = addr.split(',').map(p => p.trim());
+  
+  // Portuguese street prefixes to identify the main street part
+  const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
+  
+  let streetIdx = -1;
+  // Look for the street name in the first 3 parts (skipping POI name if present)
+  for (let i = 0; i < Math.min(parts.length, 3); i++) {
+    if (streetPrefixes.some(prefix => parts[i].toLowerCase().startsWith(prefix.toLowerCase()))) {
+      streetIdx = i;
+      break;
+    }
+  }
+
+  // Fallback: if we couldn't find a prefix, check if part 1 is a number and part 2 is the street
+  if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
+    streetIdx = 2;
+  }
+  
+  // Final fallback to part 0
+  if (streetIdx === -1) streetIdx = 0;
+
+  let street = parts[streetIdx];
+  // If the previous part is a building number, include it
+  if (streetIdx > 0 && /^\d/.test(parts[streetIdx - 1])) {
+    street = `${parts[streetIdx - 1]} ${street}`;
+  }
+
+  // Freguesia is usually the next part, Concelho the one after
+  const freguesia = parts[streetIdx + 1] || '';
+  const concelho = parts[streetIdx + 2] || '';
+
+  return [street, freguesia, concelho].filter(Boolean).join(', ');
+};
 
 const haversine = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
@@ -84,6 +124,7 @@ export default function DriverHomeView() {
   const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
   const [shiftDuration, setShiftDuration] = useState('');
+  const [pricingConfig, setPricingConfig] = useState(null);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState({
@@ -112,6 +153,11 @@ export default function DriverHomeView() {
 
   const fetchData = async () => {
     try {
+      if (!pricingConfig) {
+        const { data: p } = await getPricing();
+        setPricingConfig(p);
+      }
+
       const { data: shifts } = await listShifts(user.id);
       const active = shifts.find(s => s.real_interval && !s.real_interval.end_time);
       setActiveShift(active);
@@ -138,18 +184,89 @@ export default function DriverHomeView() {
     }
   };
 
-  const handleAccept = async (tripId) => {
+  const handleAccept = async (trip) => {
     if (!activeShift) {
       alert('Você precisa estar em um turno ativo para aceitar viagens.');
       return;
     }
 
+    let distFromDriver = '?';
+    if (trip.originCoords) {
+      const [tLat, tLon] = trip.originCoords.split(',').map(Number);
+      if (!isNaN(tLat) && !isNaN(tLon)) {
+        distFromDriver = haversine(driverLoc.lat, driverLoc.lon, tLat, tLon).toFixed(1);
+      }
+    }
+
+    // Fetch actual percurso metrics from ORS since trip might have 0 in DB
+    let tripKm = trip.kilometers || 0;
+    let tripPrice = trip.price || 0;
+
+    // Use a fresh fetch if pricingConfig is missing
+    let currentPricing = pricingConfig;
+    if (!currentPricing) {
+      try {
+        const { data: p } = await getPricing();
+        currentPricing = p;
+        setPricingConfig(p);
+      } catch (e) { console.error("Failed to fetch pricing for modal", e); }
+    }
+
+    let startCoords = trip.originCoords;
+    let endCoords = trip.destCoords;
+
+    // Fallback: if coords are missing in DB, try to geocode the addresses now
+    if (!startCoords && trip.originAddress) {
+      try {
+        const c = await getCoordsFromAddress(trip.originAddress);
+        if (c) startCoords = `${c.lat},${c.lon}`;
+      } catch (e) { console.error("Geocoding origin failed", e); }
+    }
+    if (!endCoords && trip.destAddress) {
+      try {
+        const c = await getCoordsFromAddress(trip.destAddress);
+        if (c) endCoords = `${c.lat},${c.lon}`;
+      } catch (e) { console.error("Geocoding destination failed", e); }
+    }
+
+    if (startCoords && endCoords) {
+      try {
+        const { data: routeData } = await getRouteGeometry(startCoords, endCoords);
+        // Backend RouteGeometryView returns distance in METERS and duration in SECONDS
+        if (routeData.distance !== undefined) {
+          tripKm = (Number(routeData.distance) / 1000).toFixed(1);
+        }
+        if (routeData.duration !== undefined && currentPricing) {
+          // calculateEstimatedPrice expects minutes
+          tripPrice = calculateEstimatedPrice(routeData.duration / 60, trip.comfort_level, currentPricing);
+        }
+      } catch (e) {
+        console.error("Error fetching trip metrics for modal:", e);
+      }
+    }
+
     showConfirm(
       'Aceitar Viagem?',
-      'Deseja aceitar este pedido de viagem?',
+      <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div><strong>De:</strong> {simplifyAddress(trip.originAddress)}</div>
+        <div><strong>Para:</strong> {simplifyAddress(trip.destAddress)}</div>
+        <hr style={{ border: '0', borderTop: '1px dashed #eee', margin: '5px 0' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Distância até si:</span>
+          <strong>{distFromDriver} km</strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Percurso:</span>
+          <strong>{tripKm} km</strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', marginTop: '5px', color: '#000' }}>
+          <span>Preço:</span>
+          <strong>€{Number(tripPrice).toFixed(2)}</strong>
+        </div>
+      </div>,
       async () => {
         try {
-          await acceptTrip(tripId, user.id, activeShift.id);
+          await acceptTrip(trip.id, user.id, activeShift.id);
           alert('Viagem aceita com sucesso! Aguarde a confirmação do passageiro.');
           fetchData();
         } catch (err) {
@@ -393,7 +510,7 @@ export default function DriverHomeView() {
               const color = pinColors[index % pinColors.length];
 
               return (
-                <div key={trip.id} className="passenger-card" onClick={() => handleAccept(trip.id)}>
+                <div key={trip.id} className="passenger-card" onClick={() => handleAccept(trip)}>
                   <div className="card-icon" style={{ color }}>
                     <MapPin size={24} fill="currentColor" />
                   </div>
@@ -402,7 +519,7 @@ export default function DriverHomeView() {
                       <span className="passenger-name">{trip.client_name} - {dist}km de si</span>
                     </div>
                     <div className="card-bottom">
-                      <span className="passenger-address">{trip.originAddress}</span>
+                      <span className="passenger-address">{simplifyAddress(trip.originAddress)}</span>
                       <span className="trip-distance">{trip.kilometers}km</span>
                     </div>
                   </div>

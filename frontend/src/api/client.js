@@ -130,5 +130,7 @@ export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
 export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
+export const getPricing = () => api.get('pricing/');
+export const updateProfilePic = (id, profile_pic) => api.patch(`user/${id}/profile-pic/`, { profile_pic });
 
 export default api;
