@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User
 from django.utils import timezone as tz
 from .models import Refueling
 
@@ -53,6 +53,42 @@ class CreateDriverSerializer(serializers.Serializer):
         except ValueError:
             raise serializers.ValidationError("Invalid year format.")
         return value
+
+class DriverUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+    license_number = serializers.CharField(max_length=12, required=False)
+    birth_year = serializers.CharField(max_length=4, required=False)
+
+    def validate_birth_year(self, value):
+        try:
+            year = int(value)
+            current_year = date.today().year
+            if year < 1900:
+                raise serializers.ValidationError("Birth year must be >= 1900.")
+            if current_year - year < 18:
+                raise serializers.ValidationError("Driver must be at least 18 years old.")
+        except ValueError:
+            raise serializers.ValidationError("Invalid year format.")
+        return value
+
+    def validate(self, data):
+        driver = self.context.get('driver')
+        user = driver.user if driver else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        if 'license_number' in data and Driver.objects.filter(license_number=data['license_number']).exclude(user=user).exists():
+            raise serializers.ValidationError({"license_number": "A driver with this license number already exists."})
+
+        return data
 
 class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])

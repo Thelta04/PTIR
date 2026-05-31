@@ -49,9 +49,12 @@ urlpatterns = [
     path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip_driver'),
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
     path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
+    path('trip/<int:id>/payment/start/', views.TripPaymentStartView.as_view(), name='start_trip_payment'),
+    path('trip/<int:id>/payment/status/', views.TripPaymentStatusView.as_view(), name='trip_payment_status'),
     path('trip/<int:id>/client-accept/', views.TripClientAcceptView.as_view(), name='accept_trip_client'),
     path('trip/<int:id>/pickup/', views.TripPickupView.as_view(), name='start_trip'),
     path('route/', views.RouteGeometryView.as_view(), name='route_geometry'),
+    path('payments/stripe/webhook/', views.StripeWebhookView.as_view(), name='stripe_webhook'),
 
 
     # Ratting
