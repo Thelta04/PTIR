@@ -1,7 +1,7 @@
 #!/bin/bash
-# scripts/infra/add_webapp.sh
-# Creates a single new webapp VM with IP = last webapp IP + 1
-# Usage: ./add_webapp.sh
+# scripts/create_app_server.sh
+# Creates a new app server instance, deploys the webapp (the LB healthche will automatically discover it)
+# Usage: ./create_app_server.sh
 
 set -e
 set -o pipefail
