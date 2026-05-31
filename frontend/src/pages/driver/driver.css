@@ -19,6 +19,20 @@
   z-index: 10;
 }
 
+.shift-status-bar {
+  background-color: #fdf2b3;
+  color: #333;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-bottom: 1.5px solid #f1cf58;
+  z-index: 5;
+}
+
 .menu-btn,
 .bell-btn {
   background: #fdf2d5;
@@ -30,6 +44,13 @@
   align-items: center;
   justify-content: center;
   color: #333;
+}
+
+.user-name-display {
+  font-weight: 700;
+  color: #333;
+  font-size: 1rem;
+  margin-right: 0.5rem;
 }
 
 .header-actions {

@@ -40,7 +40,7 @@ export default function Signup() {
       navigate(ROLE_ROUTES[user.type] || '/client');
     } catch (err) {
       const msg =
-        err.response?.data?.error || 'Connection failed. Please try again.';
+        err.response?.data?.error || 'Falha na ligação. Por favor tente novamente.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -53,17 +53,17 @@ export default function Signup() {
         {/* Brand */}
           <div className="tuxy-header-div">
           <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Client</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Cliente</span>
         </div>
         <div className="login-form-container">
-          <p className="login-welcome">Welcome</p>
-          <p className="login-subtitle">Sign up to access the app</p>
+          <p className="login-welcome">Bem-vindo</p>
+          <p className="login-subtitle">Registe-se para aceder à aplicação</p>
 
 
           <form onSubmit={handleSubmit} className="login-form">
 
             <PInputText 
-            label="Name" 
+            label="Nome" 
             className="session-input"
             onChange={(e) => setName(e.target.value)}
             required
@@ -81,22 +81,22 @@ export default function Signup() {
             <PSelect
                 id="login-opcao"
                 name="options"
-                label="Gender"
+                label="Género"
                 className="session-input"
                 value={opcao}
                 onChange={(e) => setGender(e.target.value)}
                 required
                 >
                 <PSelectOption value="Female">
-                    Female
+                    Feminino
                 </PSelectOption>
                 
                 <PSelectOption value="Male">
-                    Male
+                    Masculino
                 </PSelectOption>
 
                 <PSelectOption value="Other">
-                    Other
+                    Outro
                 </PSelectOption>
             </PSelect>
 
@@ -106,7 +106,7 @@ export default function Signup() {
               label="Email" 
               type="email"
               className="session-input"
-              placeholder="your@email.com"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -117,7 +117,7 @@ export default function Signup() {
             <PInputPassword 
             id="login-email"
               className="session-input" 
-              label="Password" 
+              label="Palavra-passe" 
               name="password" 
               toggle={true}
               value={password}
@@ -140,13 +140,13 @@ export default function Signup() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? 'Signing up…' : 'Sign Up'}
+              {loading ? 'A registar…' : 'Registar'}
 
             
             </button>
-            <p className="login-subtitle">Already have an account? <a href="/login-client">Log In</a></p>
+            <p className="login-subtitle">Já tem uma conta? <a href="/login-client">Iniciar Sessão</a></p>
             <hr></hr>
-            <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
+            <p className="login-subtitle">Deseja registar-se como motorista? <a href="/signup-driver">Registe-se aqui!</a></p>
           </form>
         </div>
     </div>

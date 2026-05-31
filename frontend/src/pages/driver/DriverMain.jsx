@@ -54,12 +54,7 @@ export default function DriverMain() {
           <span className="driver-brand-name">TUXY</span>
         </div>
         <div className="header-actions">
-          <button className="bell-btn">
-            <Bell size={20} />
-          </button>
-          <button className="close-btn-red" onClick={() => navigate('/decision')}>
-            <X size={20} />
-          </button>
+          <span className="user-name-display">{user?.name}</span>
         </div>
       </header>
 
@@ -94,6 +89,12 @@ export default function DriverMain() {
               </div>
 
               <nav className="drawer-nav">
+                <button 
+                  className={`drawer-link ${activeTab === 'home' ? 'active' : ''}`}
+                  onClick={() => handleNav('home')}
+                >
+                  Página Inicial
+                </button>
                 <button 
                   className={`drawer-link ${activeTab === 'schedule' ? 'active' : ''}`}
                   onClick={() => handleNav('schedule')}
