@@ -1,12 +1,19 @@
 import math
+import os
 import socket
 import requests
+from decimal import Decimal, ROUND_HALF_UP
+from urllib.parse import urlparse
 
 from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework import views, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+try:
+    import stripe
+except ImportError:
+    stripe = None
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling
 from .serializers import *
 from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
@@ -31,6 +38,8 @@ PRICING_CONFIG = {
     'PRICE_PER_MIN_LUXURY': 0.50,
     'NIGHT_MULTIPLIER': 1.25,
 }
+
+STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'eur')
 # --- Views with Business Logic ---
 
 class UserDeleteView(views.APIView):
@@ -149,6 +158,8 @@ class DriverCreateView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DriverDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
     @extend_schema(
         summary="Get Driver details",
         description="Returns the detailed information of a specific driver based on the user ID.",
@@ -167,6 +178,73 @@ class DriverDetailView(views.APIView):
         # Serialize and return the data
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update Driver (Manager only)",
+        description="Updates a driver's user data and driver-specific data. Requires a valid Manager JWT token.",
+        request=DriverUpdateSerializer,
+        responses={
+            200: DriverSerializer,
+            403: inline_serializer(name="DriverUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="DriverUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            driver = Driver.objects.select_related('user').get(user__id=id)
+        except Driver.DoesNotExist:
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = DriverUpdateSerializer(data=request.data, partial=True, context={'driver': driver})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = driver.user
+
+        for field in ['nif', 'name', 'email', 'gender', 'password']:
+            if field in data:
+                setattr(user, field, data[field])
+        user.save()
+
+        for field in ['license_number', 'birth_year']:
+            if field in data:
+                setattr(driver, field, data[field])
+        driver.save()
+
+        return Response(DriverSerializer(driver).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Delete Driver (Manager only)",
+        description="Deletes a driver if they have no associated shifts. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="DriverDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="DriverDeleteNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def delete(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            driver = Driver.objects.select_related('user').get(user__id=id)
+        except Driver.DoesNotExist:
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if Shift.objects.filter(driver=driver).exists():
+            return Response({"error": "Cannot delete a driver that has associated shifts."}, status=status.HTTP_403_FORBIDDEN)
+
+        driver.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class DriverListView(views.APIView):
     @extend_schema(
@@ -843,6 +921,15 @@ def calculate_price(minutes: float, comfort_level: str, trip_time=None) -> float
         price *= PRICING_CONFIG['NIGHT_MULTIPLIER']
     return round(price, 2)
 
+def amount_to_cents(amount) -> int:
+    return int((Decimal(amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) * 100).to_integral_value())
+
+def normalize_checkout_url(url: str) -> str:
+    parsed_url = urlparse(url)
+    if parsed_url.scheme:
+        return url
+    return f"http://{url}"
+
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
@@ -1123,8 +1210,8 @@ class TripCancelView(views.APIView):
     
 class TripCompleteView(views.APIView):
     @extend_schema(
-        summary="Complete a trip and generate invoice",
-        description="Marks trip as COMPLETED, calculates final price and generates an invoice.",
+        summary="Complete a trip",
+        description="Marks trip as COMPLETED and calculates the final price. The invoice is generated only after payment is confirmed.",
         request=None,
         responses={200: TripCompleteSerializer}
     )
@@ -1162,12 +1249,26 @@ class TripCompleteView(views.APIView):
         trip.interval.end_time = now
         trip.interval.save()
         trip.save()
-        
+
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+def create_invoice_for_paid_trip(trip):
+    existing_invoice = Invoice.objects.filter(trip=trip).first()
+    if existing_invoice:
+        return existing_invoice, False
+
+    with transaction.atomic():
+        existing_invoice = Invoice.objects.select_for_update().filter(trip=trip).first()
+        if existing_invoice:
+            return existing_invoice, False
+
         current_year = timezone.now().year
-        last_invoice = Invoice.objects.filter(date__year=current_year).order_by('-number').first()
+        last_invoice = Invoice.objects.select_for_update().filter(date__year=current_year).order_by('-number').first()
         next_number = (last_invoice.number + 1) if last_invoice else 1
-        
-        Invoice.objects.create(
+
+        invoice = Invoice.objects.create(
             trip=trip,
             number=next_number,
             date=timezone.now().date(),
@@ -1175,9 +1276,206 @@ class TripCompleteView(views.APIView):
             amount_paid=trip.price,
             nif=trip.client.user.nif
         )
-        
-        response_serializer = TripCompleteSerializer(trip)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    return invoice, True
+
+
+class TripPaymentStartView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Start trip payment with Stripe",
+        description="Creates a Stripe Checkout Session for a completed trip and returns the hosted payment URL.",
+        request=inline_serializer(
+            name='TripPaymentStartRequest',
+            fields={
+                'success_url': serializers.URLField(required=False),
+                'cancel_url': serializers.URLField(required=False),
+            }
+        ),
+        responses={
+            200: inline_serializer(
+                name='TripPaymentStartResponse',
+                fields={
+                    'checkout_session_id': serializers.CharField(),
+                    'checkout_url': serializers.URLField(),
+                    'amount': serializers.DecimalField(max_digits=10, decimal_places=2),
+                    'currency': serializers.CharField(),
+                }
+            ),
+            400: inline_serializer(name='TripPaymentStartBadRequest', fields={'error': serializers.CharField()}),
+            403: inline_serializer(name='TripPaymentStartForbidden', fields={'error': serializers.CharField()}),
+            404: inline_serializer(name='TripPaymentStartNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def post(self, request, id):
+        if stripe is None:
+            return Response({"error": "Stripe dependency is not installed. Rebuild the backend image after installing requirements."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        stripe_secret_key = os.environ.get('STRIPE_SECRET_KEY')
+        if not stripe_secret_key:
+            return Response({"error": "STRIPE_SECRET_KEY is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            trip = Trip.objects.select_related('client__user').get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "You can only pay your own trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        if trip.status != 'COMPLETED':
+            return Response({"error": "Only completed trips can be paid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if trip.price <= 0:
+            return Response({"error": "Trip price must be positive."}, status=status.HTTP_400_BAD_REQUEST)
+
+        base_url = request.build_absolute_uri('/').rstrip('/')
+        success_url = normalize_checkout_url(
+            request.data.get('success_url') or f"{base_url}/payment/success?trip_id={trip.id}&session_id={{CHECKOUT_SESSION_ID}}"
+        )
+        cancel_url = normalize_checkout_url(
+            request.data.get('cancel_url') or f"{base_url}/payment/cancel?trip_id={trip.id}"
+        )
+
+        stripe.api_key = stripe_secret_key
+        try:
+            checkout_session = stripe.checkout.Session.create(
+                mode='payment',
+                payment_method_types=['card'],
+                customer_email=trip.client.user.email,
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata={'trip_id': str(trip.id)},
+                payment_intent_data={'metadata': {'trip_id': str(trip.id)}},
+                line_items=[{
+                    'quantity': 1,
+                    'price_data': {
+                        'currency': STRIPE_CURRENCY,
+                        'unit_amount': amount_to_cents(trip.price),
+                        'product_data': {
+                            'name': f'Tuxy trip #{trip.id}',
+                            'description': f'{trip.originAddress} -> {trip.destAddress}',
+                        },
+                    },
+                }],
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response({
+            "checkout_session_id": checkout_session.id,
+            "checkout_url": checkout_session.url,
+            "amount": trip.price,
+            "currency": STRIPE_CURRENCY,
+        }, status=status.HTTP_200_OK)
+
+
+class TripPaymentStatusView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get Stripe payment status for a trip",
+        description="Retrieves a Stripe Checkout Session and returns its payment status.",
+        responses={200: inline_serializer(
+            name='TripPaymentStatusResponse',
+            fields={
+                'checkout_session_id': serializers.CharField(),
+                'payment_status': serializers.CharField(),
+                'paid': serializers.BooleanField(),
+                'invoice_created': serializers.BooleanField(),
+                'invoice_number': serializers.IntegerField(required=False),
+            }
+        )}
+    )
+    def get(self, request, id):
+        if stripe is None:
+            return Response({"error": "Stripe dependency is not installed. Rebuild the backend image after installing requirements."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        stripe_secret_key = os.environ.get('STRIPE_SECRET_KEY')
+        if not stripe_secret_key:
+            return Response({"error": "STRIPE_SECRET_KEY is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        session_id = request.query_params.get('session_id')
+        if not session_id:
+            return Response({"error": "session_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            trip = Trip.objects.select_related('client__user').get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "You can only check your own payments."}, status=status.HTTP_403_FORBIDDEN)
+
+        stripe.api_key = stripe_secret_key
+        try:
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        if str(checkout_session.metadata.get('trip_id')) != str(trip.id):
+            return Response({"error": "Checkout session does not belong to this trip."}, status=status.HTTP_403_FORBIDDEN)
+
+        invoice = None
+        invoice_created = False
+        if checkout_session.payment_status == 'paid':
+            invoice, invoice_created = create_invoice_for_paid_trip(trip)
+
+        return Response({
+            "checkout_session_id": checkout_session.id,
+            "payment_status": checkout_session.payment_status,
+            "paid": checkout_session.payment_status == 'paid',
+            "invoice_created": invoice_created,
+            "invoice_number": invoice.number if invoice else None,
+        }, status=status.HTTP_200_OK)
+
+
+class StripeWebhookView(views.APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Stripe webhook",
+        description="Receives Stripe webhook events. Configure Stripe to send checkout.session.completed here.",
+        request=None,
+        responses={200: inline_serializer(name='StripeWebhookResponse', fields={'received': serializers.BooleanField()})}
+    )
+    def post(self, request):
+        if stripe is None:
+            return Response({"error": "Stripe dependency is not installed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
+        payload = request.body
+        sig_header = request.headers.get('Stripe-Signature')
+
+        try:
+            if webhook_secret:
+                event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+            else:
+                event = stripe.Event.construct_from(request.data, stripe.api_key)
+        except ValueError:
+            return Response({"error": "Invalid payload."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Invalid Stripe webhook: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        event_type = event.get('type')
+        if not event_type:
+            return Response({"error": "Invalid Stripe webhook event: missing type."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if event_type == 'checkout.session.completed':
+            session = event['data']['object']
+            trip_id = session.get('metadata', {}).get('trip_id')
+            if trip_id and session.get('payment_status') == 'paid':
+                try:
+                    trip = Trip.objects.select_related('client__user').get(id=trip_id, status='COMPLETED')
+                    create_invoice_for_paid_trip(trip)
+                except Trip.DoesNotExist:
+                    pass
+
+        return Response({"received": True}, status=status.HTTP_200_OK)
     
 
 class RefuelListCreateView(views.APIView):

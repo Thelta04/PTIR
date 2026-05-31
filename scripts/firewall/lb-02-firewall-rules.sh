@@ -15,8 +15,9 @@ sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
 sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 
-# 4. SSH (22): Apenas Admin VM
+# 4. Entrada: SSH (22) APENAS a partir da Admin VM (10.10.10.5) e IAP
 sudo iptables -A INPUT -p tcp -s 10.10.10.5 --dport 22 -j ACCEPT
+sudo iptables -A INPUT -p tcp -s 35.235.240.0/20 --dport 22 -j ACCEPT
 
 # 5. Sincronização VRRP: O lb-02 escuta e fala com o lb-01 (10.10.10.10)
 sudo iptables -A INPUT -p vrrp -s 10.10.10.10 -j ACCEPT
