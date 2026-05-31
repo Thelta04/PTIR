@@ -10,7 +10,7 @@ NUM_WEBAPP_VMS=${1:-2}
 
 echo "Using project: $PROJECT_ID in region: $REGION and zone: $ZONE"
 
-# 1. Database VMs
+# Database VMs
 echo "Creating Primary Database VM ($DB_PRIMARY_IP)..."
 gcloud compute instances create db-01 \
     --project="$PROJECT_ID" \
@@ -21,7 +21,8 @@ gcloud compute instances create db-01 \
     --private-network-ip="$DB_PRIMARY_IP" \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
-    --tags="$TAG_DB"
+    --tags="$TAG_DB" \
+    --no-address
 
 echo "Creating Database Backup VM (10.10.10.31)..."
 gcloud compute instances create db-02 \
@@ -33,9 +34,10 @@ gcloud compute instances create db-02 \
     --private-network-ip=10.10.10.31 \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
-    --tags="$TAG_DB"
+    --tags="$TAG_DB" \
+    --no-address
 
-# 2. Load Balancer VMs
+# Load Balancer VMs
 echo "Creating Primary Load Balancer VM (10.10.10.10)..."
 gcloud compute instances create lb-01 \
     --project="$PROJECT_ID" \
@@ -59,9 +61,10 @@ gcloud compute instances create lb-02 \
     --private-network-ip=10.10.10.11 \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
-    --tags="http-server,$TAG_LB"
+    --tags="http-server,$TAG_LB" \
+    --no-address
 
-# 3. WebApp VMs
+# WebApp VMs
 for i in $(seq 1 $NUM_WEBAPP_VMS); do
     IP_SUFFIX=$((19 + i))
     IP_ADDRESS="10.10.10.$IP_SUFFIX"
@@ -75,7 +78,8 @@ for i in $(seq 1 $NUM_WEBAPP_VMS); do
         --private-network-ip="$IP_ADDRESS" \
         --network="$NETWORK" \
         --subnet="$SUBNET" \
-        --tags="$TAG_WEB"
+        --tags="$TAG_WEB" \
+        --no-address
 done
 
 echo "VM creation complete!"

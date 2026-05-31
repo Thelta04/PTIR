@@ -32,7 +32,7 @@ The application is structured into three main layers, ensuring modularity and sc
 
 ```text
        [ FRONTEND ]                  [ BACKEND ]                  [ DATABASE ]
-     React SPA (Vite)  <───API───>  Django REST API  <───SQL───>  PostgreSQL (v16)
+     React SPA (Vite)  <---API--->  Django REST API  <---SQL--->  PostgreSQL (v16)
     (Nginx / Vite Proxy)          (Gunicorn / DRF)            (Triggers & Logic)
 ```
 
@@ -62,33 +62,33 @@ The database operates in a **Primary-Replica** model. A custom `db_healthcheck.s
 ```text
                     Internet
                        │
-                ┌──────┴──────┐
+                ┌------┴------┐
                 │ Public IP   │  ← 34.175.164.1 (Floats via GCP API script)
                 │   LB VIP    │  ← 10.10.10.100 (Keepalived / VRRP)
-                └──────┬──────┘
+                └------┬------┘
                        │
-           ┌───────────┴───────────┐
-    ┌──────┴──────┐         ┌──────┴──────┐
+           ┌-----------┴-----------┐
+    ┌------┴------┐         ┌------┴------┐
     │   lb-01     │         │   lb-02     │
     │ 10.10.10.10 │         │ 10.10.10.11 │
-    └──────┬──────┘         └──────┬──────┘
+    └------┬------┘         └------┬------┘
         (Master)                 (Backup)
            │                       │
-           └───────────┬───────────┘
+           └-----------┬-----------┘
                        │
-           ┌───────────┴───────────┐
+           ┌-----------┴-----------┐
            │                       │
-    ┌──────┴──────┐         ┌──────┴──────┐
+    ┌------┴------┐         ┌------┴------┐
     │   web-1     │         │   web-2     │
     │ 10.10.10.20 │         │ 10.10.10.21 │
-    └──────┬──────┘         └──────┬──────┘
+    └------┬------┘         └------┬------┘
            │  Nginx (:8000) → Gunicorn (:8001)
            │  Frontend SPA + Backend API
            │
-    ┌──────┴──────┐         ┌──────┴──────┐
+    ┌------┴------┐         ┌------┴------┐
     │    db-01    │         │    db-02    │
     │ 10.10.10.30 │         │ 10.10.10.31 │
-    └─────────────┘         └─────────────┘
+    └-------------┘         └-------------┘
        (Primary)               (Replica)
 ```
 
@@ -160,14 +160,14 @@ curl -X POST http://<host>/api/auth/login/ \
 ## 📁 Project Structure
 
 ```
-├── backend/            # Django REST Framework API
-├── frontend/           # React + Vite SPA
-├── database/           # PostgreSQL Schema & SQL Logic
-├── scripts/            # GCP Automation & Healthchecks
-│   ├── deploy/         # Modular Deployment Orchestrators
-│   ├── healthchecks/   # HA Monitoring & Auto-Promotion
-│   └── infra/          # GCP VM Provisioning
-└── nginx/              # Production Proxy Configurations
+├-- backend/            # Django REST Framework API
+├-- frontend/           # React + Vite SPA
+├-- database/           # PostgreSQL Schema & SQL Logic
+├-- scripts/            # GCP Automation & Healthchecks
+│   ├-- deploy/         # Modular Deployment Orchestrators
+│   ├-- healthchecks/   # HA Monitoring & Auto-Promotion
+│   └-- infra/          # GCP VM Provisioning
+└-- nginx/              # Production Proxy Configurations
 ```
 
 ## 📝 To Implement

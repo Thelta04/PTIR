@@ -5,7 +5,7 @@ from rest_framework import authentication, exceptions
 from .models import User, Manager
 
 
-# ── Token helpers ───────────────────────────────────────────────
+# -- Token helpers -----------------------------------------------
 
 def generate_tokens(user):
     """Return an (access, refresh) token pair for the given custom User."""
@@ -44,7 +44,7 @@ def decode_token(token, expected_type='access'):
     return payload
 
 
-# ── DRF Authentication backend ─────────────────────────────────
+# -- DRF Authentication backend ---------------------------------
 
 class JWTAuthentication(authentication.BaseAuthentication):
     """
@@ -67,7 +67,7 @@ class JWTAuthentication(authentication.BaseAuthentication):
         return (user, payload)
 
 
-# ── DRF Permission class ───────────────────────────────────────
+# -- DRF Permission class ---------------------------------------
 
 from rest_framework.permissions import BasePermission
 

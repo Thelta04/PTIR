@@ -4,11 +4,11 @@
 
 export DEBIAN_FRONTEND=noninteractive
 
-# 1. Update and Install Nginx and Keepalived
+# Update and Install Nginx and Keepalived
 sudo apt-get update
 sudo apt-get install -y nginx curl keepalived
 
-# 2. Configure Keepalived for HA
+# Configure Keepalived for HA
 INSTANCE_NAME=$(hostname)
 PEER_IP=$2
 
@@ -81,7 +81,7 @@ if [ -f /tmp/fullchain.pem ] && [ -f /tmp/privkey.pem ]; then
     sudo chmod 600 /etc/letsencrypt/live/tuxy.pt/privkey.pem
 fi
 
-# 3. Configure Nginx Load Balancer
+# Configure Nginx Load Balancer
 IPS=$(echo $1 | tr ',' ' ')
 UPSTREAM_BLOCK=""
 for IP in $IPS; do
@@ -132,15 +132,15 @@ sudo ln -sf /etc/nginx/sites-available/tuxy.pt /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/loadbalancer
 sudo systemctl restart nginx
 
-# 4. Setup dynamic list for healthcheck script
+# Setup dynamic list for healthcheck script
 sudo mkdir -p /etc/nginx/
 echo "$1" | sudo tee /etc/nginx/webapp_ips.txt
 
-# 5. Setup Healthcheck Script
+# Setup Healthcheck Script
 sudo cp "$SCRIPT_DIR_VAL/lb_healthcheck.sh" /usr/local/bin/lb_healthcheck.sh
 sudo chmod +x /usr/local/bin/lb_healthcheck.sh
 
-# 6. Setup Cron Job (every minute)
+# Setup Cron Job (every minute)
 echo "* * * * * root /usr/local/bin/lb_healthcheck.sh >> /var/log/lb_healthcheck.log 2>&1" | sudo tee /etc/cron.d/lb_healthcheck
 
 echo "Load Balancer setup complete!"

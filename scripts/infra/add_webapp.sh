@@ -63,7 +63,8 @@ gcloud compute instances create "$NEW_NAME" \
     --private-network-ip="$NEW_IP" \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
-    --tags="$TAG_WEB"
+    --tags="$TAG_WEB" \
+    --no-address
 
 echo ""
 echo "VM '$NEW_NAME' created successfully with IP $NEW_IP"

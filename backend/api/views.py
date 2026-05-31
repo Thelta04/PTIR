@@ -75,12 +75,12 @@ class ClientCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            # 1. Create the base User
+            # Create the base User
             user = User.objects.create(
                 nif=data['nif'], name=data['name'], email=data['email'],
                 gender=data['gender'], password=data['password']
             )
-            # 2. Create the Client profile
+            # Create the Client profile
             Client.objects.create(user=user)
             
             return Response({"message": "Client created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
@@ -96,7 +96,7 @@ class ClientDetailView(views.APIView):
     )
     def get(self, request, id):
         try:
-            # 1. Find the user by id
+            # Find the user by id
             user = User.objects.get(pk=id)
             client = Client.objects.get(user=user)
         except User.DoesNotExist:
@@ -155,7 +155,7 @@ class DriverDetailView(views.APIView):
     )
     def get(self, request, id):
         try:
-            # 1. Find the user by id
+            # Find the user by id
             user = User.objects.get(pk=id)
             driver = Driver.objects.get(user=user)
         except User.DoesNotExist:
@@ -163,7 +163,7 @@ class DriverDetailView(views.APIView):
         except Driver.DoesNotExist:
             return Response({"error": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Serialize and return the data
+        # Serialize and return the data
         serializer = DriverSerializer(driver)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

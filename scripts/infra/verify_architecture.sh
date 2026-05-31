@@ -29,7 +29,7 @@ cleanup() {
     echo " Restoring System to Default State..."
     echo "=================================================="
     
-    # 1. Restore Database Tier
+    # Restore Database Tier
     echo "  Ensuring PostgreSQL is running on db-01..."
     remote_exec "db-01" "sudo systemctl start postgresql"
     
@@ -48,7 +48,7 @@ cleanup() {
         echo "  db-02 is already in replica mode."
     fi
 
-    # 2. Restore Other Tiers
+    # Restore Other Tiers
     echo "  Ensuring Nginx is running on web-1..."
     remote_exec "web-1" "sudo systemctl start nginx"
     echo "  Ensuring Nginx is running on lb-01..."
@@ -79,7 +79,7 @@ else
 fi
 
 # ---------------------------------------------------------
-# 1. Prove Load Balancing
+# Prove Load Balancing
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 1: Load Balancing (X-Served-By Header)"
@@ -115,7 +115,7 @@ else
 fi
 
 # ---------------------------------------------------------
-# 2. Prove Tier Dependency
+# Prove Tier Dependency
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 2: Tier Dependency (Database Kill-Switch)"
@@ -138,7 +138,7 @@ remote_exec "db-01" "sudo systemctl start postgresql"
 sleep 5 # give it a moment to recover
 
 # ---------------------------------------------------------
-# 3. Prove High Availability (Failover)
+# Prove High Availability (Failover)
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 3: High Availability (Web-1 Failover)"
@@ -168,7 +168,7 @@ echo "  Starting Nginx on 'web-1'..."
 remote_exec "web-1" "sudo systemctl start nginx"
 
 # ---------------------------------------------------------
-# 4. Prove LB Failover & Auto-Replacement
+# Prove LB Failover & Auto-Replacement
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 4: LB Failover (Keepalived VIP)"
@@ -206,7 +206,7 @@ echo "  Starting Nginx on 'lb-01'..."
 remote_exec "lb-01" "sudo systemctl start nginx"
 
 # ---------------------------------------------------------
-# 5. Prove DB Replication, Failover & Auto-Replacement
+# Prove DB Replication, Failover & Auto-Replacement
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 5: Database Replication, Failover & Auto-Replacement"
@@ -255,7 +255,7 @@ echo "  Starting PostgreSQL on 'db-01'..."
 remote_exec "db-01" "sudo systemctl start postgresql"
 
 # ---------------------------------------------------------
-# 6. Prove Tier Isolation
+# Prove Tier Isolation
 # ---------------------------------------------------------
 echo ""
 echo "▶ TEST 6: Tier Isolation (Port Audits)"

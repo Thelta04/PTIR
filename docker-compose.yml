@@ -1,5 +1,5 @@
 services:
-  # ── PostgreSQL ────────────────────────────────
+  # -- PostgreSQL --------------------------------
   db:
     build: ./database
     container_name: tuxy_db
@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Django + Gunicorn ─────────────────────────
+  # -- Django + Gunicorn -------------------------
   backend:
     build: ./backend
     container_name: tuxy_backend
@@ -33,7 +33,7 @@ services:
     ports:
       - "8000:8000"
 
-  # ── Nginx (frontend build + reverse proxy) ───
+  # -- Nginx (frontend build + reverse proxy) ---
   nginx:
     build:
       context: .
@@ -42,12 +42,12 @@ services:
     image: ptir-nginx
     container_name: tuxy_nginx
     volumes:
-      - ./frontend:/app             # Espelha a pasta local para /app no container
-      - /app/node_modules           # Protege os node_modules do container (evita conflitos)
-      - ./nginx/ssl:/etc/nginx/ssl  # Mount SSL certificates
+      - ./frontend:/app # Espelha a pasta local para /app no container
+      - /app/node_modules # Protege os node_modules do container (evita conflitos)
+      - ./nginx/ssl:/etc/nginx/ssl # Mount SSL certificates
     environment:
-      - CHOKIDAR_USEPOLLING=true    # Garante que o Vite deteta mudanças em todos os sistemas
-    command: npm run dev            # Executa o servidor de desenvolvimento, não o build
+      - CHOKIDAR_USEPOLLING=true # Garante que o Vite deteta mudanças em todos os sistemas
+    command: npm run dev # Executa o servidor de desenvolvimento, não o build
     depends_on:
       - backend
     ports:

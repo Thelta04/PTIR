@@ -14,7 +14,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 0
 fi
 
-# 1. Discover IPs (Dynamic fallback to Static)
+# Discover IPs (Dynamic fallback to Static)
 if command -v gcloud >/dev/null 2>&1 && [ -n "$TAG_WEB" ]; then
     # Try to get IPs from GCP dynamically
     CURRENT_IPS=$(gcloud compute instances list \

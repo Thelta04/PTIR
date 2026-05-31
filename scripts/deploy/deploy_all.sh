@@ -11,13 +11,13 @@ echo "=================================================="
 echo "Starting FULL deployment"
 echo "=================================================="
 
-# 1. Deploy Database
+# Deploy Database
 "$DEPLOY_DIR/deploy_db.sh"
 
-# 2. Deploy WebApp
+# Deploy WebApp
 "$DEPLOY_DIR/deploy_webapp.sh"
 
-# 3. Deploy Load Balancer
+# Deploy Load Balancer
 "$DEPLOY_DIR/deploy_lb.sh"
 
 echo ""

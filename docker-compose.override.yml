@@ -1,5 +1,5 @@
 services:
-  # ── Django + Auto-reload ──────────────────────
+  # -- Django + Auto-reload ----------------------
   backend:
     volumes:
       - ./backend:/app:z
@@ -7,7 +7,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
 
-  # ── Frontend + Vite Auto-reload ──────────────
+  # -- Frontend + Vite Auto-reload --------------
   nginx:
     build:
       context: .
