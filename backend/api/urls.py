@@ -39,6 +39,7 @@ urlpatterns = [
     
     # Account Management (Ban - Manager only)
     path('user/<int:id>/toggle-status/', views.BanView.as_view(), name='toggle-status'),
+    path('user/<int:id>/profile-pic/', views.UserProfilePicUpdateView.as_view(), name='update_profile_pic'),
     path('user/<int:id>/delete/', views.UserDeleteView.as_view(), name='delete_user'),
 
     

@@ -501,6 +501,7 @@ class LoginView(views.APIView):
                 'name': serializers.CharField(),
                 'email': serializers.EmailField(),
                 'type': serializers.CharField(),
+                'profile_pic': serializers.IntegerField(),
                 'access': serializers.CharField(),
                 'refresh': serializers.CharField(),
             }
@@ -536,6 +537,7 @@ class LoginView(views.APIView):
             "name": user.name,
             "email": user.email,
             "type": user_type,
+            "profile_pic": user.profile_pic,
         }
 
         access, refresh = generate_tokens(user)
@@ -543,6 +545,62 @@ class LoginView(views.APIView):
         response_data["refresh"] = refresh
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class UserProfilePicUpdateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Update user profile picture",
+        description="Updates the predefined profile picture id for a user. Valid values are 0 to 5. Users can update themselves; managers can update anyone.",
+        request=inline_serializer(
+            name='UserProfilePicUpdateRequest',
+            fields={'profile_pic': serializers.IntegerField(min_value=0, max_value=5)}
+        ),
+        responses={
+            200: inline_serializer(
+                name='UserProfilePicUpdateResponse',
+                fields={
+                    'message': serializers.CharField(),
+                    'id': serializers.IntegerField(),
+                    'profile_pic': serializers.IntegerField(),
+                }
+            ),
+            400: inline_serializer(name='UserProfilePicBadRequest', fields={'error': serializers.CharField()}),
+            403: inline_serializer(name='UserProfilePicForbidden', fields={'error': serializers.CharField()}),
+            404: inline_serializer(name='UserProfilePicNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if request.user.id != id and not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "You can only update your own profile picture."}, status=status.HTTP_403_FORBIDDEN)
+
+        profile_pic = request.data.get('profile_pic')
+        if profile_pic is None:
+            return Response({"error": "profile_pic is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            profile_pic = int(profile_pic)
+        except (TypeError, ValueError):
+            return Response({"error": "profile_pic must be an integer between 0 and 5."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if profile_pic < 0 or profile_pic > 5:
+            return Response({"error": "profile_pic must be between 0 and 5."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user.profile_pic = profile_pic
+        user.save(update_fields=['profile_pic'])
+
+        return Response({
+            "message": "Profile picture updated successfully.",
+            "id": user.id,
+            "profile_pic": user.profile_pic,
+        }, status=status.HTTP_200_OK)
     
 class BanView(views.APIView):
     authentication_classes = [JWTAuthentication]
