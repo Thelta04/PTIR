@@ -6,11 +6,17 @@
 exec > /var/log/keepalived_notify.log 2>&1
 set -x
 
+# Source centralized config if available
+SCRIPT_DIR="/home/athen/app/scripts"
+[ -f "$SCRIPT_DIR/config.sh" ] && source "$SCRIPT_DIR/config.sh"
+
 MY_NAME=$(hostname)
-ZONE="europe-southwest1-c"
-PROJECT_ID="project-dc8596f3-77e8-4941-a9a"
-EXTERNAL_IP="34.175.164.1"
-CONFIG_NAME="external-nat"
+
+# Fallback values if config.sh is not available
+ZONE="${ZONE:-europe-southwest1-c}"
+PROJECT_ID="${PROJECT_ID:-project-dc8596f3-77e8-4941-a9a}"
+EXTERNAL_IP="${EXTERNAL_IP:-34.175.164.1}"
+CONFIG_NAME="${ACCESS_CONFIG_NAME:-external-nat}"
 
 echo "$(date) - Transitioned to MASTER state on $MY_NAME"
 

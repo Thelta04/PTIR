@@ -128,7 +128,32 @@ npm run dev
 
 1.  **Create VMs:** `bash scripts/infra/create_vms.sh`
 2.  **Deploy Stack:** `bash scripts/deploy/deploy_all.sh` (Orchestrates DB → WebApp → LB)
-3.  **Scale Out (Add WebApp):** `bash scripts/infra/add_webapp.sh` (Creates a new webapp VM with the next available IP, then run `deploy_webapp.sh` and `deploy_lb.sh` to provision it)
+
+### Automation Scripts (§3.1)
+
+Scripts para demonstração e gestão da infraestrutura, executados a partir do diretório raiz do projeto.
+
+**Servidores Aplicacionais:**
+| Script | Descrição |
+|:---|:---|
+| `bash scripts/create_app_server.sh` | Cria nova instância de servidor aplicacional, deploya a app e o LB descobre-a automaticamente |
+| `bash scripts/kill_app_server.sh <nome>` | Termina uma instância específica (e.g. `web-2`). O LB deteta automaticamente |
+
+**Base de Dados:**
+| Script | Descrição |
+|:---|:---|
+| `bash scripts/create_db_primary.sh` | Cria e inicia a BD principal (db-01) |
+| `bash scripts/create_db_backup.sh` | Cria e inicia a BD de reserva (db-02) como réplica |
+| `bash scripts/kill_db_primary.sh` | Termina a BD principal. A réplica auto-promove-se |
+| `bash scripts/promote_db_backup.sh` | Promove manualmente db-02 a primária |
+
+**Balanceadores de Carga:**
+| Script | Descrição |
+|:---|:---|
+| `bash scripts/create_lb.sh` | Cria LB1 (ativo) com IP público estático |
+| `bash scripts/create_lb_backup.sh` | Cria LB2 (passivo) |
+| `bash scripts/kill_lb_primary.sh` | Para o Nginx no LB1. Keepalived promove LB2 automaticamente |
+| `bash scripts/promote_lb_backup.sh` | Reatribui o IP público estático para LB2 |
 
 ---
 
@@ -160,14 +185,26 @@ curl -X POST http://<host>/api/auth/login/ \
 ## 📁 Project Structure
 
 ```
-├-- backend/            # Django REST Framework API
-├-- frontend/           # React + Vite SPA
-├-- database/           # PostgreSQL Schema & SQL Logic
-├-- scripts/            # GCP Automation & Healthchecks
-│   ├-- deploy/         # Modular Deployment Orchestrators
-│   ├-- healthchecks/   # HA Monitoring & Auto-Promotion
-│   └-- infra/          # GCP VM Provisioning
-└-- nginx/              # Production Proxy Configurations
+├── backend/            # Django REST Framework API
+├── frontend/           # React + Vite SPA
+├── database/           # PostgreSQL Schema & SQL Logic
+├── scripts/            # Automation Scripts
+│   ├── create_app_server.sh
+│   ├── kill_app_server.sh
+│   ├── create_db_primary.sh
+│   ├── create_db_backup.sh
+│   ├── kill_db_primary.sh
+│   ├── promote_db_backup.sh
+│   ├── create_lb.sh
+│   ├── create_lb_backup.sh
+│   ├── kill_lb_primary.sh
+│   ├── promote_lb_backup.sh
+│   ├── common/         # Shared config & utilities
+│   ├── deploy/         # Modular Deployment Orchestrators
+│   ├── healthchecks/   # HA Monitoring & Auto-Promotion
+│   ├── infra/          # GCP VM Provisioning
+│   └── setup/          # On-VM setup scripts
+└── nginx/              # Production Proxy Configurations
 ```
 
 ## 📝 To Implement
