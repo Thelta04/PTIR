@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { PSelect, PInputDate, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
+import PFPSelector from '../components/PFPSelector';
 
 
 const ROLE_ROUTES = {
@@ -25,6 +26,7 @@ export default function SignupDriver() {
   const [nif, setNif] = useState("");
   const [birth_date, setDateOfBirth] = useState("");
   const [license_number, setLicenseNumber] = useState("");
+  const [profilePic, setProfilePic] = useState(1);
 
 
   const handleSubmit = async (e) => {
@@ -50,7 +52,8 @@ export default function SignupDriver() {
         nif,
         gender: opcao,
         license_number,
-        birth_year
+        birth_year,
+        profile_pic: profilePic
       });
       navigate(ROLE_ROUTES[user.type] || '/driver');
     } catch (err) {
@@ -71,14 +74,16 @@ export default function SignupDriver() {
           <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Driver</span>
         </div>
         <div className="login-form-container">
-          <p className="login-welcome">New Driver</p>
-          <p className="login-subtitle">Sign up to access the app</p>
+          <p className="login-welcome">Novo Motorista</p>
+          <p className="login-subtitle">Registe-se para aceder à aplicação</p>
 
 
           <form onSubmit={handleSubmit} className="login-form">
 
+            <PFPSelector selectedPfp={profilePic} onSelect={setProfilePic} />
+
             <PInputText 
-            label="Name" 
+            label="Nome" 
             className="session-input"
             onChange={(e) => setName(e.target.value)}
             required
@@ -96,29 +101,29 @@ export default function SignupDriver() {
               <PSelect
                 id="login-opcao"
                 name="options"
-                label="Gender"
+                label="Género"
                 className="session-input half-width"
                 value={opcao}
                 onChange={(e) => setGender(e.target.value)}
                 required
                 >
                 <PSelectOption value="Female">
-                    Female
+                    Feminino
                 </PSelectOption>
                 
                 <PSelectOption value="Male">
-                    Male
+                    Masculino
                 </PSelectOption>
 
                 <PSelectOption value="Other">
-                    Other
+                    Outro
                 </PSelectOption>
               </PSelect>
 
               <PInputDate
                 id="login-data"
                 name="some-name"
-                label="Birth Date"
+                label="Data de Nascimento"
                 className="session-input half-width"
                 onChange={(e) => setDateOfBirth(e.target.value)}
                 locale="pt-PT" /* Força o formato de Portugal (dd/mm/yyyy) */
@@ -145,7 +150,7 @@ export default function SignupDriver() {
             <PInputPassword 
               id="login-password"
               className="session-input" 
-              label="Password" 
+              label="Palavra-passe" 
               name="password" 
               toggle={true}
               value={password}
@@ -154,7 +159,7 @@ export default function SignupDriver() {
             />
 
             <PInputNumber 
-            label="Drivers License Number" 
+            label="Número da Carta de Condução" 
             className="session-input"
             name="some-name" 
             onChange={(e) => setLicenseNumber(e.target.value)}
@@ -176,11 +181,11 @@ export default function SignupDriver() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? 'Signing up…' : 'Sign Up'}
+              {loading ? 'A registar…' : 'Registar'}
 
             
             </button>
-            <p className="login-subtitle">Already have an account? <a href="/login-user">Log In</a></p>
+            <p className="login-subtitle">Já tem uma conta? <a href="/login-user">Iniciar Sessão</a></p>
             </form>
         </div>
     </div>

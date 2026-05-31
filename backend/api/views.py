@@ -538,7 +538,15 @@ class LoginView(views.APIView):
             "email": user.email,
             "type": user_type,
             "profile_pic": user.profile_pic,
+            "gender": user.gender,
         }
+
+        if user_type == "DRIVER":
+            try:
+                driver = Driver.objects.get(user=user)
+                response_data["birth_year"] = driver.birth_year
+            except Driver.DoesNotExist:
+                pass
 
         access, refresh = generate_tokens(user)
         response_data["access"] = access
@@ -765,7 +773,27 @@ def geocode_address(address: str) -> str:
         pass
     return ''
 
+import math
+
+def haversine_dist(c1: str, c2: str) -> float:
+    try:
+        la1, lo1 = map(float, c1.split(','))
+        la2, lo2 = map(float, c2.split(','))
+        R = 6371
+        dLat = math.radians(la2 - la1)
+        dLon = math.radians(lo2 - lo1)
+        a = math.sin(dLat / 2) * math.sin(dLat / 2) + \
+            math.cos(math.radians(la1)) * math.cos(math.radians(la2)) * \
+            math.sin(dLon / 2) * math.sin(dLon / 2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return round(R * c, 2)
+    except Exception:
+        return 0
+
 def calculate_route_summary(origin_coords: str, dest_coords: str) -> tuple[float, float]:
+    if not origin_coords or not dest_coords:
+        return 0, 0
+    
     try:
         ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyOWMxNmNlY2ZjODQ4YzA5MmRmZDc4Y2MxMDRiMjZhIiwiaCI6Im11cm11cjY0In0='        
         # coords vêm em formato "lat,lon" mas ORS quer [lon, lat]
@@ -786,13 +814,19 @@ def calculate_route_summary(origin_coords: str, dest_coords: str) -> tuple[float
             },
             timeout=5
         )
-        data = response.json()
-        summary = data['routes'][0]['summary']
-        distance_km = round(summary['distance'] / 1000, 2)
-        duration_minutes = round(summary['duration'] / 60, 2)
-        return distance_km, duration_minutes
+        if response.status_code == 200:
+            data = response.json()
+            summary = data['routes'][0]['summary']
+            distance_km = round(summary['distance'] / 1000, 2)
+            duration_minutes = round(summary['duration'] / 60, 2)
+            return distance_km, duration_minutes
     except Exception:
-        return 0, 0
+        pass
+        
+    # Fallback if ORS fails
+    dist = haversine_dist(origin_coords, dest_coords)
+    # Estimate 2 mins per km as a rough city average
+    return dist, round(dist * 2.0, 2)
 
 def calculate_distance(origin_coords: str, dest_coords: str) -> float:
     distance_km, _ = calculate_route_summary(origin_coords, dest_coords)
@@ -835,16 +869,15 @@ class TripCreateView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        origin_coords = geocode_address(data['originAddress'])
-        dest_coords = geocode_address(data['destAddress'])
-        
+        origin_coords = data.get('originCoords') or geocode_address(data['originAddress'])
+        dest_coords = data.get('destCoords') or geocode_address(data['destAddress'])
+
         kilometers = 0
         estimated_minutes = 0
         if origin_coords and dest_coords:
             kilometers, estimated_minutes = calculate_route_summary(origin_coords, dest_coords)
-
         trip_time = data.get('scheduled_time') or timezone.now()
-        estimated_price = calculate_price(estimated_minutes, data['comfort_level'], trip_time) if estimated_minutes > 0 else 0
+        estimated_price = calculate_price(estimated_minutes, data['comfort_level'], trip_time)
 
         interval = TimeInterval.objects.create(
             start_time=timezone.now(),
@@ -861,7 +894,7 @@ class TripCreateView(views.APIView):
             destCoords=dest_coords,
             comfort_level=data['comfort_level'],
             num_passengers=data['num_passengers'],
-            kilometers=int(round(kilometers)),
+            kilometers=round(kilometers, 2),
             price=estimated_price,
             status='PENDING'
         )
@@ -1202,11 +1235,11 @@ class CheckHealthView(views.APIView):
     
 class PricingConfigView(views.APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Get pricing config (Manager only)",
-        description="Returns the current pricing configuration.",
+        summary="Get pricing config",
+        description="Returns the current pricing configuration. Accessible to all authenticated users.",
         request=None,
         responses={200: inline_serializer(
             name='PricingConfigResponse',
@@ -1245,6 +1278,9 @@ class PricingConfigView(views.APIView):
         )}
     )
     def patch(self, request):
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Only managers can update pricing."}, status=status.HTTP_403_FORBIDDEN)
+
         if 'base_fare' in request.data:
             PRICING_CONFIG['BASE_FARE'] = float(request.data['base_fare'])
         if 'price_per_min_basic' in request.data:

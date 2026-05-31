@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { listTrips } from '../../api/client';
 import { motion } from 'framer-motion';
 import { LogOut, MapPin, ArrowRight } from 'lucide-react';
+import ProfileModal from '../../components/ProfileModal';
 
 const STATUS_STYLES = {
   PENDING:         'trip-badge--pending',
@@ -30,6 +31,7 @@ export default function ClientDashboard() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -58,7 +60,18 @@ export default function ClientDashboard() {
           </div>
         </div>
         <div className="dash-header-right">
-          <span className="dash-greeting">Olá, {user?.name}</span>
+          <div 
+            className="user-name-container" 
+            onClick={() => setIsProfileModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="dash-greeting">Olá, {user?.name}</span>
+            <img 
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
+              alt="Profile" 
+              className="user-pfp-small"
+            />
+          </div>
           <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout} aria-label="Sair">
             <LogOut size={18} />
           </button>
@@ -109,6 +122,11 @@ export default function ClientDashboard() {
           ))}
         </div>
       </main>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </div>
   );
 }

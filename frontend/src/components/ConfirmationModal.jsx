@@ -30,7 +30,7 @@ export default function ConfirmationModal({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           >
             <h3 className="modal-title">{title}</h3>
-            <p className="modal-message">{message}</p>
+            <div className="modal-message">{message}</div>
             <div className="modal-actions">
               <button className="modal-btn modal-btn--cancel" onClick={onCancel}>
                 {cancelText}

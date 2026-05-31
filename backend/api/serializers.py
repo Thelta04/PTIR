@@ -91,6 +91,8 @@ class TripCreateSerializer(serializers.Serializer):
     client_id      = serializers.IntegerField()
     originAddress  = serializers.CharField(max_length=255)
     destAddress    = serializers.CharField(max_length=255)
+    originCoords   = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    destCoords     = serializers.CharField(max_length=255, required=False, allow_blank=True)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
     scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
