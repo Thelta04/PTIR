@@ -20,8 +20,14 @@ sudo iptables -A INPUT -p tcp -s 10.10.10.10 --dport 8000 -j ACCEPT # lb-01
 sudo iptables -A INPUT -p tcp -s 10.10.10.11 --dport 8000 -j ACCEPT # lb-02
 sudo iptables -A INPUT -p tcp -s 10.10.10.5 --dport 8000 -j ACCEPT # bastion
 
-# 5. Saída: Consultar a Base de Dados Primária (5432)
-sudo iptables -A OUTPUT -p tcp -d 10.10.10.30 --dport 5432 -j ACCEPT
+# 5. Saída: Consultar a Base de Dados Primária/Replica (5432)
+sudo iptables -A OUTPUT -p tcp -m iprange --dst-range 10.10.10.30-10.10.10.39 --dport 5432 -j ACCEPT
+
+# Allow DNS (53) and HTTP/HTTPS for external APIs (Nominatim, OpenRouteService)
+sudo iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
 
 # 6. Default DROP: Bloqueia
 sudo iptables -P INPUT DROP
