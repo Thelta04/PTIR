@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listShifts, startShift, endShift, deleteShift } from '../../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, Clock, Trash2 } from 'lucide-react';
+import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 function formatDt(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-GB', {
+  return new Date(iso).toLocaleString('pt-PT', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
@@ -18,20 +19,30 @@ export default function DriverShiftsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+  const [filter, setFilter] = useState('active'); // 'active' (Scheduled + In Progress) or 'completed'
 
-  // Delete State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [shiftToDelete, setShiftToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  // Modal State for Start/Delete
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
   const fetchShifts = async () => {
     try {
       setLoading(true);
       const { data } = await listShifts(user.id);
-      setShifts(data);
+      // Sort by date
+      const sorted = [...data].sort((a, b) => 
+        new Date(a.scheduled_interval?.start_time) - new Date(b.scheduled_interval?.start_time)
+      );
+      setShifts(sorted);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load shifts.');
+      setError(err.response?.data?.error || 'Erro ao carregar turnos.');
     } finally {
       setLoading(false);
     }
@@ -40,68 +51,138 @@ export default function DriverShiftsView() {
   useEffect(() => { fetchShifts(); }, []);
 
   const handleStart = async (id) => {
-    try {
-      await startShift(id);
-      setActionMsg('Shift started!');
-      fetchShifts();
-    } catch (err) {
-      setActionMsg(err.response?.data?.error || 'Failed to start shift.');
+    // Only allow to clock in one shift at a time
+    const hasActive = shifts.some(s => s.real_interval && !s.real_interval.end_time);
+    if (hasActive) {
+      alert('Já tem um turno em curso. Termine o turno atual antes de iniciar um novo.');
+      return;
     }
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Iniciar Turno',
+      message: 'Tem a certeza que deseja iniciar este turno agora?',
+      onConfirm: async () => {
+        try {
+          await startShift(id);
+          setActionMsg('Turno iniciado!');
+          fetchShifts();
+        } catch (err) {
+          setActionMsg(err.response?.data?.error || 'Erro ao iniciar turno.');
+        }
+        closeModal();
+      }
+    });
   };
 
   const handleEnd = async (id) => {
-    try {
-      await endShift(id);
-      setActionMsg('Shift ended!');
-      fetchShifts();
-    } catch (err) {
-      setActionMsg(err.response?.data?.error || 'Failed to end shift.');
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Terminar Turno',
+      message: 'Deseja terminar o seu turno atual?',
+      onConfirm: async () => {
+        try {
+          await endShift(id);
+          setActionMsg('Turno terminado!');
+          fetchShifts();
+        } catch (err) {
+          setActionMsg(err.response?.data?.error || 'Erro ao terminar turno.');
+        }
+        closeModal();
+      }
+    });
   };
 
-  const handleDelete = async () => {
-    if (!shiftToDelete) return;
-    try {
-      setDeleting(true);
-      await deleteShift(shiftToDelete);
-      setActionMsg('Turno apagado com sucesso!');
-      setIsDeleteModalOpen(false);
-      setShiftToDelete(null);
-      fetchShifts();
-    } catch (err) {
-      const errData = err.response?.data;
-      const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-      alert(`Falha ao apagar turno: ${errorMsg}`);
-    } finally {
-      setDeleting(false);
-    }
+  const handleDelete = async (id) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Eliminar Turno',
+      message: 'Tem a certeza que deseja apagar este turno? Esta ação não pode ser desfeita.',
+      onConfirm: async () => {
+        try {
+          await deleteShift(id);
+          setActionMsg('Turno apagado com sucesso!');
+          fetchShifts();
+        } catch (err) {
+          const errData = err.response?.data;
+          const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
+          alert(`Falha ao apagar turno: ${errorMsg}`);
+        }
+        closeModal();
+      }
+    });
   };
+
+  const filteredShifts = shifts.filter(s => {
+    const started = s.real_interval !== null;
+    const ended = started && s.real_interval?.end_time !== null;
+    
+    if (filter === 'active') {
+      return !ended; // Scheduled + In Progress
+    } else {
+      return ended; // Completed
+    }
+  }).sort((a, b) => {
+    const dateA = new Date(a.scheduled_interval?.start_time);
+    const dateB = new Date(b.scheduled_interval?.start_time);
+    return filter === 'completed' ? dateB - dateA : dateA - dateB;
+  });
 
   return (
     <div className="driver-shifts-view" style={{ padding: '2rem', background: '#fff', minHeight: '100%' }}>
-      <h1 className="dash-title">Consultar turnos</h1>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1 className="dash-title" style={{ margin: 0 }}>Consultar turnos</h1>
+        
+        <div className="filter-group" style={{ display: 'flex', background: '#f3f4f6', padding: '4px', borderRadius: '8px' }}>
+          <button 
+            onClick={() => setFilter('active')}
+            style={{ 
+              padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+              background: filter === 'active' ? '#fff' : 'transparent',
+              fontWeight: filter === 'active' ? '700' : '500',
+              boxShadow: filter === 'active' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            Ativos
+          </button>
+          <button 
+            onClick={() => setFilter('completed')}
+            style={{ 
+              padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+              background: filter === 'completed' ? '#fff' : 'transparent',
+              fontWeight: filter === 'completed' ? '700' : '500',
+              boxShadow: filter === 'completed' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            Concluídos
+          </button>
+        </div>
+      </header>
 
       {actionMsg && (
         <motion.div
           className="dash-toast"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
+          style={{ background: '#ecfdf5', color: '#065f46', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #a7f3d0' }}
         >
           {actionMsg}
         </motion.div>
       )}
 
-      {loading && <p className="dash-loading">Loading shifts…</p>}
+      {loading && <p className="dash-loading">A carregar turnos…</p>}
       {error && <p className="dash-error">{error}</p>}
 
-      {!loading && shifts.length === 0 && (
-        <div className="dash-placeholder-card">
-          <p>No shifts assigned to you yet.</p>
+      {!loading && filteredShifts.length === 0 && (
+        <div className="dash-placeholder-card" style={{ textAlign: 'center', padding: '3rem', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #e5e7eb' }}>
+          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
+            {filter === 'active' ? 'Não tem turnos agendados ou em curso.' : 'Não tem turnos concluídos.'}
+          </p>
         </div>
       )}
 
       <div className="shift-grid">
-        {shifts.map((s) => {
+        {filteredShifts.map((s) => {
           const started = s.real_interval !== null;
           const ended = started && s.real_interval?.end_time !== null;
 
@@ -115,17 +196,17 @@ export default function DriverShiftsView() {
             >
               <div className="shift-card-header">
                 <Clock size={16} />
-                <span className="shift-card-id">Shift #{s.id}</span>
+                <span className="shift-card-id">Turno #{s.id}</span>
                 <span className={`shift-badge ${ended ? 'shift-badge--done' : started ? 'shift-badge--active' : 'shift-badge--pending'}`}>
-                  {ended ? 'Completed' : started ? 'In Progress' : 'Scheduled'}
+                  {ended ? 'Concluído' : started ? 'Em Curso' : 'Agendado'}
                 </span>
               </div>
 
               <div className="shift-card-body">
-                <p><strong>Taxi:</strong> {s.taxi_plate}</p>
-                <p><strong>Scheduled:</strong> {formatDt(s.scheduled_interval?.start_time)} → {formatDt(s.scheduled_interval?.end_time)}</p>
+                <p><strong>Táxi:</strong> {s.taxi_plate}</p>
+                <p><strong>Agendado:</strong> {formatDt(s.scheduled_interval?.start_time)} → {formatDt(s.scheduled_interval?.end_time)}</p>
                 {started && (
-                  <p><strong>Actual:</strong> {formatDt(s.real_interval?.start_time)} → {formatDt(s.real_interval?.end_time)}</p>
+                  <p><strong>Real:</strong> {formatDt(s.real_interval?.start_time)} → {formatDt(s.real_interval?.end_time)}</p>
                 )}
               </div>
 
@@ -133,14 +214,11 @@ export default function DriverShiftsView() {
                 {!started && (
                   <>
                     <button className="btn btn--primary" onClick={() => handleStart(s.id)}>
-                      <Play size={14} /> Clock In
+                      <Play size={14} /> Iniciar
                     </button>
                     <button 
                       className="btn btn--danger-outline" 
-                      onClick={() => {
-                        setShiftToDelete(s.id);
-                        setIsDeleteModalOpen(true);
-                      }}
+                      onClick={() => handleDelete(s.id)}
                       style={{
                         background: 'transparent',
                         border: '1px solid #ef4444',
@@ -161,7 +239,7 @@ export default function DriverShiftsView() {
                 )}
                 {started && !ended && (
                   <button className="btn btn--danger" onClick={() => handleEnd(s.id)}>
-                    <Square size={14} /> Clock Out
+                    <Square size={14} /> Terminar Turno
                   </button>
                 )}
               </div>
@@ -170,58 +248,13 @@ export default function DriverShiftsView() {
         })}
       </div>
 
-      <AnimatePresence>
-        {isDeleteModalOpen && (
-          <motion.div
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
-              display: 'flex', justifyContent: 'center', alignItems: 'center'
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              style={{
-                background: '#fff', padding: '24px', borderRadius: '12px',
-                width: '350px', maxWidth: '90%', textAlign: 'center',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-              }}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Confirmar Eliminação</h3>
-              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
-                Tem a certeza que deseja apagar este turno? Esta ação não pode ser desfeita.
-              </p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                <button
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  style={{
-                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
-                    background: '#fff', cursor: 'pointer', fontWeight: 500
-                  }}
-                  disabled={deleting}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDelete}
-                  style={{
-                    padding: '8px 16px', borderRadius: '6px', border: 'none',
-                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
-                  }}
-                  disabled={deleting}
-                >
-                  {deleting ? 'A apagar...' : 'Apagar'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmationModal 
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={closeModal}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
 import { cancelTrip, listTrips, clientAcceptTrip } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import './client.css';
 
 export default function ClientTrip() {
@@ -16,6 +17,28 @@ export default function ClientTrip() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
   const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'in_progress'
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+  const showConfirm = (title, message, onConfirm) => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        closeModal();
+      }
+    });
+  };
 
   // If no trip state, redirect back
   useEffect(() => {
@@ -58,7 +81,7 @@ export default function ClientTrip() {
         navigate('/client');
       } catch (error) {
         console.error("Error canceling trip:", error);
-        alert("Failed to cancel trip.");
+        alert("Erro ao cancelar viagem.");
       }
     } else {
       navigate('/client');
@@ -67,12 +90,19 @@ export default function ClientTrip() {
 
   const handleClientAccept = async () => {
     if (!tripId) return;
-    try {
-      await clientAcceptTrip(tripId);
-      setStatus('in_progress');
-    } catch (err) {
-      alert('Error accepting trip');
-    }
+
+    showConfirm(
+      'Confirmar Motorista?',
+      'Deseja aceitar este motorista para a sua viagem?',
+      async () => {
+        try {
+          await clientAcceptTrip(tripId);
+          setStatus('in_progress');
+        } catch (err) {
+          alert('Erro ao aceitar viagem');
+        }
+      }
+    );
   };
 
   const handleMenuClick = (path) => {
@@ -161,9 +191,9 @@ export default function ClientTrip() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <button className="bell-btn">
-          <Bell size={24} color="#000" />
-        </button>
+        <div className="user-name-container">
+          <span className="user-name-text">{user?.name}</span>
+        </div>
       </header>
 
       <main className="client-main-content">
@@ -211,25 +241,36 @@ export default function ClientTrip() {
 
               <nav className="drawer-nav">
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Request Trip
+                  Início
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservations
+                  Pedir Viagem
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  History
+                  Reservas
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                  Histórico
                 </button>
               </nav>
 
               <div className="drawer-footer">
                 <button className="drawer-logout" onClick={handleLogout}>
-                  Logout
+                  Terminar Sessão
                 </button>
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      <ConfirmationModal 
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={closeModal}
+      />
     </div>
   );
 }

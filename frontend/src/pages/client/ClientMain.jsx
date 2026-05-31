@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import './client.css';
 import '../../components/map-background.css';
 
@@ -29,6 +30,61 @@ export default function ClientMain() {
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+  const showConfirm = (title, message, onConfirm) => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        closeModal();
+      }
+    });
+  };
+
+  const simplifyAddress = (addr) => {
+    if (!addr || addr === 'Current Location') return addr;
+    const parts = addr.split(',').map(p => p.trim());
+    
+    // 1. Identify street and number
+    let streetInfo = '';
+    let startIdx = 0;
+    if (/^\d/.test(parts[0])) {
+      streetInfo = `${parts[0]} ${parts[1]}`;
+      startIdx = 2;
+    } else {
+      streetInfo = parts[0];
+      startIdx = 1;
+    }
+
+    // 2. Identify City (Skip country, postcode, and small neighborhoods)
+    // We filter out parts that look like postcodes or are the country (last part)
+    const filtered = parts.slice(startIdx).filter(p => {
+      const isPostcode = /\d{4}/.test(p);
+      return !isPostcode;
+    });
+
+    // Remove the country (last remaining part usually)
+    if (filtered.length > 1) {
+      filtered.pop(); 
+    }
+
+    // The city is usually the last one left now (e.g., "Lisboa" instead of "Baixa")
+    const city = filtered[filtered.length - 1] || '';
+    
+    return city ? `${streetInfo}, ${city}` : streetInfo;
+  };
 
   const handleUseCurrentLocation = () => {
     // MOCKED LOCATIONS for testing
@@ -92,7 +148,7 @@ export default function ClientMain() {
         setSearchValue(coords.display_name);
       }
     } else {
-      alert('Address not found');
+      alert('Endereço não encontrado');
     }
   };
 
@@ -130,11 +186,11 @@ export default function ClientMain() {
   const handleProceedToSelection = () => {
     // Basic validation
     if (!origin_address && !origem) {
-      alert('Please specify an origin.');
+      alert('Por favor, especifique uma origem.');
       return;
     }
     if (!dest_address && !destino && !searchValue) {
-      alert('Please specify a destination.');
+      alert('Por favor, especifique um destino.');
       return;
     }
 
@@ -183,7 +239,7 @@ export default function ClientMain() {
         }
       }
 
-      alert('Error creating trip:\n' + errorMsg);
+      alert('Erro ao criar viagem:\n' + errorMsg);
     }
   }
 
@@ -194,18 +250,25 @@ export default function ClientMain() {
       setActiveTrip(null);
       setCurrentView('initial');
     } catch (err) {
-      alert('Error canceling trip');
+      alert('Erro ao cancelar viagem');
     }
   };
 
   const handleClientAccept = async () => {
     if (!activeTrip) return;
-    try {
-      await clientAcceptTrip(activeTrip.id);
-      setCurrentView('in_progress');
-    } catch (err) {
-      alert('Error accepting trip');
-    }
+
+    showConfirm(
+      'Confirmar Motorista?',
+      'Deseja aceitar este motorista para a sua viagem?',
+      async () => {
+        try {
+          await clientAcceptTrip(activeTrip.id);
+          setCurrentView('in_progress');
+        } catch (err) {
+          alert('Error accepting trip');
+        }
+      }
+    );
   };
 
   const renderSearchPanel = () => {
@@ -251,8 +314,8 @@ export default function ClientMain() {
       case 'in_progress':
         return (
           <div className="in-progress-view" style={{ textAlign: 'center', padding: '20px' }}>
-            <h2 className="view-title">Trip in Progress</h2>
-            <p>Your driver is on the way!</p>
+            <h2 className="view-title">Viagem em Curso</h2>
+            <p>O seu motorista está a caminho!</p>
             <div className="driver-brief" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '10px' }}>
               <span>🚗</span>
               <strong>{activeTrip?.driver_name}</strong>
@@ -268,14 +331,29 @@ export default function ClientMain() {
               <button
                 className="back-btn"
                 onClick={() => setCurrentView('initial')}
-                title="Back"
+                title="Voltar"
               >
                 <ChevronLeft size={24} />
               </button>
-              <h2 className="view-title">When would you like to go?</h2>
+              <h2 className="view-title">Quando deseja partir?</h2>
             </div>
 
-            <div className="form-group" style={{ width: '100%' }}>
+            <div className="trip-summary-mini" style={{ 
+              background: '#fff', 
+              padding: '16px', 
+              borderRadius: '10px', 
+              border: '1.5px solid #f1cf58',
+              marginBottom: '16px',
+              fontSize: '1.05rem',
+              color: '#374151',
+              textAlign: 'left'
+            }}>
+              <div style={{ marginBottom: '6px' }}><strong>De:</strong> {simplifyAddress(origin_address) || 'Localização Atual'}</div>
+              <div style={{ marginBottom: '6px' }}><strong>Para:</strong> {simplifyAddress(dest_address || searchValue)}</div>
+              <div><strong>Serviço:</strong> {comfort_level === 'basic' ? 'Básico' : 'Luxo'} • {num_passengers} {num_passengers > 1 ? 'passageiros' : 'passageiro'}</div>
+            </div>
+
+            <div className="form-group" style={{ width: '100%', marginBottom: '20px' }}>
               <input
                 type="datetime-local"
                 className="timestamp-input"
@@ -284,18 +362,18 @@ export default function ClientMain() {
               />
             </div>
 
-            <div className="selection-options">
+            <div className="selection-options" style={{ marginTop: '10px' }}>
               <button
                 className="search-btn search-btn--primary"
                 onClick={() => {
                   if (!dateTime) {
-                    alert('Please select a date and time for your scheduled ride.');
+                    alert('Por favor, selecione uma data e hora para a sua viagem agendada.');
                     return;
                   }
                   setCurrentView('confirmation');
                 }}
               >
-                Schedule
+                Agendar
               </button>
               <button
                 className="search-btn search-btn--primary"
@@ -304,7 +382,7 @@ export default function ClientMain() {
                   setCurrentView('confirmation');
                 }}
               >
-                Ride Now
+                Partir Agora
               </button>
             </div>
           </div>
@@ -323,11 +401,11 @@ export default function ClientMain() {
               <button
                 className="back-btn"
                 onClick={() => setCurrentView('selection')}
-                title="Back"
+                title="Voltar"
               >
                 <ChevronLeft size={24} />
               </button>
-              <h2 className="view-title" style={{ fontSize: '1.4rem' }}>Trip Summary</h2>
+              <h2 className="view-title" style={{ fontSize: '1.4rem' }}>Resumo da Viagem</h2>
             </div>
 
             <div className="details-list" style={{
@@ -343,30 +421,30 @@ export default function ClientMain() {
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
             }}>
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>From</span>
-                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{origin_address || 'Current Location'}</div>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>De</span>
+                <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{origin_address || 'Localização Atual'}</div>
               </div>
 
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>To</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Para</span>
                 <div style={{ fontSize: '1.05rem', color: '#1f2937', lineHeight: '1.4' }}>{dest_address || searchValue}</div>
               </div>
 
               <div style={{ display: 'flex', gap: '40px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service</span>
-                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{comfort_level}</div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Serviço</span>
+                  <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{comfort_level === 'basic' ? 'Básico' : 'Luxo'}</div>
                 </div>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seats</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lugares</span>
                   <div style={{ fontSize: '1.05rem', color: '#1f2937' }}>{num_passengers}</div>
                 </div>
               </div>
 
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '2px dashed #f3f4f6', paddingTop: '15px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pickup Time</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hora de Recolha</span>
                 <div style={{ fontSize: '1.1rem', color: '#f1af3d', fontWeight: '700' }}>
-                  {dateTime ? new Date(dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Immediate (Ride Now)'}
+                  {dateTime ? new Date(dateTime).toLocaleString('pt-PT', { dateStyle: 'medium', timeStyle: 'short' }) : 'Imediata (Partir Agora)'}
                 </div>
               </div>
             </div>
@@ -382,7 +460,7 @@ export default function ClientMain() {
                 letterSpacing: '0.5px'
               }}
             >
-              Confirm Trip
+              Confirmar Viagem
             </button>
           </div>
         );
@@ -395,14 +473,14 @@ export default function ClientMain() {
                 <button
                   className="input-search-btn"
                   onClick={() => handleSearchAddress('main')}
-                  title="Search address"
+                  title="Pesquisar endereço"
                 >
                   <Search size={18} />
                 </button>
                 <input
                   type="text"
                   className="search-input"
-                  placeholder="Where would you like to go?"
+                  placeholder="Para onde deseja ir?"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('main')}
@@ -412,18 +490,18 @@ export default function ClientMain() {
 
             <div className="trip-settings-row">
               <div className="setting-item">
-                <label>Comfort</label>
+                <label>Conforto</label>
                 <select
                   className="setting-input"
                   value={comfort_level}
                   onChange={(e) => setComfort((e.target.value))}
                 >
-                  <option value="basic">Basic</option>
-                  <option value="luxury">Luxury</option>
+                  <option value="basic">Básico</option>
+                  <option value="luxury">Luxo</option>
                 </select>
               </div>
               <div className="setting-item">
-                <label>Passengers</label>
+                <label>Passageiros</label>
                 <div className="number-control">
                   <button
                     className="number-btn"
@@ -447,27 +525,27 @@ export default function ClientMain() {
                 className="search-btn search-btn--secondary"
                 onClick={() => setShowMoreOptions(true)}
               >
-                More Options
+                Mais Opções
               </button>
 
               <button
                 className="search-btn search-btn--primary"
                 onClick={handleProceedToSelection}
               >
-                See Routes
+                Ver Rotas
               </button>
             </div>
           </>
         ) : (
           <div className="more-options-form">
             <div className="form-group">
-              <label>Enter origin:</label>
+              <label>Introduza a origem:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <button
                     className="input-search-btn"
                     onClick={() => handleSearchAddress('origin')}
-                    title="Search address"
+                    title="Pesquisar endereço"
                   >
                     <Search size={16} />
                   </button>
@@ -483,7 +561,7 @@ export default function ClientMain() {
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'origin' ? 'active' : ''}`}
                   onClick={() => setSelectingFor(selectingFor === 'origin' ? null : 'origin')}
-                  title="Select origin on map"
+                  title="Selecionar origem no mapa"
                 >
                   <MapPin size={20} />
                 </button>
@@ -491,13 +569,13 @@ export default function ClientMain() {
             </div>
 
             <div className="form-group">
-              <label>Enter destination:</label>
+              <label>Introduza o destino:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <button
                     className="input-search-btn"
                     onClick={() => handleSearchAddress('destination')}
-                    title="Search address"
+                    title="Pesquisar endereço"
                   >
                     <Search size={16} />
                   </button>
@@ -513,7 +591,7 @@ export default function ClientMain() {
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'destination' ? 'active' : ''}`}
                   onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
-                  title="Select destination on map"
+                  title="Selecionar destino no mapa"
                 >
                   <MapPin size={20} />
                 </button>
@@ -522,18 +600,18 @@ export default function ClientMain() {
 
             <div className="trip-settings-row">
               <div className="setting-item">
-                <label>Comfort Level</label>
+                <label>Nível de Conforto</label>
                 <select
                   className="setting-input"
                   value={comfort_level}
                   onChange={(e) => setComfort(e.target.value)}
                 >
-                  <option value="basic">Basic</option>
-                  <option value="luxury">Luxury</option>
+                  <option value="basic">Básico</option>
+                  <option value="luxury">Luxo</option>
                 </select>
               </div>
               <div className="setting-item">
-                <label>Passengers</label>
+                <label>Passageiros</label>
                 <div className="number-control">
                   <button
                     className="number-btn"
@@ -557,14 +635,14 @@ export default function ClientMain() {
                 className="search-btn search-btn--cancel"
                 onClick={() => setShowMoreOptions(false)}
               >
-                Cancel
+                Cancelar
               </button>
 
               <button
                 className="search-btn search-btn--primary"
                 onClick={handleProceedToSelection}
               >
-                Request Tuxy
+                Pedir Tuxy
               </button>
             </div>
           </div>
@@ -583,9 +661,9 @@ export default function ClientMain() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <button className="bell-btn">
-          <Bell size={24} color="#000" />
-        </button>
+        <div className="user-name-container">
+          <span className="user-name-text">{user?.name}</span>
+        </div>
       </header>
 
       <main className="client-main-content">
@@ -636,13 +714,16 @@ export default function ClientMain() {
 
               <nav className="drawer-nav">
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Request Trip
+                  Início
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservations
+                  Pedir Viagem
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  History
+                  Reservas
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                  Histórico
                 </button>
               </nav>
 
@@ -655,6 +736,14 @@ export default function ClientMain() {
           </>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
+
+      <ConfirmationModal 
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={closeModal}
+      />
+      </div>
+      );
+      }
