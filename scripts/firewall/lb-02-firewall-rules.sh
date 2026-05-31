@@ -23,8 +23,13 @@ sudo iptables -A INPUT -p tcp -s 35.235.240.0/20 --dport 22 -j ACCEPT
 sudo iptables -A INPUT -p vrrp -s 10.10.10.10 -j ACCEPT
 sudo iptables -A OUTPUT -p vrrp -d 10.10.10.10 -j ACCEPT
 
-# 6. Saída para Web VMs: Tráfego para as máquinas aplicacionais (8000)
+# 6. Saída: Enviar o tráfego Web para os Servidores Aplicacionais na porta 8000
 sudo iptables -A OUTPUT -p tcp -m iprange --dst-range 10.10.10.20-10.10.10.29 --dport 8000 -j ACCEPT
+
+# 7. Saída: Permitir DNS e HTTPS para a API da Google Cloud (gcloud)
+sudo iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
+sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
 
 # 7. Default DROP
 sudo iptables -P INPUT DROP

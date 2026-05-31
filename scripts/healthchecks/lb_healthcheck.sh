@@ -4,6 +4,7 @@
 # Dynamically discovers WebApp VMs and updates the Nginx upstream block.
 
 # Try to source config for dynamic discovery
+export PATH=$PATH:/snap/bin
 SCRIPT_DIR="/home/athen/app/scripts"
 [ -f "$SCRIPT_DIR/config.sh" ] && source "$SCRIPT_DIR/config.sh"
 
