@@ -187,10 +187,11 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
+    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
 
     class Meta:
         model = Client
-        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned", 'profile_pic']
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -200,12 +201,13 @@ class DriverSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
+    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
     license_number = serializers.CharField(read_only=True)
     birth_year = serializers.CharField(read_only=True)
 
     class Meta:
         model = Driver
-        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned", 'profile_pic']
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)

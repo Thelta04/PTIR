@@ -20,7 +20,8 @@ CREATE TABLE user_account (
     email VARCHAR(60),
     gender VARCHAR(15) NOT NULL, 
     password VARCHAR(255) NOT NULL,
-    is_banned BOOLEAN DEFAULT FALSE
+    is_banned BOOLEAN DEFAULT FALSE,
+    profile_pic INT NOT NULL DEFAULT 0
 );
 
 -- DRIVER 
@@ -111,6 +112,7 @@ ALTER TABLE user_account
     ADD CONSTRAINT uq_user_account_email UNIQUE (email),
     ADD CONSTRAINT chk_user_nif CHECK (nif ~ '^[1-9][0-9]{8}$'), -- RIA 12
     ADD CONSTRAINT chk_user_gender CHECK (gender IN ('Male', 'Female', 'Other')), -- RIA 13
+    ADD CONSTRAINT chk_user_profile_pic CHECK (profile_pic BETWEEN 0 AND 5),
     ADD CONSTRAINT chk_user_password CHECK (char_length(password) >= 6 AND password ~ '[A-Za-z]' AND password ~ '[0-9]'); -- RIA 15
 
 ALTER TABLE driver

@@ -19,10 +19,21 @@ TARGET_DIR="/home/$REMOTE_USER/app"
 DB_NAME_DEFAULT="tuxy_db"
 DB_USER_DEFAULT="tuxy_user"
 DB_PRIMARY_IP="10.10.10.30"
+DB_BACKUP_IP="10.10.10.31"
 DB_PORT="5432"
 
 # Load Balancer defaults
 LB_VIP="10.10.10.100"
+LB_PRIMARY_IP="10.10.10.10"
+LB_BACKUP_IP="10.10.10.11"
+STATIC_IP_NAME="tuxy-lb-ip"
+EXTERNAL_IP="34.175.164.1"
+ACCESS_CONFIG_NAME="external-nat"
+
+# Bastion (Admin/Jump Server)
+BASTION_IP="10.10.10.5"
+BASTION_STATIC_IP_NAME="tuxy-bastion-ip"
+TAG_BASTION="bastion-server"
 
 # Tagging (for dynamic discovery)
 TAG_WEB="webapp-server"
