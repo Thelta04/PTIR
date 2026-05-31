@@ -13,6 +13,10 @@ NUM_WEBAPP_VMS=${1:-2}
 
 echo "Using project: $PROJECT_ID in region: $REGION and zone: $ZONE"
 
+# Bastion VM (must be first — all management SSH goes through it)
+echo "--- Creating Bastion VM ---"
+"$SCRIPT_DIR/../create_bastion.sh"
+
 # Database VMs
 echo "--- Creating Database VMs ---"
 "$SCRIPT_DIR/../create_db_primary.sh"

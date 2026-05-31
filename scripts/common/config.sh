@@ -30,6 +30,11 @@ STATIC_IP_NAME="tuxy-lb-ip"
 EXTERNAL_IP="34.175.164.1"
 ACCESS_CONFIG_NAME="external-nat"
 
+# Bastion (Admin/Jump Server)
+BASTION_IP="10.10.10.5"
+BASTION_STATIC_IP_NAME="tuxy-bastion-ip"
+TAG_BASTION="bastion-server"
+
 # Tagging (for dynamic discovery)
 TAG_WEB="webapp-server"
 TAG_DB="db-server"

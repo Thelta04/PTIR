@@ -8,8 +8,8 @@ set -o pipefail
 
 # Load configuration and utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../common/config.sh"
-source "$SCRIPT_DIR/../common/utils.sh"
+source "$SCRIPT_DIR/common/config.sh"
+source "$SCRIPT_DIR/common/utils.sh"
 
 echo "Discovering existing webapp instances..."
 WEBAPP_INSTANCES=$(get_instances_by_tag "$TAG_WEB")
@@ -94,7 +94,7 @@ done
 echo ""
 echo "--- Building & Packaging Artifacts ---"
 
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../" && pwd)"
 
 echo "Building frontend..."
 (cd "$ROOT_DIR/frontend" && npm install && npm run build)
@@ -123,9 +123,9 @@ echo "--- Deploying webapp to $NEW_NAME ---"
 
 remote_scp "$NEW_NAME" \
     /tmp/webapp_artifacts.tar.gz \
-    "$SCRIPT_DIR/../common/config.sh" \
-    "$SCRIPT_DIR/../common/utils.sh" \
-    "$SCRIPT_DIR/../setup/setup_webapp.sh"
+    "$SCRIPT_DIR/common/config.sh" \
+    "$SCRIPT_DIR/common/utils.sh" \
+    "$SCRIPT_DIR/setup/setup_webapp.sh"
 
 remote_exec "$NEW_NAME" "
     set -e
@@ -137,5 +137,4 @@ remote_exec "$NEW_NAME" "
 rm -f /tmp/webapp_artifacts.tar.gz
 
 echo ""
-echo "Scale-out complete! $NEW_NAME ($NEW_IP) is live."
-echo "The Load Balancer health check will automatically discover this new instance within 60 seconds."
+echo "NEW_NAME ($NEW_IP) is live."
