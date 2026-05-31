@@ -25,6 +25,7 @@ class User(models.Model):
     gender = models.CharField(max_length=15, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
     password = models.CharField(max_length=255)
     is_banned = models.BooleanField(default=False)
+    profile_pic = models.IntegerField(default=0)
 
     @property
     def is_authenticated(self):
