@@ -125,12 +125,14 @@ remote_scp "$NEW_NAME" \
     /tmp/webapp_artifacts.tar.gz \
     "$SCRIPT_DIR/common/config.sh" \
     "$SCRIPT_DIR/common/utils.sh" \
-    "$SCRIPT_DIR/setup/setup_webapp.sh"
+    "$SCRIPT_DIR/setup/setup_webapp.sh" \
+    "$SCRIPT_DIR/firewall/web-firewall-rules.sh"
 
 remote_exec "$NEW_NAME" "
     set -e
-    chmod +x /tmp/setup_webapp.sh
+    chmod +x /tmp/setup_webapp.sh /tmp/web-firewall-rules.sh
     /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' 'false' '$NEW_NAME'
+    sudo /tmp/web-firewall-rules.sh
 " || { echo "ERROR: Deployment FAILED on $NEW_NAME. Scale-out incomplete!"; exit 1; }
 
 # Cleanup local artifact

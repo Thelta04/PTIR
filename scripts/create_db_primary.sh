@@ -60,15 +60,17 @@ remote_scp "$INSTANCE" \
     "$SCRIPT_DIR/common/utils.sh" \
     "$ROOT_DIR/database/schema.sql" \
     "$ROOT_DIR/database/inserts.sql" \
-    "$SCRIPT_DIR/healthchecks/db_healthcheck.sh"
+    "$SCRIPT_DIR/healthchecks/db_healthcheck.sh" \
+    "$SCRIPT_DIR/firewall/db-01-firewall-rules.sh"
 
 remote_exec "$INSTANCE" "
     set -e
     source /tmp/config.sh
     source /tmp/utils.sh
     wait_for_dpkg_lock
-    chmod +x /tmp/setup_db.sh
+    chmod +x /tmp/setup_db.sh /tmp/db-01-firewall-rules.sh
     /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' 'primary' '$DB_PRIMARY_IP'
+    sudo /tmp/db-01-firewall-rules.sh
 " || { echo "ERROR: Failed to setup $INSTANCE"; exit 1; }
 
 echo ""
