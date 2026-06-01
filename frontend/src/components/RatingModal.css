@@ -1,0 +1,86 @@
+.rating-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.rating-modal-content {
+  background: #fff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  position: relative;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.rating-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.rating-modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 12px 0 8px;
+  color: #111827;
+}
+
+.rating-modal-header p {
+  color: #6b7280;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.rating-success-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+}
+
+.star-rating-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 32px 0;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  transition: transform 0.1s;
+}
+
+.star-btn:active {
+  transform: scale(0.9);
+}
+
+.rating-submit-btn {
+  width: 100%;
+  height: 56px;
+  background: #f1cf58;
+  color: #000;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.rating-submit-btn:hover {
+  background: #f1af3d;
+}

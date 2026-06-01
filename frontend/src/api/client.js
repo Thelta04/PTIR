@@ -148,6 +148,7 @@ export const getTripPaymentStatus = (id, sessionId) =>
   api.get(`trip/${id}/payment/status/`, { params: { session_id: sessionId } });
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
+export const rateTrip = (tripId, score) => api.post('rating/create/', { trip_id: tripId, score });
 export const getPricing = () => api.get('pricing/');
 export const updateProfilePic = (id, profile_pic) => api.patch(`user/${id}/profile-pic/`, { profile_pic });
 
