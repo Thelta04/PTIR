@@ -579,7 +579,7 @@ export default function ManagerDashboard() {
         </div>
 
         <div className="dash-header-right">
-          <span className="dash-greeting">Hello, {user?.name}</span>
+          <span className="dash-greeting">Hello, {user?.name?.split(' ')[0]}</span>
           <button className="dash-icon-btn" aria-label="Search">
             <Search size={18} />
           </button>

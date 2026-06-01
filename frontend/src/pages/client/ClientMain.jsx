@@ -745,7 +745,7 @@ export default function ClientMain() {
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
-          <span className="user-name-text">{user?.name}</span>
+          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
           <img 
             src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
             alt="Profile" 

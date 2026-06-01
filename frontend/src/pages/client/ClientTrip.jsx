@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, payMockTrip } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -98,6 +98,8 @@ export default function ClientTrip() {
               setStatus('waiting_pickup');
             } else if (updatedTrip.status === 'IN_PROGRESS') {
               setStatus('in_progress');
+            } else if (updatedTrip.status === 'WAITING_PAYMENT') {
+              setStatus('waiting_payment');
             } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
               navigate('/client');
             }
@@ -114,6 +116,15 @@ export default function ClientTrip() {
     }
     return () => clearInterval(interval);
   }, [tripId, navigate]);
+
+  const handleMockPayment = async () => {
+    try {
+      await payMockTrip(tripId);
+      // Backend sets it to COMPLETED, then polling navigates to /client
+    } catch (err) {
+      alert('Erro ao processar pagamento.');
+    }
+  };
 
   const handleCancel = async () => {
     if (tripId) {
@@ -260,9 +271,9 @@ export default function ClientTrip() {
               <div className="car-icon">🚗</div>
             </div>
 
-            <div className="trip-specs" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr 1fr', 
+            <div className="trip-specs" style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
               gap: '10px',
               padding: '15px 0',
               borderTop: '1px solid #f0f0f0',
@@ -302,6 +313,19 @@ export default function ClientTrip() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="price-display-banner" style={{ 
+              background: '#fdf2b3', 
+              padding: '12px', 
+              borderRadius: '12px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '15px'
+            }}>
+              <span style={{ fontWeight: '700', color: '#856404', textTransform: 'uppercase', fontSize: '0.85rem' }}>Preço Fixo</span>
+              <span style={{ fontWeight: '900', fontSize: '1.4rem', color: '#000' }}>€{activeTrip?.price}</span>
             </div>
 
             <div className="panel-actions">
@@ -436,6 +460,40 @@ export default function ClientTrip() {
           </div>
         );
 
+      case 'waiting_payment':
+        return (
+          <div className="status-panel waiting-payment" style={{ textAlign: 'center' }}>
+            <h2 className="panel-title">Viagem Concluída</h2>
+            <p style={{ color: '#666', marginBottom: '15px' }}>Obrigado por viajar com a TUXY!</p>
+            
+            <div className="payment-summary" style={{ 
+              background: '#f9f9f9', 
+              padding: '20px', 
+              borderRadius: '16px', 
+              border: '2px solid #f1cf58',
+              marginBottom: '20px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontWeight: '600' }}>Preço Final:</span>
+                <span style={{ fontWeight: '800', fontSize: '1.2rem' }}>€{activeTrip?.price}</span>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                <div><strong>De:</strong> {simplifyAddress(activeTrip?.originAddress)}</div>
+                <div><strong>Para:</strong> {simplifyAddress(activeTrip?.destAddress)}</div>
+              </div>
+            </div>
+
+            <button 
+              className="panel-btn panel-btn--accept" 
+              onClick={handleMockPayment}
+              style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
+            >
+              MOCK PAYMENT
+            </button>
+          </div>
+        );
+
       default:
         return (
           <div className="status-panel searching">
@@ -467,7 +525,7 @@ export default function ClientTrip() {
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
-          <span className="user-name-text">{user?.name}</span>
+          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
           <img 
             src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
             alt="Profile" 

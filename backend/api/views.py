@@ -1053,6 +1053,10 @@ class TripClientAcceptView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Calculate and store fixed price at acceptance
+        _, duration_minutes = calculate_route_summary(trip.originCoords, trip.destCoords)
+        trip.price = calculate_price(duration_minutes, trip.comfort_level, timezone.now())
+
         trip.status = 'CLIENT_ACCEPTED'
         trip.save()
 
@@ -1249,23 +1253,42 @@ class TripCompleteView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Calcular duração em minutos e preço final
-        now = timezone.now()
-        start_time = trip.interval.start_time
-        if timezone.is_naive(start_time):
-            start_time = timezone.make_aware(start_time)
-            
-        minutes = (now - start_time).total_seconds() / 60
-        trip.price = calculate_price(minutes, trip.comfort_level, start_time)
-
         # Fechar o intervalo da viagem
+        now = timezone.now()
         trip.interval.end_time = now
         trip.interval.save()
 
-        trip.status = 'COMPLETED'
-        trip.interval.end_time = now
-        trip.interval.save()
+        trip.status = 'WAITING_PAYMENT'
         trip.save()
+
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class TripPayMockView(views.APIView):
+    @extend_schema(
+        summary="Mock trip payment",
+        description="Transition trip from WAITING_PAYMENT to COMPLETED.",
+        request=None,
+        responses={200: TripCompleteSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if trip.status != 'WAITING_PAYMENT':
+            return Response(
+                {"error": f"Trip cannot be paid. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        trip.status = 'COMPLETED'
+        trip.save()
+
+        # Optional: create invoice automatically for mock payment
+        create_invoice_for_paid_trip(trip)
 
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
@@ -1342,8 +1365,8 @@ class TripPaymentStartView(views.APIView):
         if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only pay your own trips."}, status=status.HTTP_403_FORBIDDEN)
 
-        if trip.status != 'COMPLETED':
-            return Response({"error": "Only completed trips can be paid."}, status=status.HTTP_400_BAD_REQUEST)
+        if trip.status not in ['COMPLETED', 'WAITING_PAYMENT']:
+            return Response({"error": "Only completed or waiting payment trips can be paid."}, status=status.HTTP_400_BAD_REQUEST)
 
         if trip.price <= 0:
             return Response({"error": "Trip price must be positive."}, status=status.HTTP_400_BAD_REQUEST)

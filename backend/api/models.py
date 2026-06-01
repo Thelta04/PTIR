@@ -115,6 +115,7 @@ class Trip(models.Model):
         ('DRIVER_ACCEPTED', 'Driver Accepted'),
         ('CLIENT_ACCEPTED', 'Client Accepted'),
         ('IN_PROGRESS',     'In Progress'),
+        ('WAITING_PAYMENT', 'Waiting Payment'),
         ('COMPLETED',       'Completed'),
         ('CANCELED',        'Canceled'),
     ], default='PENDING')
