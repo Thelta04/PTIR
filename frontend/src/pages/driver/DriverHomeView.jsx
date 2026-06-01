@@ -13,7 +13,8 @@ import {
   pickupTrip, 
   completeTrip, 
   getRouteGeometry,
-  getPricing
+  getPricing,
+  emitInvoice
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -167,7 +168,7 @@ export default function DriverHomeView() {
       const { data: allTrips } = await listTrips();
       let myActive = allTrips.find(t => 
         t.driver_id === user.id && 
-        ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT'].includes(t.status)
+        ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
       );
 
       // If no active trip, but we HAD one, check if it was canceled
@@ -326,6 +327,17 @@ export default function DriverHomeView() {
         }
       }
     );
+  };
+
+  const handleEmitInvoice = async () => {
+    if (!activeTrip) return;
+    try {
+      await emitInvoice(activeTrip.id);
+      fetchData();
+    } catch (err) {
+      console.error('Error emitting invoice:', err);
+      alert('Erro ao emitir fatura.');
+    }
   };
 
   useEffect(() => {
@@ -496,6 +508,10 @@ export default function DriverHomeView() {
                 <div className="waiting-msg" style={{ background: '#fdf2b3', color: '#856404' }}>
                   Aguardando Pagamento...
                 </div>
+              ) : activeTrip.status === 'PAID' ? (
+                <button className="btn-complete btn-full" onClick={handleEmitInvoice}>
+                  Emitir Fatura
+                </button>
               ) : activeTrip.status === 'CLIENT_ACCEPTED' ? (
                 <button className="btn-pickup btn-full" onClick={handlePickup}>
                   Recolher Passageiro

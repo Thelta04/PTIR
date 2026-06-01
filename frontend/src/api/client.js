@@ -129,6 +129,11 @@ export const clientAcceptTrip = (id) => api.patch(`trip/${id}/client-accept/`);
 export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
 export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
 export const payMockTrip = (id) => api.patch(`trip/${id}/pay-mock/`);
+export const emitInvoice = (id) => api.patch(`trip/${id}/emit-invoice/`);
+export const startTripPayment = (id, successUrl, cancelUrl) => 
+  api.post(`trip/${id}/payment/start/`, { success_url: successUrl, cancel_url: cancelUrl });
+export const getTripPaymentStatus = (id, sessionId) => 
+  api.get(`trip/${id}/payment/status/`, { params: { session_id: sessionId } });
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 export const getPricing = () => api.get('pricing/');

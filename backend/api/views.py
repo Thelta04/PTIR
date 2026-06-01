@@ -1055,7 +1055,7 @@ class TripCreateView(views.APIView):
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
+        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID']
         if Trip.objects.filter(client=client, status__in=active_statuses).exists():
             return Response(
                 {"error": "Client already has an active trip."},
@@ -1374,7 +1374,7 @@ class TripCompleteView(views.APIView):
 class TripPayMockView(views.APIView):
     @extend_schema(
         summary="Mock trip payment",
-        description="Transition trip from WAITING_PAYMENT to COMPLETED.",
+        description="Transition trip from WAITING_PAYMENT to PAID.",
         request=None,
         responses={200: TripCompleteSerializer}
     )
@@ -1390,11 +1390,35 @@ class TripPayMockView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        trip.status = 'COMPLETED'
+        trip.status = 'PAID'
         trip.save()
 
-        # Optional: create invoice automatically for mock payment
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class TripEmitInvoiceView(views.APIView):
+    @extend_schema(
+        summary="Emit invoice",
+        description="Driver emits invoice after payment. Transitions trip from PAID to COMPLETED.",
+        request=None,
+        responses={200: TripCompleteSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if trip.status != 'PAID':
+            return Response(
+                {"error": f"Trip cannot emit invoice. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         create_invoice_for_paid_trip(trip)
+        trip.status = 'COMPLETED'
+        trip.save()
 
         response_serializer = TripCompleteSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
@@ -1568,7 +1592,12 @@ class TripPaymentStatusView(views.APIView):
         invoice = None
         invoice_created = False
         if checkout_session.payment_status == 'paid':
-            invoice, invoice_created = create_invoice_for_paid_trip(trip)
+            if trip.status == 'WAITING_PAYMENT':
+                trip.status = 'PAID'
+                trip.save()
+            # We don't create invoice automatically anymore, but we can check if it exists
+            invoice = Invoice.objects.filter(trip=trip).first()
+            invoice_created = invoice is not None
 
         return Response({
             "checkout_session_id": checkout_session.id,
@@ -1616,8 +1645,9 @@ class StripeWebhookView(views.APIView):
             trip_id = session.get('metadata', {}).get('trip_id')
             if trip_id and session.get('payment_status') == 'paid':
                 try:
-                    trip = Trip.objects.select_related('client__user').get(id=trip_id, status='COMPLETED')
-                    create_invoice_for_paid_trip(trip)
+                    trip = Trip.objects.select_related('client__user').get(id=trip_id, status='WAITING_PAYMENT')
+                    trip.status = 'PAID'
+                    trip.save()
                 except Trip.DoesNotExist:
                     pass
 

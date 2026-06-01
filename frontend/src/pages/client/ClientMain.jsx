@@ -124,7 +124,7 @@ export default function ClientMain() {
       // Filter active trips for this client
       const mine = data.filter(t =>
         t.client_id === user.id &&
-        ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+        ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
       );
 
       if (mine.length > 0) {

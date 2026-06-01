@@ -52,6 +52,7 @@ urlpatterns = [
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
     path('trip/<int:id>/complete/', views.TripCompleteView.as_view(), name='complete_trip'),
     path('trip/<int:id>/pay-mock/', views.TripPayMockView.as_view(), name='pay_mock_trip'),
+    path('trip/<int:id>/emit-invoice/', views.TripEmitInvoiceView.as_view(), name='emit_invoice_trip'),
     path('trip/<int:id>/payment/start/', views.TripPaymentStartView.as_view(), name='start_trip_payment'),
     path('trip/<int:id>/payment/status/', views.TripPaymentStatusView.as_view(), name='trip_payment_status'),
     path('trip/<int:id>/invoice/', views.TripInvoiceView.as_view(), name='trip_invoice'),
