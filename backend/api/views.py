@@ -684,7 +684,8 @@ class LoginView(views.APIView):
             "name": user.name,
             "email": user.email,
             "type": user_type,
-            "profile_pic": user.profile_pic,
+            # avoid direct attribute access in case DB column is missing after merges
+            "profile_pic": getattr(user, 'profile_pic', None),
             "gender": user.gender,
         }
 
@@ -730,6 +731,9 @@ class UserProfilePicUpdateView(views.APIView):
     def patch(self, request, id):
         if request.user.id != id and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only update your own profile picture."}, status=status.HTTP_403_FORBIDDEN)
+        # Ensure the User model actually has the profile_pic field in the DB
+        if 'profile_pic' not in [f.name for f in User._meta.get_fields()]:
+            return Response({"error": "profile_pic feature is not available in the database. Run migrations to enable it."}, status=status.HTTP_400_BAD_REQUEST)
 
         profile_pic = request.data.get('profile_pic')
         if profile_pic is None:
@@ -748,13 +752,18 @@ class UserProfilePicUpdateView(views.APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        user.profile_pic = profile_pic
-        user.save(update_fields=['profile_pic'])
+        # Set attribute and save; wrap in try/except in case DB doesn't have column (safety)
+        try:
+            setattr(user, 'profile_pic', profile_pic)
+            user.save(update_fields=['profile_pic'])
+            current_pfp = getattr(user, 'profile_pic', None)
+        except Exception:
+            return Response({"error": "Failed to update profile picture; database column may be missing."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             "message": "Profile picture updated successfully.",
             "id": user.id,
-            "profile_pic": user.profile_pic,
+            "profile_pic": current_pfp,
         }, status=status.HTTP_200_OK)
     
 class BanView(views.APIView):

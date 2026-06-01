@@ -53,7 +53,7 @@ class CreateDriverSerializer(serializers.Serializer):
         except ValueError:
             raise serializers.ValidationError("Invalid year format.")
         return value
-        
+
     def validate_nif(self, value):
         # ensure nif not already taken
         from .models import User
@@ -316,11 +316,17 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
-    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
+    profile_pic = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
         fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned", 'profile_pic']
+
+    def get_profile_pic(self, obj):
+        try:
+            return getattr(obj.user, 'profile_pic', None)
+        except Exception:
+            return None
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -330,13 +336,19 @@ class DriverSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
-    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
+    profile_pic = serializers.SerializerMethodField()
     license_number = serializers.CharField(read_only=True)
     birth_year = serializers.CharField(read_only=True)
 
     class Meta:
         model = Driver
         fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned", 'profile_pic']
+
+    def get_profile_pic(self, obj):
+        try:
+            return getattr(obj.user, 'profile_pic', None)
+        except Exception:
+            return None
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)
@@ -355,7 +367,7 @@ class TaxiDetailSerializer(serializers.ModelSerializer):
 class TripListSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='shift.driver.user.name', read_only=True, default=None)
     driver_id   = serializers.IntegerField(source='shift.driver.user_id', read_only=True, default=None)
-    driver_pfp  = serializers.IntegerField(source='shift.driver.user.profile_pic', read_only=True, default=1)
+    driver_pfp  = serializers.SerializerMethodField()
     taxi_plate  = serializers.CharField(source='shift.taxi.license_plate', read_only=True, default=None)
     taxi_brand  = serializers.CharField(source='shift.taxi.brand', read_only=True, default=None)
     taxi_model  = serializers.CharField(source='shift.taxi.model', read_only=True, default=None)
@@ -368,6 +380,12 @@ class TripListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip    
         fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'driver_pfp', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'taxi_passengers', 'interval']
+
+    def get_driver_pfp(self, obj):
+        try:
+            return getattr(obj.shift.driver.user, 'profile_pic', None)
+        except Exception:
+            return None
 
 class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
