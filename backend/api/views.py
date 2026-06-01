@@ -99,6 +99,8 @@ class ClientCreateView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ClientDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
     @extend_schema(
         summary="Get Client details",
         description="Returns the detailed information of a specific client based on the user ID.",
@@ -116,6 +118,68 @@ class ClientDetailView(views.APIView):
         
         serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update Client (Manager only)",
+        description="Updates a client's user data. Requires a valid Manager JWT token.",
+        request=ClientUpdateSerializer,
+        responses={
+            200: UserSerializer,
+            403: inline_serializer(name="ClientUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ClientUpdateSerializer(data=request.data, partial=True, context={'client': client})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = client.user
+
+        for field in ['nif', 'name', 'email', 'gender', 'password']:
+            if field in data:
+                setattr(user, field, data[field])
+        user.save()
+
+        return Response(UserSerializer(client).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Delete Client (Manager only)",
+        description="Deletes a client if they have no associated trips. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="ClientDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientDeleteNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def delete(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if Trip.objects.filter(client=client).exists():
+            return Response({"error": "Cannot delete a client that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        client.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ClientListView(views.APIView):
     @extend_schema(
@@ -746,6 +810,48 @@ class TokenRefreshView(views.APIView):
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 # Trips
+class ClientTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a client",
+        description="Returns all trips requested by a specific client user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(client__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DriverTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a driver",
+        description="Returns all trips assigned to a specific driver user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Driver.objects.filter(user__id=id).exists():
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(shift__driver__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class TripListView(views.APIView):
     @extend_schema(
         summary="List all trips",
@@ -1516,6 +1622,96 @@ class StripeWebhookView(views.APIView):
                     pass
 
         return Response({"received": True}, status=status.HTTP_200_OK)
+
+
+class InvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices",
+        description="Returns all issued invoices, ordered by most recent date and invoice number.",
+        responses={200: InvoiceSerializer(many=True)}
+    )
+    def get(self, request):
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class InvoiceDetailView(views.APIView):
+    @extend_schema(
+        summary="Get invoice details",
+        description="Returns one invoice by id. In this schema, the invoice id is the trip id.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='InvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TripInvoiceView(views.APIView):
+    @extend_schema(
+        summary="Get invoice from trip",
+        description="Returns the invoice issued for a specific trip.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='TripInvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found for this trip."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientInvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices from a client",
+        description="Returns all invoices issued for trips requested by a specific client user ID.",
+        responses={
+            200: InvoiceSerializer(many=True),
+            404: inline_serializer(name='ClientInvoiceClientNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).filter(trip__client__user_id=id).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 
 class RefuelListCreateView(views.APIView):

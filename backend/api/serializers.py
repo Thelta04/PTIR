@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice
 from django.utils import timezone as tz
 from .models import Refueling
 
@@ -96,6 +96,25 @@ class CreateClientSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+
+class ClientUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+
+    def validate(self, data):
+        client = self.context.get('client')
+        user = client.user if client else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        return data
 
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
@@ -324,6 +343,28 @@ class TripCompleteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip
         fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_name', 'driver_name', 'taxi_plate', 'interval']
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    trip_id = serializers.IntegerField(source='trip.id', read_only=True)
+    client_id = serializers.IntegerField(source='trip.client.user_id', read_only=True)
+    client_name = serializers.CharField(source='trip.client.user.name', read_only=True)
+    client_gender = serializers.CharField(source='trip.client.user.gender', read_only=True)
+    driver_id = serializers.IntegerField(source='trip.shift.driver.user_id', read_only=True, default=None)
+    driver_name = serializers.CharField(source='trip.shift.driver.user.name', read_only=True, default=None)
+    taxi_plate = serializers.CharField(source='trip.shift.taxi.license_plate', read_only=True, default=None)
+    originAddress = serializers.CharField(source='trip.originAddress', read_only=True)
+    destAddress = serializers.CharField(source='trip.destAddress', read_only=True)
+    trip_start_time = serializers.DateTimeField(source='trip.interval.start_time', read_only=True)
+    trip_end_time = serializers.DateTimeField(source='trip.interval.end_time', read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = [
+            'trip_id', 'number', 'date', 'amount_total', 'amount_paid', 'nif',
+            'client_id', 'client_name', 'client_gender',
+            'driver_id', 'driver_name', 'taxi_plate',
+            'originAddress', 'destAddress', 'trip_start_time', 'trip_end_time',
+        ]
 
 class RefuelSerializer(serializers.ModelSerializer):
     class Meta:

@@ -45,6 +45,8 @@ urlpatterns = [
     
     # Trips (viagens)
     path('trip/', views.TripListView.as_view(), name='list_trips'),
+    path('client/<int:id>/trips/', views.ClientTripListView.as_view(), name='list_client_trips'),
+    path('driver/<int:id>/trips/', views.DriverTripListView.as_view(), name='list_driver_trips'),
     path('trip/create/', views.TripCreateView.as_view(), name='create_trip'),
     path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip_driver'),
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
@@ -52,10 +54,16 @@ urlpatterns = [
     path('trip/<int:id>/pay-mock/', views.TripPayMockView.as_view(), name='pay_mock_trip'),
     path('trip/<int:id>/payment/start/', views.TripPaymentStartView.as_view(), name='start_trip_payment'),
     path('trip/<int:id>/payment/status/', views.TripPaymentStatusView.as_view(), name='trip_payment_status'),
+    path('trip/<int:id>/invoice/', views.TripInvoiceView.as_view(), name='trip_invoice'),
     path('trip/<int:id>/client-accept/', views.TripClientAcceptView.as_view(), name='accept_trip_client'),
     path('trip/<int:id>/pickup/', views.TripPickupView.as_view(), name='start_trip'),
     path('route/', views.RouteGeometryView.as_view(), name='route_geometry'),
     path('payments/stripe/webhook/', views.StripeWebhookView.as_view(), name='stripe_webhook'),
+
+    # Invoices
+    path('invoices/', views.InvoiceListView.as_view(), name='list_invoices'),
+    path('invoices/<int:id>/', views.InvoiceDetailView.as_view(), name='invoice_detail'),
+    path('client/<int:id>/invoices/', views.ClientInvoiceListView.as_view(), name='list_client_invoices'),
 
 
     # Ratting
