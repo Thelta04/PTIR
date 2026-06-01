@@ -16,4 +16,4 @@ echo "Deploying primary load balancer..."
 echo "Deploying backup load balancer..."
 "$DEPLOY_DIR/../create_lb_backup.sh"
 
-echo "Load Balancer deployment successful!"
+echo "Load Balancer deployment successful"

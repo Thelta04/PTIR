@@ -6,7 +6,7 @@ import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 function formatDt(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleString('pt-PT', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',

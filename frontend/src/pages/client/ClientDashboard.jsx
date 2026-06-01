@@ -65,7 +65,7 @@ export default function ClientDashboard() {
             onClick={() => setIsProfileModalOpen(true)}
             style={{ cursor: 'pointer' }}
           >
-            <span className="dash-greeting">Olá, {user?.name}</span>
+            <span className="dash-greeting">Olá, {user?.name?.split(' ')[0]}</span>
             <img 
               src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
               alt="Profile" 

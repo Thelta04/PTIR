@@ -217,6 +217,9 @@ curl -X POST http://<host>/api/auth/login/ \
 │   ├── create_lb_backup.sh
 │   ├── kill_lb_primary.sh
 │   ├── promote_lb_backup.sh
+│   ├── tests/          # Vulnerability & architecture tests
+│   │   ├── verify_architecture.sh
+│   │   └── vulnerability_test.sh
 │   ├── common/         # Shared config & utilities
 │   ├── deploy/         # Modular Deployment Orchestrators
 │   ├── firewall/       # Per-VM iptables rules

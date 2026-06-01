@@ -8,6 +8,7 @@ import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
 import ProfileModal from '../../components/ProfileModal';
 import './driver.css';
+import '../client/client.css';
 import '../../components/map-background.css';
 import Refuels from './Refuels';
 
@@ -52,15 +53,15 @@ export default function DriverMain() {
         <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
           <Menu size={24} />
         </button>
-        <div className="driver-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
-          <span className="driver-brand-name">TUXY</span>
+        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
+          <span className="client-brand-name">TUXY</span>
         </div>
         <div 
           className="header-actions" 
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
-          <span className="user-name-display">{user?.name}</span>
+          <span className="user-name-display">{user?.name?.split(' ')[0]}</span>
           <img 
             src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
             alt="Profile" 

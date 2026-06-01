@@ -77,7 +77,7 @@ echo "  Checking if API is reachable through LB ($LB_IP)..."
 HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 
 if [ "$HTTP_CODE" = "200" ]; then
-    echo "  ✅ PASS: API is reachable (HTTP 200)."
+    echo "   PASS: API is reachable (HTTP 200)."
 else
     echo "  ❌ FAIL: API is not reachable (HTTP $HTTP_CODE)."
 fi
@@ -112,7 +112,7 @@ done
 
 echo "  Results: web-1 served $SERVED_BY_WEB1, web-2 served $SERVED_BY_WEB2"
 if [ "$SERVED_BY_WEB1" -gt 0 ] && [ "$SERVED_BY_WEB2" -gt 0 ]; then
-    echo "  ✅ PASS: Traffic is being distributed across both VMs."
+    echo "   PASS: Traffic is being distributed across both VMs."
 else
     echo "  ❌ FAIL: Traffic is not being distributed correctly. Found: web-1=$SERVED_BY_WEB1, web-2=$SERVED_BY_WEB2"
     echo "     (Make sure you redeployed with the latest scripts!)"
@@ -132,7 +132,7 @@ sleep 2
 HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 
 if [ "$HTTP_CODE" = "500" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "000" ]; then
-    echo "  ✅ PASS: API failed as expected when DB is down (HTTP $HTTP_CODE)."
+    echo "   PASS: API failed as expected when DB is down (HTTP $HTTP_CODE)."
 else
     echo "  ❌ FAIL: API returned HTTP $HTTP_CODE instead of an error. Is it truly dependent?"
 fi
@@ -163,7 +163,7 @@ done
 
 echo "  Results: web-1 served $SERVED_BY_WEB1, web-2 served $SERVED_BY_WEB2"
 if [ "$SERVED_BY_WEB1" -eq 0 ] && [ "$SERVED_BY_WEB2" -eq 5 ]; then
-    echo "  ✅ PASS: LB successfully routed all traffic to web-2 when web-1 failed."
+    echo "   PASS: LB successfully routed all traffic to web-2 when web-1 failed."
 else
     echo "  ❌ FAIL: LB did not failover correctly. Found: web-1=$SERVED_BY_WEB1, web-2=$SERVED_BY_WEB2"
 fi
@@ -185,7 +185,7 @@ for i in {1..4}; do
     echo "    Attempt $i: Checking if 'lb-02' has the VIP ($LB_VIP)..."
     HAS_VIP=$(remote_exec "lb-02" "ip addr show | grep -q '$LB_VIP' && echo 'yes' || echo 'no'" | xargs)
     if [ "$HAS_VIP" = "yes" ]; then
-        echo "  ✅ PASS: 'lb-02' has successfully assumed the Virtual IP ($LB_VIP)!"
+        echo "   PASS: 'lb-02' has successfully assumed the Virtual IP ($LB_VIP)"
         VIP_DETECTED=true
         break
     fi
@@ -200,7 +200,7 @@ fi
 echo "  Verifying if API is reachable through 'lb-02' internal IP..."
 HTTP_CODE=$(remote_exec "bastion" "curl -k -s -o /dev/null -w '%{http_code}' -H 'Host: tuxy.pt' --max-time 2 'https://10.10.10.11/api/check/'" | xargs)
 if [ "$HTTP_CODE" = "200" ]; then
-    echo "  ✅ PASS: API is reachable through 'lb-02' internal IP!"
+    echo "   PASS: API is reachable through 'lb-02' internal IP"
 else
     echo "  ❌ FAIL: API is unreachable through 'lb-02' (HTTP $HTTP_CODE)."
     exit 1
@@ -218,7 +218,7 @@ echo "  Verifying Replication Status on 'db-02'..."
 REPLICA_STATUS=$(remote_exec "db-02" "sudo -u postgres psql -c 'select count(*) from pg_stat_wal_receiver;' -t" | xargs)
 
 if [ "${REPLICA_STATUS:-0}" -gt 0 ]; then
-    echo "  ✅ PASS: Database replication is active on db-02."
+    echo "   PASS: Database replication is active on db-02."
 else
     echo "  ❌ FAIL: Database replication is NOT active."
 fi
@@ -232,7 +232,7 @@ PROMOTED=false
 for i in {1..18}; do
     IS_RECOVERY=$(remote_exec "db-02" "sudo -u postgres psql -c 'select pg_is_in_recovery();' -t" | xargs)
     if [ "$IS_RECOVERY" = "f" ]; then
-        echo "  ✅ PASS: 'db-02' was automatically promoted to Primary!"
+        echo "   PASS: 'db-02' was automatically promoted to Primary"
         PROMOTED=true
         break
     fi
@@ -248,7 +248,7 @@ fi
 echo "  Verifying API Health (should point to promoted DB)..."
 HTTP_CODE=$(curl -k -L -s -o /dev/null -w '%{http_code}' "http://$LB_IP/api/check/")
 if [ "$HTTP_CODE" = "200" ]; then
-    echo "  ✅ PASS: API is still healthy after automatic failover!"
+    echo "   PASS: API is still healthy after automatic failover"
 else
     echo "  ❌ FAIL: API is NOT healthy after failover (HTTP $HTTP_CODE)."
     exit 1
@@ -274,7 +274,7 @@ check_port() {
     IS_OPEN=$(remote_exec "$vm" "sudo ss -tulpn | grep -qE \"[:\*]$port(\$|[[:space:]])\" && echo 'yes' || echo 'no'")
     
     if [ "$IS_OPEN" = "$should_be_open" ]; then
-        echo "  ✅ PASS: $vm port $port is $IS_OPEN (expected: $should_be_open)"
+        echo "   PASS: $vm port $port is $IS_OPEN (expected: $should_be_open)"
     else
         echo "  ❌ FAIL: $vm port $port is $IS_OPEN (expected: $should_be_open)"
     fi
@@ -308,5 +308,5 @@ check_port "db-02" "8000" "no"
 
 echo ""
 echo "=================================================="
-echo " Verification Complete!"
+echo " Verification Complete"
 echo "=================================================="

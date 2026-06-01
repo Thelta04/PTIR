@@ -1,45 +1,29 @@
 #!/bin/bash
 # scripts/healthchecks/lb_healthcheck.sh
 # Runs on Load Balancer VM (via cron, every minute).
-# Dynamically discovers WebApp VMs and updates the Nginx upstream block.
+# Discovers WebApp VMs by scanning the webapp IP range on port 8000.
+# No gcloud or external dependencies required.
 
-# Try to source config for dynamic discovery
-export PATH=$PATH:/snap/bin
-SCRIPT_DIR="/home/athen/app/scripts"
-[ -f "$SCRIPT_DIR/config.sh" ] && source "$SCRIPT_DIR/config.sh"
-
-IPS_FILE="/etc/nginx/webapp_ips.txt"
 CONFIG_FILE="/etc/nginx/sites-available/tuxy.pt"
+IPS_FILE="/etc/nginx/webapp_ips.txt"
+
+# Webapp IP range (10.10.10.20 - 10.10.10.29)
+WEBAPP_IP_PREFIX="10.10.10"
+WEBAPP_IP_START=20
+WEBAPP_IP_END=29
 
 if [ ! -f "$CONFIG_FILE" ]; then
     exit 0
 fi
 
-# Discover IPs (Dynamic fallback to Static)
-if command -v gcloud >/dev/null 2>&1 && [ -n "$TAG_WEB" ]; then
-    # Try to get IPs from GCP dynamically
-    CURRENT_IPS=$(gcloud compute instances list \
-        --filter="tags.items=$TAG_WEB" \
-        --project="$PROJECT_ID" \
-        --format="value(networkInterfaces[0].networkIP)" 2>/dev/null | xargs | tr ' ' ',')
-    
-    if [ -n "$CURRENT_IPS" ]; then
-        # Update the static file for persistence/fallback
-        echo "$CURRENT_IPS" | sudo tee "$IPS_FILE" > /dev/null
-    fi
-fi
-
-# Load IPs from file (either updated above or original)
-if [ -f "$IPS_FILE" ]; then
-    IPS=$(cat "$IPS_FILE" | tr ',' ' ')
-else
-    exit 0
-fi
-
+# Discover healthy webapps by scanning the IP range
 HEALTHY_SERVERS=""
-for IP in $IPS; do
+DISCOVERED_IPS=""
+for i in $(seq $WEBAPP_IP_START $WEBAPP_IP_END); do
+    IP="${WEBAPP_IP_PREFIX}.${i}"
     if curl -s --max-time 2 "http://$IP:8000/api/check/" > /dev/null; then
         HEALTHY_SERVERS+="    server $IP:8000;\n"
+        DISCOVERED_IPS+="$IP,"
     fi
 done
 
@@ -47,6 +31,9 @@ done
 if [ -z "$HEALTHY_SERVERS" ]; then
     exit 0
 fi
+
+# Persist discovered IPs for reference
+echo "${DISCOVERED_IPS%,}" | sudo tee "$IPS_FILE" > /dev/null
 
 # Build the new upstream block
 NEW_UPSTREAM=$(printf "upstream webapp_servers {\n%b}" "$HEALTHY_SERVERS")

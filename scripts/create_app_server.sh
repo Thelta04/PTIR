@@ -133,7 +133,7 @@ remote_exec "$NEW_NAME" "
     chmod +x /tmp/setup_webapp.sh /tmp/web-firewall-rules.sh
     /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' 'false' '$NEW_NAME'
     sudo /tmp/web-firewall-rules.sh
-" || { echo "ERROR: Deployment FAILED on $NEW_NAME. Scale-out incomplete!"; exit 1; }
+" || { echo "ERROR: Deployment FAILED on $NEW_NAME. Scale-out incomplete"; exit 1; }
 
 # Cleanup local artifact
 rm -f /tmp/webapp_artifacts.tar.gz

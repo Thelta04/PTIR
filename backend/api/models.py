@@ -39,6 +39,8 @@ class Driver(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
     license_number = models.CharField(max_length=12)
     birth_year = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'driver'
@@ -115,6 +117,8 @@ class Trip(models.Model):
         ('DRIVER_ACCEPTED', 'Driver Accepted'),
         ('CLIENT_ACCEPTED', 'Client Accepted'),
         ('IN_PROGRESS',     'In Progress'),
+        ('WAITING_PAYMENT', 'Waiting Payment'),
+        ('PAID',            'Paid'),
         ('COMPLETED',       'Completed'),
         ('CANCELED',        'Canceled'),
     ], default='PENDING')

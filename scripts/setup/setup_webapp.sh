@@ -154,7 +154,7 @@ for i in $(seq 1 30); do
 done
 
 if [ "$SUCCESS" = "false" ]; then
-    echo "ERROR: Health check FAILED on $INSTANCE_NAME!"
+    echo "ERROR: Health check FAILED on $INSTANCE_NAME"
     exit 1
 fi
 

@@ -13,7 +13,8 @@ import {
   pickupTrip, 
   completeTrip, 
   getRouteGeometry,
-  getPricing
+  getPricing,
+  emitInvoice
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -93,6 +94,7 @@ export default function DriverHomeView() {
   const [activeTrip, setActiveTrip] = useState(null);
   const activeTripRef = useRef(null);
   const lastFetchedRouteKey = useRef('');
+  const [eta, setEta] = useState(null);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
@@ -101,6 +103,23 @@ export default function DriverHomeView() {
   const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
   const [shiftDuration, setShiftDuration] = useState('');
   const [pricingConfig, setPricingConfig] = useState(null);
+
+  // Calculate target for active trip display
+  const targetCoordsStr = activeTrip ? (
+    (activeTrip.status === 'IN_PROGRESS' || activeTrip.status === 'CANCELED') 
+      ? activeTrip.destCoords 
+      : activeTrip.originCoords
+  ) : null;
+  const targetAddress = activeTrip ? (
+    (activeTrip.status === 'IN_PROGRESS' || activeTrip.status === 'CANCELED')
+      ? activeTrip.destAddress
+      : activeTrip.originAddress
+  ) : '';
+
+  const distanceToTarget = (targetCoordsStr && driverLoc) ? (() => {
+    const [tLat, tLon] = targetCoordsStr.split(',').map(Number);
+    return haversine(driverLoc.lat, driverLoc.lon, tLat, tLon).toFixed(1);
+  })() : '0.0';
 
   // Modal State
   const [modalConfig, setModalConfig] = useState({
@@ -130,6 +149,7 @@ export default function DriverHomeView() {
   const handleAcknowledgeRefusal = () => {
     setActiveTrip(null);
     setRouteCoords([]);
+    setEta(null);
     fetchData();
   };
 
@@ -148,7 +168,7 @@ export default function DriverHomeView() {
       const { data: allTrips } = await listTrips();
       let myActive = allTrips.find(t => 
         t.driver_id === user.id && 
-        ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+        ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
       );
 
       // If no active trip, but we HAD one, check if it was canceled
@@ -172,6 +192,7 @@ export default function DriverHomeView() {
       } else {
         setActiveTrip(null);
         setRouteCoords([]);
+        setEta(null);
         const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
         setTrips(pending);
       }
@@ -308,6 +329,17 @@ export default function DriverHomeView() {
     );
   };
 
+  const handleEmitInvoice = async () => {
+    if (!activeTrip) return;
+    try {
+      await emitInvoice(activeTrip.id);
+      fetchData();
+    } catch (err) {
+      console.error('Error emitting invoice:', err);
+      alert('Erro ao emitir fatura.');
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
       fetchData();
@@ -372,6 +404,9 @@ export default function DriverHomeView() {
             const o = origin.split(',').map(Number);
             const d = dest.split(',').map(Number);
             setRouteCoords([[o[0], o[1]], [d[0], d[1]]]);
+          }
+          if (data.duration) {
+            setEta(Math.round(data.duration / 60));
           }
           lastFetchedRouteKey.current = routeKey;
         } catch (err) {
@@ -441,130 +476,112 @@ export default function DriverHomeView() {
         </MapContainer>
       </div>
 
-      <motion.div
-        className="bottom-sheet draggable-sheet"
-        initial="closed"
-        animate={sheetState}
-        variants={sheetVariants}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.1}
-        onDragEnd={(e, info) => {
-          if (info.offset.y < -30) setSheetState('open');
-          else if (info.offset.y > 30) setSheetState('closed');
-        }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      >
-        <div className="sheet-handle-wrapper" onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}>
-          <div className="sheet-handle"></div>
-        </div>
-
-        <div className="sheet-header">
-          <h2 className="sheet-title">
-            {activeTrip ? 'Viagem Ativa' : 'Escolher Passageiro'}
-          </h2>
-        </div>
-
-        <div className="passenger-list">
-          {activeTrip ? (
-            <div className="active-trip-card">
-              <div className="card-info">
-                <div className="card-top">
-                  <span className="passenger-name">{activeTrip.client_name}</span>
-                  <span className="trip-status-badge" style={activeTrip.status === 'CANCELED' ? { backgroundColor: '#ef4444' } : {}}>
-                    {activeTrip.status === 'CANCELED' ? 'Cancelada' :
-                     activeTrip.status === 'DRIVER_ACCEPTED' ? 'Aguardando Cliente' : 
-                     activeTrip.status === 'CLIENT_ACCEPTED' ? 'A caminho' : 'Em curso'}
-                  </span>
-                </div>
-                <div className="card-bottom">
-                  <div className="address-item">
-                    <MapPin size={16} className="text-red" />
-                    <span>{activeTrip.originAddress}</span>
-                  </div>
-                  {(activeTrip.status === 'IN_PROGRESS' || activeTrip.status === 'CANCELED') && (
-                    <div className="address-item">
-                      <Navigation size={16} className="text-green" />
-                      <span>{activeTrip.destAddress}</span>
-                    </div>
-                  )}
-                </div>
+      {activeTrip ? (
+        <div className="active-trip-permanent-bar">
+          <div className="active-bar-content">
+            <h3 className="active-client-name">{activeTrip.client_name}</h3>
+            
+            <div className="active-stats-row">
+              <div className="stat-item">
+                <Navigation size={18} />
+                <span>{distanceToTarget} km</span>
               </div>
-
-              <div className="active-trip-actions">
-                {activeTrip.status === 'CANCELED' ? (
-                  <div style={{ textAlign: 'center', width: '100%' }}>
-                    <div style={{ color: '#ef4444', fontWeight: '600', marginBottom: '15px' }}>
-                      O cliente recusou/cancelou a viagem.
-                    </div>
-                    <button className="btn-pickup" onClick={handleAcknowledgeRefusal} style={{ width: '100%' }}>
-                      Continuar
-                    </button>
-                  </div>
-                ) : activeTrip.status === 'DRIVER_ACCEPTED' ? (
-                  <div className="waiting-client-msg" style={{ 
-                    textAlign: 'center', 
-                    width: '100%', 
-                    padding: '15px', 
-                    background: '#f9f9f9', 
-                    borderRadius: '8px',
-                    border: '1px dashed #ccc',
-                    color: '#666',
-                    fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}>
-                    <Clock size={16} />
-                    Aguardando confirmação do cliente...
-                  </div>
-                ) : activeTrip.status === 'CLIENT_ACCEPTED' ? (
-                  <button className="btn-pickup" onClick={handlePickup}>
-                    <Navigation size={20} />
-                    Recolher Passageiro
-                  </button>
-                ) : (
-                  <button className="btn-complete" onClick={handleComplete}>
-                    <CheckCircle size={20} />
-                    Concluir Viagem
-                  </button>
-                )}
+              <div className="stat-item">
+                <Clock size={18} />
+                <span>{eta || '--'} min</span>
               </div>
             </div>
-          ) : trips.length === 0 ? (
-            <div className="no-trips">Nenhuma viagem pendente encontrada.</div>
-          ) : (
-            trips.map((trip, index) => {
-              let dist = '?';
-              if (trip.originCoords) {
-                const [tLat, tLon] = trip.originCoords.split(',').map(Number);
-                if (!isNaN(tLat) && !isNaN(tLon)) {
-                  dist = haversine(driverLoc.lat, driverLoc.lon, tLat, tLon).toFixed(1);
-                }
-              }
-              const color = pinColors[index % pinColors.length];
 
-              return (
-                <div key={trip.id} className="passenger-card" onClick={() => handleAccept(trip)}>
-                  <div className="card-icon" style={{ color }}>
-                    <MapPin size={24} fill="currentColor" />
-                  </div>
-                  <div className="card-info">
-                    <div className="card-top">
-                      <span className="passenger-name">{trip.client_name} - {dist}km de si</span>
-                    </div>
-                    <div className="card-bottom">
-                      <span className="passenger-address">{simplifyAddress(trip.originAddress)}</span>
-                      <span className="trip-distance">{trip.kilometers}km</span>
-                    </div>
-                  </div>
+            <div className="active-destination">
+              <MapPin size={18} className="text-green" />
+              <span>{simplifyAddress(targetAddress)}</span>
+            </div>
+
+            <div className="active-bar-actions">
+              {activeTrip.status === 'CANCELED' ? (
+                <button className="btn-pickup btn-full" onClick={handleAcknowledgeRefusal}>
+                  Viagem Cancelada - Continuar
+                </button>
+              ) : activeTrip.status === 'DRIVER_ACCEPTED' ? (
+                <div className="waiting-msg">Aguardando cliente...</div>
+              ) : activeTrip.status === 'WAITING_PAYMENT' ? (
+                <div className="waiting-msg" style={{ background: '#fdf2b3', color: '#856404' }}>
+                  Aguardando Pagamento...
                 </div>
-              );
-            })
-          )}
+              ) : activeTrip.status === 'PAID' ? (
+                <button className="btn-complete btn-full" onClick={handleEmitInvoice}>
+                  Emitir Fatura
+                </button>
+              ) : activeTrip.status === 'CLIENT_ACCEPTED' ? (
+                <button className="btn-pickup btn-full" onClick={handlePickup}>
+                  Recolher Passageiro
+                </button>
+              ) : (
+                <button className="btn-complete btn-full" onClick={handleComplete}>
+                  Concluir Viagem
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </motion.div>
+      ) : (
+        <motion.div
+          className="bottom-sheet draggable-sheet"
+          initial="closed"
+          animate={sheetState}
+          variants={sheetVariants}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(e, info) => {
+            if (info.offset.y < -30) setSheetState('open');
+            else if (info.offset.y > 30) setSheetState('closed');
+          }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        >
+          <div className="sheet-handle-wrapper" onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}>
+            <div className="sheet-handle"></div>
+          </div>
+
+          <div className="sheet-header">
+            <h2 className="sheet-title">Escolher Passageiro</h2>
+          </div>
+
+          <div className="passenger-list">
+            {trips.length === 0 ? (
+              <div className="no-trips">Nenhuma viagem pendente encontrada.</div>
+            ) : (
+              trips.map((trip, index) => {
+                let dist = '?';
+                if (trip.originCoords) {
+                  const [tLat, tLon] = trip.originCoords.split(',').map(Number);
+                  if (!isNaN(tLat) && !isNaN(tLon)) {
+                    dist = haversine(driverLoc.lat, driverLoc.lon, tLat, tLon).toFixed(1);
+                  }
+                }
+                const color = pinColors[index % pinColors.length];
+
+                return (
+                  <div key={trip.id} className="passenger-card" onClick={() => handleAccept(trip)}>
+                    <div className="card-icon" style={{ color }}>
+                      <MapPin size={24} fill="currentColor" />
+                    </div>
+                    <div className="card-info">
+                      <div className="card-top">
+                        <span className="passenger-name">{trip.client_name} - {dist}km de si</span>
+                      </div>
+                      <div className="card-bottom">
+                        <span className="passenger-address">{simplifyAddress(trip.originAddress)}</span>
+                        <span className="trip-distance">{trip.kilometers}km</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+      )}
 
       <ConfirmationModal 
         isOpen={modalConfig.isOpen}

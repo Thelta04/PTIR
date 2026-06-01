@@ -1,4 +1,4 @@
-# PTIR System — Frontend Architecture & Backend Integration
+# PTIR System - Frontend Architecture & Backend Integration
 
 This document serves as a deep dive into how the React frontend operates, maintains user sessions, and seamlessly bridges communication with the Django API backend.
 
@@ -55,4 +55,4 @@ When running the `docker-compose up` stack, the methodology shifts:
 3. **Await:** React places a placeholder or spinner natively via state (`loading = true`).
 4. **Resolution (`.then()`):** The backend serves JSON. React receives it, and writes the array of Taxi objects natively into its localized state (e.g., `setData(d => ({ ...d, taxis: res.data }))`).
 5. **Render:** The DOM dynamically forces the `<table className="data-table">` to map down through the array, spilling the rows sequentially onto the screen.
-6. **Toast Feedback:** A quick micro-interaction (e.g. `✅ Fetched 3 taxi records`) is pushed into the DOM using a simple `setTimeout()` to visually confirm data propagation to the user.
+6. **Toast Feedback:** A quick micro-interaction (e.g. ` Fetched 3 taxi records`) is pushed into the DOM using a simple `setTimeout()` to visually confirm data propagation to the user.

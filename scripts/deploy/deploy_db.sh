@@ -44,4 +44,4 @@ else
     echo "WARNING: No WebApp instances found to verify DB reachability."
 fi
 
-echo "Database deployment successful!"
+echo "Database deployment successful"

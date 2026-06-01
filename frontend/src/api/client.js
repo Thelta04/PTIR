@@ -93,8 +93,13 @@ export const listDrivers = () => api.get('driver/');
 export const createDriver = (data) =>
   api.post('auth/create/driver/', data);
 
+export const updateDriver = (id, data) =>
+  api.patch(`driver/${id}/update/`, data);
+
 export const toggleUserStatus = (id) => api.patch(`user/${id}/toggle-status/`);
-export const deleteUser = (id) => api.delete(`user/${id}/delete/`);
+// deleteUser optionally accepts managerPassword (required by backend for manager-only deletions)
+export const deleteUser = (id, managerPassword) =>
+  api.delete(`user/${id}/delete/`, { data: managerPassword ? { manager_password: managerPassword } : {} });
 
 // -- Taxis ---------------------------------------
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
@@ -117,6 +122,13 @@ export const listTrips = (status) => {
   return api.get('trip/', { params });
 };
 
+export const getReports = (start_date, end_date) => {
+  const params = {};
+  if (start_date) params.start_date = start_date;
+  if (end_date) params.end_date = end_date;
+  return api.get('reports/', { params });
+};
+
 export const listPendingTrips = (driverId, lat, lon) => {
   const params = { status: 'PENDING', driver_id: driverId, lat, lon };
   return api.get('trip/', { params });
@@ -128,6 +140,12 @@ export const acceptTrip = (id, driverId, shiftId) =>
 export const clientAcceptTrip = (id) => api.patch(`trip/${id}/client-accept/`);
 export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
 export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
+export const payMockTrip = (id) => api.patch(`trip/${id}/pay-mock/`);
+export const emitInvoice = (id) => api.patch(`trip/${id}/emit-invoice/`);
+export const startTripPayment = (id, successUrl, cancelUrl) => 
+  api.post(`trip/${id}/payment/start/`, { success_url: successUrl, cancel_url: cancelUrl });
+export const getTripPaymentStatus = (id, sessionId) => 
+  api.get(`trip/${id}/payment/status/`, { params: { session_id: sessionId } });
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 export const getPricing = () => api.get('pricing/');
