@@ -73,7 +73,7 @@ for INSTANCE in $WEBAPP_INSTANCES; do
         set -e
         chmod +x /tmp/setup_webapp.sh
         /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' '$FIRST_VM' '$INSTANCE'
-    " || { echo "ERROR: Deployment FAILED on $INSTANCE. Aborting rolling update!"; exit 1; }
+    " || { echo "ERROR: Deployment FAILED on $INSTANCE. Aborting rolling update"; exit 1; }
 
     FIRST_VM=false
 done
@@ -81,5 +81,5 @@ done
 # Cleanup local artifact
 rm -f /tmp/webapp_artifacts.tar.gz
 
-echo "WebApp deployment successful!"
+echo "WebApp deployment successful"
 echo "WEBAPP_IPS=$WEBAPP_IPS" # Useful for LB deployment if run manually

@@ -143,4 +143,4 @@ sudo chmod +x /usr/local/bin/lb_healthcheck.sh
 # Setup Cron Job (every minute)
 echo "* * * * * root /usr/local/bin/lb_healthcheck.sh >> /var/log/lb_healthcheck.log 2>&1" | sudo tee /etc/cron.d/lb_healthcheck
 
-echo "Load Balancer setup complete!"
+echo "Load Balancer setup complete"

@@ -93,7 +93,7 @@ class ClientCreateView(views.APIView):
             # Create the Client profile
             Client.objects.create(user=user)
             
-            return Response({"message": "Client created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Client created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
         
         # If validation fails (e.g. missing email), return 400 automatically
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -154,7 +154,7 @@ class DriverCreateView(views.APIView):
                 birth_year=data['birth_year']
             )
             
-            return Response({"message": "Driver created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Driver created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DriverDetailView(views.APIView):
@@ -282,7 +282,7 @@ class ManagerCreateView(views.APIView):
             )
             Manager.objects.create(user=user)
             
-            return Response({"message": "Manager created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Manager created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiCreateView(views.APIView):
@@ -305,7 +305,7 @@ class TaxiCreateView(views.APIView):
             serializer.save()
             
             return Response({
-                "message": "Taxi createed successfully in the fleet!",
+                "message": "Taxi createed successfully in the fleet",
                 "license_plate": serializer.data['license_plate']
             }, status=status.HTTP_201_CREATED)
             
@@ -436,7 +436,7 @@ class ShiftCreateView(views.APIView):
                         taxi=taxi,
                         scheduled_interval=interval
                     )
-                return Response({"message": "Shift created successfully!", "shift_id": shift.id}, status=status.HTTP_201_CREATED)
+                return Response({"message": "Shift created successfully", "shift_id": shift.id}, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -610,7 +610,7 @@ class LoginView(views.APIView):
             return Response({"error": "User has no associated profile."}, status=status.HTTP_403_FORBIDDEN)
 
         response_data = {
-            "message": "Login successful!",
+            "message": "Login successful",
             "id": user.id,
             "name": user.name,
             "email": user.email,

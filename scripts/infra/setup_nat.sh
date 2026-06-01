@@ -23,4 +23,4 @@ gcloud compute routers nats create "${NETWORK}-nat" \
     --nat-all-subnet-ip-ranges \
     --quiet 2>/dev/null || echo "NAT ${NETWORK}-nat already exists."
 
-echo "Cloud NAT setup complete!"
+echo "Cloud NAT setup complete"

@@ -105,7 +105,7 @@ else
         done
 
         if [ "$SUCCESS" = "false" ]; then
-            echo "ERROR: Failed to clone database from primary!"
+            echo "ERROR: Failed to clone database from primary"
             exit 1
         fi
         
@@ -124,4 +124,4 @@ if [ -f "/tmp/db_healthcheck.sh" ]; then
     echo "Healthcheck scheduled for primary $PRIMARY_IP."
 fi
 
-echo "Database setup complete ($MODE)!"
+echo "Database setup complete ($MODE)"

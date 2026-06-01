@@ -312,7 +312,7 @@ class TripAcceptSerializer(serializers.Serializer):
         return value
 
 class TripCancelSerializer(serializers.Serializer):
-    # Sem body obrigatório — apenas valida que a viagem pode ser cancelada (feito na view)
+    # Sem body obrigatório - apenas valida que a viagem pode ser cancelada (feito na view)
     reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 class TripCompleteSerializer(serializers.ModelSerializer):

@@ -54,7 +54,7 @@ class JWTAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return None  # No JWT present — let other auth backends try
+            return None  # No JWT present - let other auth backends try
 
         token = auth_header.split(' ', 1)[1]
         payload = decode_token(token, expected_type='access')
