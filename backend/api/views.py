@@ -1535,6 +1535,96 @@ class StripeWebhookView(views.APIView):
                     pass
 
         return Response({"received": True}, status=status.HTTP_200_OK)
+
+
+class InvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices",
+        description="Returns all issued invoices, ordered by most recent date and invoice number.",
+        responses={200: InvoiceSerializer(many=True)}
+    )
+    def get(self, request):
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class InvoiceDetailView(views.APIView):
+    @extend_schema(
+        summary="Get invoice details",
+        description="Returns one invoice by id. In this schema, the invoice id is the trip id.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='InvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TripInvoiceView(views.APIView):
+    @extend_schema(
+        summary="Get invoice from trip",
+        description="Returns the invoice issued for a specific trip.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='TripInvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found for this trip."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientInvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices from a client",
+        description="Returns all invoices issued for trips requested by a specific client user ID.",
+        responses={
+            200: InvoiceSerializer(many=True),
+            404: inline_serializer(name='ClientInvoiceClientNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).filter(trip__client__user_id=id).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 
 class RefuelListCreateView(views.APIView):
