@@ -93,13 +93,8 @@ export const listDrivers = () => api.get('driver/');
 export const createDriver = (data) =>
   api.post('auth/create/driver/', data);
 
-export const updateDriver = (id, data) =>
-  api.patch(`driver/${id}/update/`, data);
-
 export const toggleUserStatus = (id) => api.patch(`user/${id}/toggle-status/`);
-// deleteUser optionally accepts managerPassword (required by backend for manager-only deletions)
-export const deleteUser = (id, managerPassword) =>
-  api.delete(`user/${id}/delete/`, { data: managerPassword ? { manager_password: managerPassword } : {} });
+export const deleteUser = (id) => api.delete(`user/${id}/delete/`);
 
 // -- Taxis ---------------------------------------
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
@@ -120,13 +115,6 @@ export const deleteShift = (id) => api.delete(`shift/${id}/delete/`);
 export const listTrips = (status) => {
   const params = status ? { status } : {};
   return api.get('trip/', { params });
-};
-
-export const getReports = (start_date, end_date) => {
-  const params = {};
-  if (start_date) params.start_date = start_date;
-  if (end_date) params.end_date = end_date;
-  return api.get('reports/', { params });
 };
 
 export const listPendingTrips = (driverId, lat, lon) => {
