@@ -53,6 +53,17 @@ class CreateDriverSerializer(serializers.Serializer):
         except ValueError:
             raise serializers.ValidationError("Invalid year format.")
         return value
+    def validate_nif(self, value):
+        # ensure nif not already taken
+        from .models import User
+        if User.objects.filter(nif=value).exists():
+            raise serializers.ValidationError("NIF already registered.")
+        return value
+    def validate_email(self, value):
+        from .models import User
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already registered.")
+        return value
 
 class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
@@ -61,12 +72,36 @@ class CreateClientSerializer(serializers.Serializer):
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
+    def validate_nif(self, value):
+        from .models import User
+        if User.objects.filter(nif=value).exists():
+            raise serializers.ValidationError("NIF already registered.")
+        return value
+
+    def validate_email(self, value):
+        from .models import User
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already registered.")
+        return value
+
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+
+    def validate_nif(self, value):
+        from .models import User
+        if User.objects.filter(nif=value).exists():
+            raise serializers.ValidationError("NIF already registered.")
+        return value
+
+    def validate_email(self, value):
+        from .models import User
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already registered.")
+        return value
 
 class CreateTaxiSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(max_length=8)

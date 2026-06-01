@@ -59,6 +59,11 @@ urlpatterns = [
 
     # Refuels
     path('refuels/', views.RefuelListCreateView.as_view(), name='refuels'),
+    # Reports
+    path('reports/', views.ReportsView.as_view(), name='reports'),
+    path('reports/reabastecimento', views.RefuelReportView.as_view(), name='reports_refuels'),
+    path('reports/taxis', views.TaxisReportView.as_view(), name='reports_taxis'),
+    path('reports/clients', views.ClientsReportView.as_view(), name='reports_clients'),
 
 
     # Health Check

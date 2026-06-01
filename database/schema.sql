@@ -24,11 +24,11 @@ CREATE TABLE user_account (
 );
 
 -- DRIVER 
-CREATE TABLE driver (
-    id_user INTEGER PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE, 
-    license_number VARCHAR(12) NOT NULL,
-    birth_year INT NOT NULL
-);
+                                                                                                                                                                                                                                                    CREATE TABLE driver (
+                                                                                                                                                                                                                                                        id_user INTEGER PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE, 
+                                                                                                                                                                                                                                                        license_number VARCHAR(12) NOT NULL,
+                                                                                                                                                                                                                                                        birth_year INT NOT NULL
+                                                                                                                                                                                                                                                    );
 
 -- MANAGER
 CREATE TABLE manager (
