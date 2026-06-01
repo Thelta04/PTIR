@@ -99,6 +99,8 @@ class ClientCreateView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ClientDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
     @extend_schema(
         summary="Get Client details",
         description="Returns the detailed information of a specific client based on the user ID.",
@@ -116,6 +118,68 @@ class ClientDetailView(views.APIView):
         
         serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update Client (Manager only)",
+        description="Updates a client's user data. Requires a valid Manager JWT token.",
+        request=ClientUpdateSerializer,
+        responses={
+            200: UserSerializer,
+            403: inline_serializer(name="ClientUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ClientUpdateSerializer(data=request.data, partial=True, context={'client': client})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = client.user
+
+        for field in ['nif', 'name', 'email', 'gender', 'password']:
+            if field in data:
+                setattr(user, field, data[field])
+        user.save()
+
+        return Response(UserSerializer(client).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Delete Client (Manager only)",
+        description="Deletes a client if they have no associated trips. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="ClientDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientDeleteNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def delete(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if Trip.objects.filter(client=client).exists():
+            return Response({"error": "Cannot delete a client that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        client.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ClientListView(views.APIView):
     @extend_schema(

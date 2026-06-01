@@ -97,6 +97,25 @@ class CreateClientSerializer(serializers.Serializer):
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
+class ClientUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+
+    def validate(self, data):
+        client = self.context.get('client')
+        user = client.user if client else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        return data
+
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
