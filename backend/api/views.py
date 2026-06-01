@@ -746,6 +746,48 @@ class TokenRefreshView(views.APIView):
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 # Trips
+class ClientTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a client",
+        description="Returns all trips requested by a specific client user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(client__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DriverTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a driver",
+        description="Returns all trips assigned to a specific driver user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Driver.objects.filter(user__id=id).exists():
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(shift__driver__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class TripListView(views.APIView):
     @extend_schema(
         summary="List all trips",

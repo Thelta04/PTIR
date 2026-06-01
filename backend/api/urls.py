@@ -45,6 +45,8 @@ urlpatterns = [
     
     # Trips (viagens)
     path('trip/', views.TripListView.as_view(), name='list_trips'),
+    path('client/<int:id>/trips/', views.ClientTripListView.as_view(), name='list_client_trips'),
+    path('driver/<int:id>/trips/', views.DriverTripListView.as_view(), name='list_driver_trips'),
     path('trip/create/', views.TripCreateView.as_view(), name='create_trip'),
     path('trip/<int:id>/accept/', views.TripAcceptView.as_view(), name='accept_trip_driver'),
     path('trip/<int:id>/cancel/', views.TripCancelView.as_view(), name='cancel_trip'),
