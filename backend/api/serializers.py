@@ -53,6 +53,7 @@ class CreateDriverSerializer(serializers.Serializer):
         except ValueError:
             raise serializers.ValidationError("Invalid year format.")
         return value
+        
     def validate_nif(self, value):
         # ensure nif not already taken
         from .models import User
