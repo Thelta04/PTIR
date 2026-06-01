@@ -605,32 +605,82 @@
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-/* Active Trip Styles */
-.active-trip-card {
-  background: #fdfdfd;
-  border-radius: 12px;
+/* Active Trip Permanent Bar Styles */
+.active-trip-permanent-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
   padding: 1.5rem;
-  border: 1px solid #e5e7eb;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.active-bar-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 7px;
+  align-items: center;
+  max-width: 500px;
+  margin: 0 auto;
 }
 
-.trip-status-badge {
-  background: #3b82f6;
-  color: #fff;
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
-  font-size: 0.85rem;
-  font-weight: 600;
+.active-client-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #111;
+  margin: 0;
+  text-align: center;
 }
 
-.address-item {
+.active-stats-row {
   display: flex;
-  align-items: flex-start;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.active-destination {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
   font-size: 1rem;
   color: #4b5563;
+  background: #f9f9f9;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.active-bar-actions {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.waiting-msg {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
+  font-style: italic;
+  background: #f0f0f0;
+  border-radius: 8px;
 }
 
 .text-red {
@@ -639,12 +689,6 @@
 
 .text-green {
   color: #10b981;
-}
-
-.active-trip-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
 }
 
 .btn-pickup,

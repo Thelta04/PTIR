@@ -17,6 +17,7 @@ except ImportError:
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling
 from .serializers import *
 from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
+# pyrefly: ignore [missing-import]
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Rating, Invoice
@@ -28,6 +29,7 @@ from .serializers import (
     TripListSerializer, TripCreateSerializer, RatingListSerializer,
     RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer
 )
+from django.db import IntegrityError
 
 
  
@@ -86,19 +88,22 @@ class ClientCreateView(views.APIView):
             data = serializer.validated_data
             
             # Create the base User
-            user = User.objects.create(
-                nif=data['nif'], name=data['name'], email=data['email'],
-                gender=data['gender'], password=data['password']
-            )
-            # Create the Client profile
-            Client.objects.create(user=user)
-            
-            return Response({"message": "Client created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
+            try:
+                user = User.objects.create(
+                    nif=data['nif'], name=data['name'], email=data['email'],
+                    gender=data['gender'], password=data['password']
+                )
+                Client.objects.create(user=user)
+                return Response({"message": "Client created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            except IntegrityError as e:
+                return Response({"error": "A user with the same NIF or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
         
         # If validation fails (e.g. missing email), return 400 automatically
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ClientDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
     @extend_schema(
         summary="Get Client details",
         description="Returns the detailed information of a specific client based on the user ID.",
@@ -116,6 +121,68 @@ class ClientDetailView(views.APIView):
         
         serializer = UserSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update Client (Manager only)",
+        description="Updates a client's user data. Requires a valid Manager JWT token.",
+        request=ClientUpdateSerializer,
+        responses={
+            200: UserSerializer,
+            403: inline_serializer(name="ClientUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ClientUpdateSerializer(data=request.data, partial=True, context={'client': client})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = client.user
+
+        for field in ['nif', 'name', 'email', 'gender', 'password']:
+            if field in data:
+                setattr(user, field, data[field])
+        user.save()
+
+        return Response(UserSerializer(client).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Delete Client (Manager only)",
+        description="Deletes a client if they have no associated trips. Requires a valid Manager JWT token.",
+        request=None,
+        responses={
+            204: None,
+            403: inline_serializer(name="ClientDeleteForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ClientDeleteNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def delete(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            client = Client.objects.select_related('user').get(user__id=id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if Trip.objects.filter(client=client).exists():
+            return Response({"error": "Cannot delete a client that has associated trips."}, status=status.HTTP_403_FORBIDDEN)
+
+        client.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ClientListView(views.APIView):
     @extend_schema(
@@ -143,18 +210,20 @@ class DriverCreateView(views.APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            user = User.objects.create(
-                nif=data['nif'], name=data['name'], email=data['email'],
-                gender=data['gender'], password=data['password']
-            )
-            Client.objects.create(user=user)
-            Driver.objects.create(
-                user=user, 
-                license_number=data['license_number'], 
-                birth_year=data['birth_year']
-            )
-            
-            return Response({"message": "Driver created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
+            try:
+                user = User.objects.create(
+                    nif=data['nif'], name=data['name'], email=data['email'],
+                    gender=data['gender'], password=data['password']
+                )
+                Client.objects.create(user=user)
+                Driver.objects.create(
+                    user=user, 
+                    license_number=data['license_number'], 
+                    birth_year=data['birth_year']
+                )
+                return Response({"message": "Driver created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                return Response({"error": "A user with the same NIF or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DriverDetailView(views.APIView):
@@ -275,14 +344,15 @@ class ManagerCreateView(views.APIView):
         serializer = CreateManagerSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
-            
-            user = User.objects.create(
-                nif=data['nif'], name=data['name'], email=data['email'],
-                gender=data['gender'], password=data['password']
-            )
-            Manager.objects.create(user=user)
-            
-            return Response({"message": "Manager created successfully", "id": user.id}, status=status.HTTP_201_CREATED)
+            try:
+                user = User.objects.create(
+                    nif=data['nif'], name=data['name'], email=data['email'],
+                    gender=data['gender'], password=data['password']
+                )
+                Manager.objects.create(user=user)
+                return Response({"message": "Manager created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                return Response({"error": "A user with the same NIF or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaxiCreateView(views.APIView):
@@ -615,7 +685,8 @@ class LoginView(views.APIView):
             "name": user.name,
             "email": user.email,
             "type": user_type,
-            "profile_pic": user.profile_pic,
+            # avoid direct attribute access in case DB column is missing after merges
+            "profile_pic": getattr(user, 'profile_pic', None),
             "gender": user.gender,
         }
 
@@ -661,6 +732,9 @@ class UserProfilePicUpdateView(views.APIView):
     def patch(self, request, id):
         if request.user.id != id and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only update your own profile picture."}, status=status.HTTP_403_FORBIDDEN)
+        # Ensure the User model actually has the profile_pic field in the DB
+        if 'profile_pic' not in [f.name for f in User._meta.get_fields()]:
+            return Response({"error": "profile_pic feature is not available in the database. Run migrations to enable it."}, status=status.HTTP_400_BAD_REQUEST)
 
         profile_pic = request.data.get('profile_pic')
         if profile_pic is None:
@@ -679,13 +753,18 @@ class UserProfilePicUpdateView(views.APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        user.profile_pic = profile_pic
-        user.save(update_fields=['profile_pic'])
+        # Set attribute and save; wrap in try/except in case DB doesn't have column (safety)
+        try:
+            setattr(user, 'profile_pic', profile_pic)
+            user.save(update_fields=['profile_pic'])
+            current_pfp = getattr(user, 'profile_pic', None)
+        except Exception:
+            return Response({"error": "Failed to update profile picture; database column may be missing."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             "message": "Profile picture updated successfully.",
             "id": user.id,
-            "profile_pic": user.profile_pic,
+            "profile_pic": current_pfp,
         }, status=status.HTTP_200_OK)
     
 class BanView(views.APIView):
@@ -746,6 +825,48 @@ class TokenRefreshView(views.APIView):
             return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 # Trips
+class ClientTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a client",
+        description="Returns all trips requested by a specific client user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(client__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DriverTripListView(views.APIView):
+    @extend_schema(
+        summary="List trips from a driver",
+        description="Returns all trips assigned to a specific driver user ID.",
+        responses={200: TripListSerializer(many=True)}
+    )
+    def get(self, request, id):
+        if not Driver.objects.filter(user__id=id).exists():
+            return Response({"error": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trips = Trip.objects.select_related(
+            'client__user',
+            'shift__driver__user',
+            'shift__taxi',
+            'interval'
+        ).filter(shift__driver__user_id=id).order_by('-interval__start_time')
+
+        serializer = TripListSerializer(trips, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class TripListView(views.APIView):
     @extend_schema(
         summary="List all trips",
@@ -949,7 +1070,7 @@ class TripCreateView(views.APIView):
         except Client.DoesNotExist:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS']
+        active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID']
         if Trip.objects.filter(client=client, status__in=active_statuses).exists():
             return Response(
                 {"error": "Client already has an active trip."},
@@ -988,6 +1109,196 @@ class TripCreateView(views.APIView):
         
         response_serializer = TripListSerializer(trip)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+# --- Reports endpoints
+class ReportsView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @extend_schema(
+        summary="Aggregated trips report",
+        description="Returns totals and subtotals (by driver and taxi) for completed trips in a date range.",
+        responses={200: inline_serializer(name='ReportsResponse', fields={
+            'total_trips': serializers.IntegerField(),
+            'total_hours': serializers.FloatField(),
+            'total_kilometers': serializers.FloatField(),
+            'by_driver': serializers.ListField(child=serializers.DictField()),
+            'by_taxi': serializers.ListField(child=serializers.DictField()),
+        })}
+    )
+    def get(self, request):
+        start = request.query_params.get('start_date')
+        end = request.query_params.get('end_date')
+        if not start or not end:
+            return Response({'error': 'start_date and end_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from datetime import date
+            start_date = date.fromisoformat(start)
+            end_date = date.fromisoformat(end)
+        except Exception:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        trips = Trip.objects.select_related('interval', 'shift__driver__user', 'shift__taxi').filter(
+            status='COMPLETED',
+            interval__start_time__date__gte=start_date,
+            interval__start_time__date__lte=end_date
+        )
+
+        total_trips = trips.count()
+        total_kilometers = 0.0
+        total_hours = 0.0
+
+        by_driver = {}
+        by_taxi = {}
+
+        for t in trips:
+            kms = float(t.kilometers or 0)
+            total_kilometers += kms
+            if t.interval and t.interval.end_time and t.interval.start_time:
+                delta = t.interval.end_time - t.interval.start_time
+                hrs = delta.total_seconds() / 3600.0
+            else:
+                hrs = 0.0
+            total_hours += hrs
+
+            # driver grouping
+            driver = getattr(t.shift, 'driver', None)
+            if driver:
+                d_id = driver.user.id
+                d_name = driver.user.name
+                if d_id not in by_driver:
+                    by_driver[d_id] = {'driver_id': d_id, 'driver_name': d_name, 'trips': 0, 'hours': 0.0, 'kilometers': 0.0}
+                by_driver[d_id]['trips'] += 1
+                by_driver[d_id]['hours'] += hrs
+                by_driver[d_id]['kilometers'] += kms
+
+            # taxi grouping
+            taxi = getattr(t.shift, 'taxi', None)
+            if taxi:
+                plate = taxi.license_plate
+                if plate not in by_taxi:
+                    by_taxi[plate] = {'taxi_plate': plate, 'trips': 0, 'hours': 0.0, 'kilometers': 0.0}
+                by_taxi[plate]['trips'] += 1
+                by_taxi[plate]['hours'] += hrs
+                by_taxi[plate]['kilometers'] += kms
+
+        by_driver_list = list(by_driver.values())
+        by_taxi_list = list(by_taxi.values())
+
+        by_driver_list.sort(key=lambda x: x['hours'], reverse=True)
+        by_taxi_list.sort(key=lambda x: x['hours'], reverse=True)
+
+        return Response({
+            'total_trips': total_trips,
+            'total_hours': total_hours,
+            'total_kilometers': total_kilometers,
+            'by_driver': by_driver_list,
+            'by_taxi': by_taxi_list,
+        }, status=status.HTTP_200_OK)
+
+
+class RefuelReportView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        start = request.query_params.get('time_start')
+        end = request.query_params.get('time_end')
+        if not start or not end:
+            return Response({'error': 'time_start and time_end are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from datetime import date
+            start_date = date.fromisoformat(start)
+            end_date = date.fromisoformat(end)
+        except Exception:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        refuels = Refueling.objects.filter(interval__start_time__date__gte=start_date, interval__start_time__date__lte=end_date)
+        total_reab = refuels.count()
+        total_litros = sum([float(r.liters or 0) for r in refuels])
+        total_preco = sum([float(r.cost or 0) for r in refuels])
+        total_kwh = sum([float(r.kwh or 0) for r in refuels])
+
+        return Response([{
+            'date_inicio': start,
+            'date_fim': end,
+            'total_reabastecimentos': total_reab,
+            'total_litros': total_litros,
+            'total_preco': total_preco,
+            'total_kwh': total_kwh,
+        }], status=status.HTTP_200_OK)
+
+
+class TaxisReportView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        start = request.query_params.get('time_start')
+        end = request.query_params.get('time_end')
+        if not start or not end:
+            return Response({'error': 'time_start and time_end are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from datetime import date
+            start_date = date.fromisoformat(start)
+            end_date = date.fromisoformat(end)
+        except Exception:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        trips = Trip.objects.filter(interval__start_time__date__gte=start_date, interval__start_time__date__lte=end_date, shift__taxi__isnull=False).select_related('shift__taxi')
+        taxis_map = {}
+        for t in trips:
+            taxi = t.shift.taxi
+            plate = taxi.license_plate
+            if plate not in taxis_map:
+                taxis_map[plate] = {'taxi_id': None, 'plate': plate, 'total_trips': 0, 'total_km': 0.0, 'active_days': set()}
+            taxis_map[plate]['total_trips'] += 1
+            taxis_map[plate]['total_km'] += float(t.kilometers or 0)
+            if t.interval and t.interval.start_time:
+                taxis_map[plate]['active_days'].add(t.interval.start_time.date())
+
+        result = []
+        for plate, v in taxis_map.items():
+            result.append({'taxi_id': None, 'plate': plate, 'total_trips': v['total_trips'], 'total_km': v['total_km'], 'active_days': len(v['active_days'])})
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class ClientsReportView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        start = request.query_params.get('time_start')
+        end = request.query_params.get('time_end')
+        if not start or not end:
+            return Response({'error': 'time_start and time_end are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from datetime import date
+            start_date = date.fromisoformat(start)
+            end_date = date.fromisoformat(end)
+        except Exception:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        trips = Trip.objects.filter(interval__start_time__date__gte=start_date, interval__start_time__date__lte=end_date).select_related('client__user')
+        clients_map = {}
+        for t in trips:
+            client = t.client
+            cid = client.user.id
+            if cid not in clients_map:
+                clients_map[cid] = {'client_id': cid, 'name': client.user.name, 'total_trips': 0, 'total_spent': 0.0, 'passengers': []}
+            clients_map[cid]['total_trips'] += 1
+            clients_map[cid]['total_spent'] += float(t.price or 0)
+            clients_map[cid]['passengers'].append(t.num_passengers or 0)
+
+        result = []
+        for cid, v in clients_map.items():
+            avg_pass = (sum(v['passengers']) / len(v['passengers'])) if v['passengers'] else 0
+            result.append({'client_id': cid, 'name': v['name'], 'total_trips': v['total_trips'], 'total_spent': v['total_spent'], 'average_passengers': avg_pass})
+
+        return Response(result, status=status.HTTP_200_OK)
     
 class TripAcceptView(views.APIView):
     @extend_schema(
@@ -1052,6 +1363,10 @@ class TripClientAcceptView(views.APIView):
                 {"error": f"Trip cannot be accepted. Current status: {trip.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Calculate and store fixed price at acceptance
+        _, duration_minutes = calculate_route_summary(trip.originCoords, trip.destCoords)
+        trip.price = calculate_price(duration_minutes, trip.comfort_level, timezone.now())
 
         trip.status = 'CLIENT_ACCEPTED'
         trip.save()
@@ -1249,22 +1564,65 @@ class TripCompleteView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Calcular duração em minutos e preço final
-        now = timezone.now()
-        start_time = trip.interval.start_time
-        if timezone.is_naive(start_time):
-            start_time = timezone.make_aware(start_time)
-            
-        minutes = (now - start_time).total_seconds() / 60
-        trip.price = calculate_price(minutes, trip.comfort_level, start_time)
-
         # Fechar o intervalo da viagem
+        now = timezone.now()
         trip.interval.end_time = now
         trip.interval.save()
 
+        trip.status = 'WAITING_PAYMENT'
+        trip.save()
+
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class TripPayMockView(views.APIView):
+    @extend_schema(
+        summary="Mock trip payment",
+        description="Transition trip from WAITING_PAYMENT to PAID.",
+        request=None,
+        responses={200: TripCompleteSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if trip.status != 'WAITING_PAYMENT':
+            return Response(
+                {"error": f"Trip cannot be paid. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        trip.status = 'PAID'
+        trip.save()
+
+        response_serializer = TripCompleteSerializer(trip)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class TripEmitInvoiceView(views.APIView):
+    @extend_schema(
+        summary="Emit invoice",
+        description="Driver emits invoice after payment. Transitions trip from PAID to COMPLETED.",
+        request=None,
+        responses={200: TripCompleteSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if trip.status != 'PAID':
+            return Response(
+                {"error": f"Trip cannot emit invoice. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        create_invoice_for_paid_trip(trip)
         trip.status = 'COMPLETED'
-        trip.interval.end_time = now
-        trip.interval.save()
         trip.save()
 
         response_serializer = TripCompleteSerializer(trip)
@@ -1342,8 +1700,8 @@ class TripPaymentStartView(views.APIView):
         if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only pay your own trips."}, status=status.HTTP_403_FORBIDDEN)
 
-        if trip.status != 'COMPLETED':
-            return Response({"error": "Only completed trips can be paid."}, status=status.HTTP_400_BAD_REQUEST)
+        if trip.status not in ['COMPLETED', 'WAITING_PAYMENT']:
+            return Response({"error": "Only completed or waiting payment trips can be paid."}, status=status.HTTP_400_BAD_REQUEST)
 
         if trip.price <= 0:
             return Response({"error": "Trip price must be positive."}, status=status.HTTP_400_BAD_REQUEST)
@@ -1439,7 +1797,12 @@ class TripPaymentStatusView(views.APIView):
         invoice = None
         invoice_created = False
         if checkout_session.payment_status == 'paid':
-            invoice, invoice_created = create_invoice_for_paid_trip(trip)
+            if trip.status == 'WAITING_PAYMENT':
+                trip.status = 'PAID'
+                trip.save()
+            # We don't create invoice automatically anymore, but we can check if it exists
+            invoice = Invoice.objects.filter(trip=trip).first()
+            invoice_created = invoice is not None
 
         return Response({
             "checkout_session_id": checkout_session.id,
@@ -1487,12 +1850,103 @@ class StripeWebhookView(views.APIView):
             trip_id = session.get('metadata', {}).get('trip_id')
             if trip_id and session.get('payment_status') == 'paid':
                 try:
-                    trip = Trip.objects.select_related('client__user').get(id=trip_id, status='COMPLETED')
-                    create_invoice_for_paid_trip(trip)
+                    trip = Trip.objects.select_related('client__user').get(id=trip_id, status='WAITING_PAYMENT')
+                    trip.status = 'PAID'
+                    trip.save()
                 except Trip.DoesNotExist:
                     pass
 
         return Response({"received": True}, status=status.HTTP_200_OK)
+
+
+class InvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices",
+        description="Returns all issued invoices, ordered by most recent date and invoice number.",
+        responses={200: InvoiceSerializer(many=True)}
+    )
+    def get(self, request):
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class InvoiceDetailView(views.APIView):
+    @extend_schema(
+        summary="Get invoice details",
+        description="Returns one invoice by id. In this schema, the invoice id is the trip id.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='InvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TripInvoiceView(views.APIView):
+    @extend_schema(
+        summary="Get invoice from trip",
+        description="Returns the invoice issued for a specific trip.",
+        responses={
+            200: InvoiceSerializer,
+            404: inline_serializer(name='TripInvoiceNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            invoice = Invoice.objects.select_related(
+                'trip__client__user',
+                'trip__shift__driver__user',
+                'trip__shift__taxi',
+                'trip__interval',
+            ).get(trip_id=id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found for this trip."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientInvoiceListView(views.APIView):
+    @extend_schema(
+        summary="List invoices from a client",
+        description="Returns all invoices issued for trips requested by a specific client user ID.",
+        responses={
+            200: InvoiceSerializer(many=True),
+            404: inline_serializer(name='ClientInvoiceClientNotFound', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        if not Client.objects.filter(user__id=id).exists():
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        invoices = Invoice.objects.select_related(
+            'trip__client__user',
+            'trip__shift__driver__user',
+            'trip__shift__taxi',
+            'trip__interval',
+        ).filter(trip__client__user_id=id).order_by('-date', '-number')
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 
 class RefuelListCreateView(views.APIView):

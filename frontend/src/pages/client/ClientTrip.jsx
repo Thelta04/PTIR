@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, payMockTrip, startTripPayment, getTripPaymentStatus } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -14,12 +14,18 @@ export default function ClientTrip() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { tripId, origem, destino } = location.state || {};
+  
+  const queryParams = new URLSearchParams(location.search);
+  const tripIdFromUrl = queryParams.get('trip_id');
+  
+  const [tripId, setTripId] = useState(location.state?.tripId || (tripIdFromUrl ? parseInt(tripIdFromUrl, 10) : null));
+  const origem = location.state?.origem;
+  const destino = location.state?.destino;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
   const activeTripRef = useRef(null);
-  const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'waiting_pickup', 'in_progress'
+  const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'waiting_pickup', 'in_progress', 'waiting_payment', 'paid'
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -74,12 +80,28 @@ export default function ClientTrip() {
     });
   };
 
-  // If no trip state, redirect back
+  // Recover tripId or redirect
   useEffect(() => {
-    if (!location.state || !tripId) {
-      navigate('/client');
+    if (!tripId) {
+      const recoverTrip = async () => {
+        try {
+          const { data } = await listTrips();
+          const mine = data.filter(t => 
+            t.client_id === user.id && 
+            ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
+          );
+          if (mine.length > 0) {
+            setTripId(mine[0].id);
+          } else {
+            navigate('/client');
+          }
+        } catch (err) {
+          navigate('/client');
+        }
+      };
+      recoverTrip();
     }
-  }, [location.state, navigate, tripId]);
+  }, [tripId, navigate, user.id]);
 
   // Polling for trip status
   useEffect(() => {
@@ -98,6 +120,10 @@ export default function ClientTrip() {
               setStatus('waiting_pickup');
             } else if (updatedTrip.status === 'IN_PROGRESS') {
               setStatus('in_progress');
+            } else if (updatedTrip.status === 'WAITING_PAYMENT') {
+              setStatus('waiting_payment');
+            } else if (updatedTrip.status === 'PAID') {
+              setStatus('paid');
             } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
               navigate('/client');
             }
@@ -114,6 +140,43 @@ export default function ClientTrip() {
     }
     return () => clearInterval(interval);
   }, [tripId, navigate]);
+
+  const handleStripePayment = async () => {
+    try {
+      const successUrl = `${window.location.origin}/client/trip?trip_id=${tripId}&payment_success=true&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${window.location.origin}/client/trip?trip_id=${tripId}&payment_cancel=true`;
+      
+      const { data } = await startTripPayment(tripId, successUrl, cancelUrl);
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      }
+    } catch (err) {
+      console.error('Stripe error:', err);
+      alert('Erro ao iniciar pagamento. Verifique se as chaves do Stripe estão configuradas no backend.');
+    }
+  };
+
+  // Handle return from Stripe
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const sessionId = query.get('session_id');
+    const isSuccess = query.get('payment_success');
+
+    if (sessionId && isSuccess && tripId) {
+      const verifyPayment = async () => {
+        try {
+          const { data } = await getTripPaymentStatus(tripId, sessionId);
+          if (data.paid) {
+            // Clear URL params to stop verifying, let polling show the PAID screen
+            navigate(location.pathname, { replace: true, state: { ...location.state, tripId } });
+          }
+        } catch (err) {
+          console.error('Payment verification error:', err);
+        }
+      };
+      verifyPayment();
+    }
+  }, [location.search, tripId, navigate]);
 
   const handleCancel = async () => {
     if (tripId) {
@@ -260,9 +323,9 @@ export default function ClientTrip() {
               <div className="car-icon">🚗</div>
             </div>
 
-            <div className="trip-specs" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr 1fr', 
+            <div className="trip-specs" style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
               gap: '10px',
               padding: '15px 0',
               borderTop: '1px solid #f0f0f0',
@@ -302,6 +365,19 @@ export default function ClientTrip() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="price-display-banner" style={{ 
+              background: '#fdf2b3', 
+              padding: '12px', 
+              borderRadius: '12px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '15px'
+            }}>
+              <span style={{ fontWeight: '700', color: '#856404', textTransform: 'uppercase', fontSize: '0.85rem' }}>Preço Fixo</span>
+              <span style={{ fontWeight: '900', fontSize: '1.4rem', color: '#000' }}>€{activeTrip?.price}</span>
             </div>
 
             <div className="panel-actions">
@@ -436,6 +512,74 @@ export default function ClientTrip() {
           </div>
         );
 
+      case 'paid':
+        return (
+          <div className="status-panel paid" style={{ textAlign: 'center' }}>
+            <div className="success-icon" style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
+            <h2 className="panel-title">Obrigada por viajar com a TUXY!</h2>
+            <p style={{ color: '#666', marginBottom: '15px' }}>O seu pagamento foi recebido com sucesso.</p>
+            <p style={{ color: '#666', marginBottom: '20px' }}>O motorista está a emitir a sua fatura.</p>
+            
+            <button 
+              className="panel-btn panel-btn--accept" 
+              onClick={() => navigate('/client')}
+              style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
+            >
+              VOLTAR AO INÍCIO
+            </button>
+          </div>
+        );
+
+      case 'waiting_payment':
+        return (
+          <div className="status-panel waiting-payment" style={{ textAlign: 'center' }}>
+            <h2 className="panel-title">Viagem Concluída</h2>
+            <p style={{ color: '#666', marginBottom: '15px' }}>Obrigado por viajar com a TUXY!</p>
+            
+            <div className="payment-summary" style={{ 
+              background: '#f9f9f9', 
+              padding: '20px', 
+              borderRadius: '16px', 
+              border: '2px solid #f1cf58',
+              marginBottom: '20px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontWeight: '600' }}>Preço Final:</span>
+                <span style={{ fontWeight: '800', fontSize: '1.2rem' }}>€{activeTrip?.price}</span>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                <div><strong>De:</strong> {simplifyAddress(activeTrip?.originAddress)}</div>
+                <div><strong>Para:</strong> {simplifyAddress(activeTrip?.destAddress)}</div>
+              </div>
+            </div>
+
+            <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                className="panel-btn panel-btn--accept" 
+                onClick={handleStripePayment}
+                style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
+              >
+                PAGAR COM STRIPE
+              </button>
+              
+              <button 
+                className="panel-btn panel-btn--refuse" 
+                onClick={async () => {
+                  try {
+                    await payMockTrip(tripId);
+                  } catch (err) {
+                    alert('Erro no pagamento mock.');
+                  }
+                }}
+                style={{ width: '100%', background: '#666' }}
+              >
+                MOCK PAYMENT (INSTANT)
+              </button>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="status-panel searching">
@@ -467,7 +611,7 @@ export default function ClientTrip() {
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
-          <span className="user-name-text">{user?.name}</span>
+          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
           <img 
             src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
             alt="Profile" 
