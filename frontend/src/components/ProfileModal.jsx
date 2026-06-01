@@ -1,15 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, ChevronLeft, Calendar, Info, Shield } from 'lucide-react';
+import { X, Mail, ChevronLeft, Calendar, Info, LogOut, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { PFPGrid } from './PFPSelector';
+import { listRatings } from '../api/client';
 import './ProfileModal.css';
 
-export default function ProfileModal({ isOpen, onClose }) {
-  const { user, updateUserPfp } = useAuth();
+export default function ProfileModal({ isOpen, onClose, forcedType }) {
+  const { user, updateUserPfp, logout } = useAuth();
   const [showPfpGrid, setShowPfpGrid] = useState(false);
+  const [avgRating, setAvgRating] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && user && user.type === 'DRIVER') {
+      const fetchRating = async () => {
+        try {
+          const { data } = await listRatings(user.id);
+          if (data.length > 0) {
+            const sum = data.reduce((acc, r) => acc + r.score, 0);
+            setAvgRating((sum / data.length).toFixed(1));
+          } else {
+            setAvgRating('N/A');
+          }
+        } catch (err) {
+          console.error('Error fetching ratings:', err);
+        }
+      };
+      fetchRating();
+    }
+  }, [isOpen, user]);
 
   if (!user) return null;
+
+  const displayType = forcedType || user.type;
 
   const handlePfpSelect = async (id) => {
     try {
@@ -60,7 +83,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                     </div>
                   </div>
                   <h2 className="profile-name">{user.name}</h2>
-                  <span className="profile-role-badge">{user.type === 'DRIVER' ? 'Motorista' : 'Cliente'}</span>
+                  <span className="profile-role-badge">{displayType === 'DRIVER' ? 'Motorista' : 'Cliente'}</span>
                 </div>
 
                 <div className="profile-details-list">
@@ -87,14 +110,21 @@ export default function ProfileModal({ isOpen, onClose }) {
                       </div>
                     </div>
                   )}
-                  <div className="profile-detail-item">
-                    <Shield size={18} className="profile-detail-icon" />
-                    <div className="profile-detail-text">
-                      <label>Tipo de Conta</label>
-                      <span>{user.type === 'DRIVER' ? 'Motorista' : 'Cliente'}</span>
+                  {user.type === 'DRIVER' && (
+                    <div className="profile-detail-item">
+                      <Star size={18} className="profile-detail-icon" fill={avgRating !== 'N/A' ? '#f1af3d' : 'none'} />
+                      <div className="profile-detail-text">
+                        <label>Classificação</label>
+                        <span>{avgRating ? `${avgRating} / 5.0` : 'A carregar...'}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
+
+                <button className="profile-logout-btn" onClick={logout}>
+                  <LogOut size={18} />
+                  <span>Terminar Sessão</span>
+                </button>
               </>
             ) : (
               <div className="profile-pfp-selection-view">

@@ -123,6 +123,13 @@ export default function DriverShiftsView() {
       return ended; // Completed
     }
   }).sort((a, b) => {
+    if (filter === 'active') {
+      const isAActive = a.real_interval !== null && a.real_interval.end_time === null;
+      const isBActive = b.real_interval !== null && b.real_interval.end_time === null;
+      if (isAActive && !isBActive) return -1;
+      if (!isAActive && isBActive) return 1;
+    }
+
     const dateA = new Date(a.scheduled_interval?.start_time);
     const dateB = new Date(b.scheduled_interval?.start_time);
     return filter === 'completed' ? dateB - dateA : dateA - dateB;

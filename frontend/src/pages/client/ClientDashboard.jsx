@@ -123,10 +123,12 @@ export default function ClientDashboard() {
         </div>
       </main>
 
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+        forcedType="CLIENT"
       />
+
     </div>
   );
 }

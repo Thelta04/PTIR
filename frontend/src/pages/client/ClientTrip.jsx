@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, payMockTrip, startTripPayment, getTripPaymentStatus, rateTrip } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -32,6 +32,8 @@ export default function ClientTrip() {
   const [loading, setLoading] = useState(true);
 
   const [driverPos, setDriverPos] = useState(null);
+  const [driverRating, setDriverRating] = useState('N/A');
+  const [driverRatingCount, setDriverRatingCount] = useState(0);
   const [routeCoords, setRouteCoords] = useState([]);
   const [eta, setEta] = useState(null);
   const lastFetchedRouteKey = useRef('');
@@ -184,13 +186,19 @@ export default function ClientTrip() {
 
   const handleCancel = async () => {
     if (tripId) {
-      try {
-        await cancelTrip(tripId);
-        navigate('/client');
-      } catch (error) {
-        console.error("Error canceling trip:", error);
-        alert("Erro ao cancelar viagem.");
-      }
+      showConfirm(
+        'Recusar Motorista?',
+        'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
+        async () => {
+          try {
+            await cancelTrip(tripId);
+            navigate('/client');
+          } catch (error) {
+            console.error("Error canceling trip:", error);
+            alert("Erro ao cancelar viagem.");
+          }
+        }
+      );
     } else {
       navigate('/client');
     }
@@ -300,6 +308,27 @@ export default function ClientTrip() {
     navigate('/login-client');
   };
 
+  useEffect(() => {
+    if (activeTrip?.driver_id) {
+      const fetchDriverRating = async () => {
+        try {
+          const { data } = await listRatings(activeTrip.driver_id);
+          if (data.length > 0) {
+            const sum = data.reduce((acc, r) => acc + r.score, 0);
+            setDriverRating((sum / data.length).toFixed(1));
+            setDriverRatingCount(data.length);
+          } else {
+            setDriverRating('N/A');
+            setDriverRatingCount(0);
+          }
+        } catch (err) {
+          console.error('Error fetching driver ratings:', err);
+        }
+      };
+      fetchDriverRating();
+    }
+  }, [activeTrip?.driver_id]);
+
   const translateEngine = (engine) => {
     if (!engine) return 'Elétrico';
     const mapping = {
@@ -326,7 +355,7 @@ export default function ClientTrip() {
                 <h3>{activeTrip?.driver_name || 'Motorista'}</h3>
                 <div className="rating">
                   <Star size={14} fill="#f1af3d" color="#f1af3d" />
-                  <span>4.9 (531)</span>
+                  <span>{driverRating} ({driverRatingCount})</span>
                 </div>
               </div>
             </div>
@@ -392,7 +421,7 @@ export default function ClientTrip() {
               alignItems: 'center',
               marginBottom: '15px'
             }}>
-              <span style={{ fontWeight: '700', color: '#856404', textTransform: 'uppercase', fontSize: '0.85rem' }}>Preço Fixo</span>
+              <span style={{ fontWeight: '700', color: '#856404', textTransform: 'uppercase', fontSize: '0.85rem' }}>Preço</span>
               <span style={{ fontWeight: '900', fontSize: '1.4rem', color: '#000' }}>€{activeTrip?.price}</span>
             </div>
 
@@ -410,7 +439,7 @@ export default function ClientTrip() {
       case 'waiting_pickup':
         return (
           <div className="status-panel waiting-pickup">
-            <h2 className="panel-title">O motorista está a caminho</h2>
+            <h2 className="panel-title" style={{ textAlign: 'center', width: '100%' }}>O motorista está a caminho</h2>
             
             {eta !== null && (
               <div style={{ 
@@ -418,7 +447,6 @@ export default function ClientTrip() {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 gap: '8px', 
-                color: '#f1af3d', 
                 fontWeight: '700', 
                 fontSize: '1.2rem',
                 margin: '10px 0'
@@ -428,43 +456,51 @@ export default function ClientTrip() {
               </div>
             )}
 
-            <div className="pickup-animation-container" style={{ 
-              position: 'relative', 
-              height: '60px', 
-              width: '100%', 
-              background: '#f9f9f9', 
-              borderRadius: '30px', 
-              margin: '15px 0',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 15px'
-            }}>
-              <div style={{ position: 'absolute', left: '0', right: '0', height: '2px', background: '#eee', zIndex: 1 }}></div>
+            <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
               <motion.div 
-                animate={{ x: [0, 250, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-                style={{ fontSize: '1.8rem', zIndex: 2 }}
-              >
-                🚕
-              </motion.div>
-              <div style={{ position: 'absolute', right: '15px', zIndex: 2 }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></div>
-              </div>
+                animate={{ 
+                  opacity: [0.3, 1, 0.3],
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: 3, 
+                  ease: "easeInOut" 
+                }}
+                style={{ 
+                  height: '8px', 
+                  width: '100%', 
+                  background: '#f1cf58', 
+                  borderRadius: '4px',
+                  boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
+                }}
+              />
             </div>
 
-            <div className="driver-mini-card">
+            <div className="driver-mini-card" style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'auto 1fr', 
+              gridTemplateRows: 'auto auto', 
+              gap: '4px 12px', 
+              alignItems: 'center',
+              padding: '12px 16px'
+            }}>
               <img 
                 src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
                 alt="Driver" 
                 className="user-pfp-small" 
-                style={{ width: '32px', height: '32px' }} 
+                style={{ width: '44px', height: '44px', gridRow: 'span 2' }} 
               />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <strong style={{ fontSize: '0.9rem' }}>{activeTrip?.driver_name}</strong>
-                <span style={{ fontSize: '0.8rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
+                <strong style={{ fontSize: '0.95rem' }}>{activeTrip?.driver_name}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', color: '#f1af3d', fontWeight: 'bold' }}>
+                  <Star size={10} fill="#f1af3d" color="#f1af3d" />
+                  {driverRating} ({driverRatingCount})
+                </div>
               </div>
-              <span className="plate-badge">{activeTrip?.taxi_plate}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
+                <span style={{ fontSize: '0.85rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+                <span className="plate-badge" style={{ margin: 0 }}>{activeTrip?.taxi_plate}</span>
+              </div>
             </div>
           </div>
         );
@@ -512,18 +548,31 @@ export default function ClientTrip() {
 
             <p style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>A caminho do seu destino...</p>
             
-            <div className="driver-mini-card">
+            <div className="driver-mini-card" style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'auto 1fr', 
+              gridTemplateRows: 'auto auto', 
+              gap: '4px 12px', 
+              alignItems: 'center',
+              padding: '12px 16px'
+            }}>
               <img 
                 src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
                 alt="Driver" 
                 className="user-pfp-small" 
-                style={{ width: '48px', height: '48px' }} 
+                style={{ width: '48px', height: '48px', gridRow: 'span 2' }} 
               />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
                 <strong style={{ fontSize: '1rem' }}>{activeTrip?.driver_name}</strong>
-                <span style={{ fontSize: '0.85rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#f1af3d', fontWeight: 'bold' }}>
+                  <Star size={12} fill="#f1af3d" color="#f1af3d" />
+                  {driverRating} ({driverRatingCount})
+                </div>
               </div>
-              <span className="plate-badge">{activeTrip?.taxi_plate}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
+                <span style={{ fontSize: '0.85rem', color: '#666' }}>{activeTrip?.taxi_brand} {activeTrip?.taxi_model}</span>
+                <span className="plate-badge" style={{ margin: 0 }}>{activeTrip?.taxi_plate}</span>
+              </div>
             </div>
           </div>
         );
@@ -556,7 +605,7 @@ export default function ClientTrip() {
                 <span style={{ fontWeight: '600' }}>Preço Final:</span>
                 <span style={{ fontWeight: '800', fontSize: '1.2rem' }}>€{activeTrip?.price}</span>
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+              <div style={{ fontSize: '0.9rem', color: '#666', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div><strong>De:</strong> {simplifyAddress(activeTrip?.originAddress)}</div>
                 <div><strong>Para:</strong> {simplifyAddress(activeTrip?.destAddress)}</div>
               </div>
@@ -566,23 +615,9 @@ export default function ClientTrip() {
               <button 
                 className="panel-btn panel-btn--accept" 
                 onClick={handleStripePayment}
-                style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
+                style={{ width: '100%', height: 'auto', padding: '18px 0', fontSize: '1.1rem' }}
               >
                 PAGAR COM STRIPE
-              </button>
-              
-              <button 
-                className="panel-btn panel-btn--refuse" 
-                onClick={async () => {
-                  try {
-                    await payMockTrip(tripId);
-                  } catch (err) {
-                    alert('Erro no pagamento mock.');
-                  }
-                }}
-                style={{ width: '100%', background: '#666' }}
-              >
-                MOCK PAYMENT (INSTANT)
               </button>
             </div>
           </div>
@@ -707,11 +742,11 @@ export default function ClientTrip() {
         onCancel={closeModal}
       />
 
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+        forcedType="CLIENT"
       />
-
       <RatingModal
         isOpen={isRatingModalOpen}
         onClose={() => handleRate(0)}

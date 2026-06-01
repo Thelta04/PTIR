@@ -2,36 +2,23 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Menu,
-  Search,
-  Bell,
-  LogOut,
-  Users,
-  Car,
-  CalendarClock,
-  BarChart3,
-  X,
-  User,
-  MapPin,
-  Trash2,
-  ShieldCheck,
-  ShieldAlert,
-  Edit2
+  Menu, Search, Bell, LogOut, Users, Car, CalendarClock, BarChart3, X, User, MapPin, Trash2, ShieldCheck, ShieldAlert, Edit2, Plus, Info, Star
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import {
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift,
   listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
-  deleteTaxi, updateTaxiMileage, updateDriver, getReports, getDriver, getTaxi
+  deleteTaxi, updateTaxiMileage, updateDriver, getReports
 } from '../../api/client';
+import './manager.css';
 
 const sidebarItems = [
-  { key: 'clients', label: 'Clients', icon: User },
-  { key: 'drivers', label: 'Drivers', icon: Users },
-  { key: 'taxis', label: 'Taxis', icon: Car },
-  { key: 'shifts', label: 'Shifts', icon: CalendarClock },
-  { key: 'trips', label: 'Trips', icon: MapPin },
-  { key: 'reports', label: 'Reports', icon: BarChart3 },
+  { key: 'clients', label: 'Clientes', icon: User },
+  { key: 'drivers', label: 'Motoristas', icon: Users },
+  { key: 'taxis', label: 'Táxis', icon: Car },
+  { key: 'shifts', label: 'Turnos', icon: CalendarClock },
+  { key: 'trips', label: 'Viagens', icon: MapPin },
+  { key: 'reports', label: 'Relatórios', icon: BarChart3 },
 ];
 
 export default function ManagerDashboard() {
@@ -70,47 +57,19 @@ export default function ManagerDashboard() {
     setLoading(true);
     setError('');
 
-    if (activeSection === 'clients') {
-      listClients()
+    const handlers = {
+      clients: listClients,
+      drivers: listDrivers,
+      taxis: listTaxis,
+      shifts: listAllShifts,
+      trips: listTrips
+    };
+
+    if (handlers[activeSection]) {
+      handlers[activeSection]()
         .then(res => {
-          setData(d => ({ ...d, clients: res.data }));
-          setApiStatus(`Fetched ${res.data.length} client records from API`);
-          setTimeout(() => setApiStatus(''), 4000);
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
-    } else if (activeSection === 'drivers') {
-      listDrivers()
-        .then(res => {
-          setData(d => ({ ...d, drivers: res.data }));
-          setApiStatus(`Fetched ${res.data.length} driver records from API`);
-          setTimeout(() => setApiStatus(''), 4000);
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
-    } else if (activeSection === 'taxis') {
-      listTaxis()
-        .then(res => {
-          setData(d => ({ ...d, taxis: res.data }));
-          setApiStatus(`Fetched ${res.data.length} taxi records from API`);
-          setTimeout(() => setApiStatus(''), 4000);
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
-    } else if (activeSection === 'shifts') {
-      listAllShifts()
-        .then(res => {
-          setData(d => ({ ...d, shifts: res.data }));
-          setApiStatus(`Fetched ${res.data.length} shift records from API`);
-          setTimeout(() => setApiStatus(''), 4000);
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
-    } else if (activeSection === 'trips') {
-      listTrips()
-        .then(res => {
-          setData(d => ({ ...d, trips: res.data }));
-          setApiStatus(`Fetched ${res.data.length} trip records from API`);
+          setData(d => ({ ...d, [activeSection]: res.data }));
+          setApiStatus(`Dados de ${activeSection} atualizados`);
           setTimeout(() => setApiStatus(''), 4000);
         })
         .catch(err => setError(err.message))
@@ -122,10 +81,9 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     fetchData();
-    setIsModalOpen(false); // Close modal when switching tabs
+    setIsModalOpen(false);
   }, [fetchData]);
 
-  // Make sure we have drivers and taxis for shift creation modal
   useEffect(() => {
     if (activeSection === 'shifts') {
       if (data.drivers.length === 0) listDrivers().then(res => setData(d => ({ ...d, drivers: res.data }))).catch(() => { });
@@ -143,6 +101,19 @@ export default function ManagerDashboard() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const formatError = (err) => {
+    if (!err) return '';
+    if (typeof err === 'string') return err;
+    if (typeof err === 'object') {
+      return Object.entries(err).map(([key, value]) => {
+        const field = key === 'non_field_errors' ? 'Erro' : (key.charAt(0).toUpperCase() + key.slice(1));
+        const msg = Array.isArray(value) ? value.join(' ') : value;
+        return `${field}: ${msg}`;
+      }).join('\n');
+    }
+    return 'Erro inesperado';
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -152,6 +123,8 @@ export default function ManagerDashboard() {
     if (formMode === 'edit-driver') {
       const payload = { ...formData };
       delete payload.id;
+      // If password is blank, don't send it to keep current
+      if (!payload.password) delete payload.password;
       request = updateDriver(formData.id, payload);
     } else if (activeSection === 'clients') {
       request = createClient(formData);
@@ -160,18 +133,13 @@ export default function ManagerDashboard() {
     } else if (activeSection === 'taxis') {
       request = createTaxi(formData);
     } else if (activeSection === 'shifts') {
-      const payload = {
-        ...formData,
-        driver_id: parseInt(formData.driver_id, 10)
-      };
+      const payload = { ...formData, driver_id: parseInt(formData.driver_id, 10) };
       request = createShift(payload);
     }
 
     if (request) {
       request
         .then(() => {
-          // After a successful create/update: close modal and clear form.
-          // User requested that creating a new client opens blank and the form closes on success.
           setIsModalOpen(false);
           setFormData({});
           setSubmitError('');
@@ -180,12 +148,9 @@ export default function ManagerDashboard() {
         })
         .catch(err => {
           const errData = err.response?.data;
-          const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-          setSubmitError(errorMsg || 'Error occurred');
+          setSubmitError(formatError(errData) || err.message);
         })
-        .finally(() => {
-          setSubmitting(false);
-        });
+        .finally(() => setSubmitting(false));
     }
   };
 
@@ -209,13 +174,9 @@ export default function ManagerDashboard() {
     setDeleting(true);
 
     let request;
-    if (itemToDelete.type === 'shift') {
-      request = deleteShift(itemToDelete.id);
-    } else if (itemToDelete.type === 'user') {
-      request = deleteUser(itemToDelete.id, managerPassword);
-    } else if (itemToDelete.type === 'taxi') {
-      request = deleteTaxi(itemToDelete.id);
-    }
+    if (itemToDelete.type === 'shift') request = deleteShift(itemToDelete.id);
+    else if (itemToDelete.type === 'user') request = deleteUser(itemToDelete.id, managerPassword);
+    else if (itemToDelete.type === 'taxi') request = deleteTaxi(itemToDelete.id);
 
     setDeleteError('');
     request
@@ -224,17 +185,15 @@ export default function ManagerDashboard() {
         setItemToDelete(null);
         setManagerPassword('');
         fetchData();
-        setApiStatus(`${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} deleted successfully`);
+        setApiStatus(`Item removido com sucesso`);
         setTimeout(() => setApiStatus(''), 4000);
       })
       .catch(err => {
         const errData = err.response?.data;
         const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-        setDeleteError(errorMsg || 'Failed to delete');
+        setDeleteError(errorMsg || 'Falha ao remover item');
       })
-      .finally(() => {
-        setDeleting(false);
-      });
+      .finally(() => setDeleting(false));
   };
 
   const handleUpdateMileage = (e) => {
@@ -247,143 +206,86 @@ export default function ManagerDashboard() {
         setTaxiToEditMileage(null);
         setNewMileage('');
         fetchData();
-        setApiStatus('Mileage updated successfully');
+        setApiStatus('Quilometragem atualizada');
         setTimeout(() => setApiStatus(''), 4000);
       })
       .catch(err => {
         const errData = err.response?.data;
         const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-        alert('Failed to update mileage: ' + errorMsg);
+        alert('Falha ao atualizar: ' + errorMsg);
       })
-      .finally(() => {
-        setUpdatingMileage(false);
-      });
+      .finally(() => setUpdatingMileage(false));
   };
 
   const handleToggleStatus = (id) => {
     toggleUserStatus(id)
       .then(res => {
-        setApiStatus(`User is now ${res.data.message}`);
+        setApiStatus(`Estado do utilizador atualizado`);
         fetchData();
         setTimeout(() => setApiStatus(''), 4000);
       })
-      .catch(err => {
-        alert('Failed to toggle status');
-      });
+      .catch(() => alert('Falha ao alterar estado'));
   };
 
   const renderFormFields = () => {
     if (activeSection === 'clients') {
       return (
-        <>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">NIF</label>
-            <input autoComplete="off" className="auth-input" name="nif" required onChange={handleInputChange} value={formData.nif || ''} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Name</label>
-            <input autoComplete="off" className="auth-input" name="name" required onChange={handleInputChange} value={formData.name || ''} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Email</label>
-            <input autoComplete="off" className="auth-input" type="email" name="email" required onChange={handleInputChange} value={formData.email || ''} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Gender</label>
-            <select autoComplete="off" className="auth-input" name="gender" required onChange={handleInputChange} value={formData.gender || ''}>
-              <option value="" disabled>Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="auth-field"><label className="auth-label">NIF</label><input className="auth-input" name="nif" required onChange={handleInputChange} value={formData.nif || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Nome</label><input className="auth-input" name="name" required onChange={handleInputChange} value={formData.name || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Email</label><input className="auth-input" type="email" name="email" required onChange={handleInputChange} value={formData.email || ''} /></div>
+          <div className="auth-field">
+            <label className="auth-label">Género</label>
+            <select className="auth-input" name="gender" required onChange={handleInputChange} value={formData.gender || ''}>
+              <option value="" disabled>Selecionar</option><option value="Male">Masculino</option><option value="Female">Feminino</option><option value="Other">Outro</option>
             </select>
           </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Password</label>
-            <input autoComplete="new-password" className="auth-input" type="password" name="password" onChange={handleInputChange} value={formData.password || ''} />
-          </div>
-        </>
+          <div className="auth-field"><label className="auth-label">Palavra-passe</label><input className="auth-input" type="password" name="password" onChange={handleInputChange} value={formData.password || ''} /></div>
+        </div>
       );
     }
     if (activeSection === 'drivers') {
       return (
-        <>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">NIF</label>
-            <input className="auth-input" name="nif" required onChange={handleInputChange} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Name</label>
-            <input className="auth-input" name="name" required onChange={handleInputChange} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Email</label>
-            <input className="auth-input" type="email" name="email" required onChange={handleInputChange} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Gender</label>
-            <select className="auth-input" name="gender" required onChange={handleInputChange} defaultValue="">
-              <option value="" disabled>Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="auth-field"><label className="auth-label">NIF</label><input className="auth-input" name="nif" required onChange={handleInputChange} value={formData.nif || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Nome</label><input className="auth-input" name="name" required onChange={handleInputChange} value={formData.name || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Email</label><input className="auth-input" type="email" name="email" required onChange={handleInputChange} value={formData.email || ''} /></div>
+          <div className="auth-field">
+            <label className="auth-label">Género</label>
+            <select className="auth-input" name="gender" required onChange={handleInputChange} value={formData.gender || ''}>
+              <option value="" disabled>Género</option><option value="Male">Masculino</option><option value="Female">Feminino</option><option value="Other">Outro</option>
             </select>
           </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Password</label>
-            <input className="auth-input" type="password" name="password" required onChange={handleInputChange} />
+          <div className="auth-field">
+            <label className="auth-label">
+              Palavra-passe {formMode === 'edit-driver' && '(deixar em branco para manter)'}
+            </label>
+            <input className="auth-input" type="password" name="password" required={formMode === 'create'} onChange={handleInputChange} value={formData.password || ''} />
           </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">License Number</label>
-            <input className="auth-input" name="license_number" required onChange={handleInputChange} value={formData.license_number || ''} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Birth Year</label>
-            <input className="auth-input" name="birth_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.birth_year || ''} />
-          </div>
-        </>
+          <div className="auth-field"><label className="auth-label">Nº Carta</label><input className="auth-input" name="license_number" required onChange={handleInputChange} value={formData.license_number || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Ano Nascimento</label><input className="auth-input" name="birth_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.birth_year || ''} /></div>
+        </div>
       );
     }
     if (activeSection === 'taxis') {
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="auth-field"><label className="auth-label">Matrícula</label><input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} value={formData.license_plate || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} /></div>
+          <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Marca</label><input className="auth-input" name="brand" required onChange={handleInputChange} value={formData.brand || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Modelo</label><input className="auth-input" name="model" required onChange={handleInputChange} value={formData.model || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} value={formData.num_passengers || ''} /></div>
           <div className="auth-field">
-            <label className="auth-label">License Plate</label>
-            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} value={formData.license_plate || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Purchase Year</label>
-            <input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Mileage (km)</label>
-            <input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Brand</label>
-            <input className="auth-input" name="brand" placeholder="e.g. Tesla" required onChange={handleInputChange} value={formData.brand || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Model</label>
-            <input className="auth-input" name="model" placeholder="e.g. Model 3" required onChange={handleInputChange} value={formData.model || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Passengers</label>
-            <input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} value={formData.num_passengers || ''} />
-          </div>
-          <div className="auth-field">
-            <label className="auth-label">Comfort Level</label>
+            <label className="auth-label">Conforto</label>
             <select className="auth-input" name="comfort_level" required onChange={handleInputChange} value={formData.comfort_level || ''}>
-              <option value="" disabled>Select Level</option>
-              <option value="basic">Basic</option>
-              <option value="luxury">Luxury</option>
+              <option value="" disabled>Nível</option><option value="basic">Basic</option><option value="luxury">Luxury</option>
             </select>
           </div>
           <div className="auth-field">
-            <label className="auth-label">Engine Type</label>
+            <label className="auth-label">Motor</label>
             <select className="auth-input" name="engine_type" required onChange={handleInputChange} value={formData.engine_type || ''}>
-              <option value="" disabled>Select Engine</option>
-              <option value="combustion">Combustion</option>
-              <option value="electric">Electric</option>
+              <option value="" disabled>Tipo</option><option value="combustion">Combustion</option><option value="electric">Electric</option>
             </select>
           </div>
         </div>
@@ -391,694 +293,264 @@ export default function ManagerDashboard() {
     }
     if (activeSection === 'shifts') {
       return (
-        <>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Driver</label>
-            <select className="auth-input" name="driver_id" required onChange={handleInputChange} defaultValue="">
-              <option value="" disabled>Select Driver</option>
-              {data.drivers.map(d => (
-                <option key={d.nif} value={d.id}>
-                  {d.name} ({d.nif})
-                </option>
-              ))}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="auth-field">
+            <label className="auth-label">Motorista</label>
+            <select className="auth-input" name="driver_id" required onChange={handleInputChange} value={formData.driver_id || ""}>
+              <option value="" disabled>Selecionar</option>
+              {data.drivers.map(d => <option key={d.nif} value={d.id}>{d.name} ({d.nif})</option>)}
             </select>
           </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Taxi</label>
-            <select className="auth-input" name="taxi_license_plate" required onChange={handleInputChange} defaultValue="">
-              <option value="" disabled>Select Taxi</option>
-              {data.taxis.map(t => (
-                <option key={t.license_plate} value={t.license_plate}>
-                  {t.brand} {t.model} ({t.license_plate})
-                </option>
-              ))}
+          <div className="auth-field">
+            <label className="auth-label">Táxi</label>
+            <select className="auth-input" name="taxi_license_plate" required onChange={handleInputChange} value={formData.taxi_license_plate || ""}>
+              <option value="" disabled>Selecionar</option>
+              {data.taxis.map(t => <option key={t.license_plate} value={t.license_plate}>{t.brand} {t.model} ({t.license_plate})</option>)}
             </select>
           </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">Start Time</label>
-            <input className="auth-input" type="datetime-local" name="start_time" required onChange={handleInputChange} />
-          </div>
-          <div className="auth-field" style={{ marginBottom: 12 }}>
-            <label className="auth-label">End Time</label>
-            <input className="auth-input" type="datetime-local" name="end_time" required onChange={handleInputChange} />
-          </div>
-        </>
+          <div className="auth-field"><label className="auth-label">Início</label><input className="auth-input" type="datetime-local" name="start_time" required onChange={handleInputChange} value={formData.start_time || ""} /></div>
+          <div className="auth-field"><label className="auth-label">Fim</label><input className="auth-input" type="datetime-local" name="end_time" required onChange={handleInputChange} value={formData.end_time || ""} /></div>
+        </div>
       );
     }
     return null;
   };
 
   return (
-    <div className="dashboard">
-      {/* Modal Details */}
+    <div className="manager-dashboard">
       <AnimatePresence>
         {isModalOpen && (
-          <motion.div
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
-              display: 'flex', justifyContent: 'center', alignItems: 'center'
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              style={{
-                background: '#fff', padding: '32px', borderRadius: '16px',
-                width: '600px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto',
-                position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-              }}
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-            >
-              <button
-                onClick={() => setIsModalOpen(false)}
-                style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
-              >
-                <X size={20} />
-              </button>
-
-              <h2 style={{ marginBottom: '20px', color: '#1f2937', fontWeight: 600 }}>
-                Create New {activeSection.slice(0, -1).charAt(0).toUpperCase() + activeSection.slice(0, -1).slice(1)}
-              </h2>
-
-              <form onSubmit={handleSubmit}>
+          <motion.div className="manager-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="manager-modal-content" style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '700px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }} initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}>
+              <button onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', top: '24px', right: '24px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#999' }}><X size={24} /></button>
+              <h2 style={{ marginBottom: '24px', color: '#111', fontWeight: 800, fontSize: '1.5rem' }}>{formMode === 'edit-driver' ? 'Editar Motorista' : `Adicionar ${sidebarItems.find(i => i.key === activeSection)?.label.slice(0, -1)}`}</h2>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {renderFormFields()}
-
-                {submitError && (
-                  <div style={{ color: 'red', fontSize: '13px', marginBottom: '12px' }}>
-                    {submitError}
-                  </div>
-                )}
-
-                <button type="submit" className="auth-btn" disabled={submitting}>
-                  {submitting ? (formMode === 'edit-driver' ? 'Saving...' : 'Saving...') : (formMode === 'edit-driver' ? 'Save Changes' : 'Create')}
-                </button>
+                {submitError && <div style={{ color: 'red', fontSize: '14px', background: '#fee2e2', padding: '10px', borderRadius: '8px', whiteSpace: 'pre-line' }}>{submitError}</div>}
+                <button type="submit" className="auth-btn" disabled={submitting}>{submitting ? 'A processar...' : (formMode === 'edit-driver' ? 'Guardar Alterações' : 'Criar Registo')}</button>
               </form>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Mileage Update Modal */}
       <AnimatePresence>
         {isMileageModalOpen && (
-          <motion.div
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050,
-              display: 'flex', justifyContent: 'center', alignItems: 'center'
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              style={{
-                background: '#fff', padding: '32px', borderRadius: '16px',
-                width: '500px', maxWidth: '95%',
-                position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-              }}
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-            >
-              <button
-                onClick={() => setIsMileageModalOpen(false)}
-                style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
-              >
-                <X size={20} />
-              </button>
-
-              <h2 style={{ marginBottom: '20px', color: '#1f2937', fontWeight: 600 }}>
-                Update Mileage: {taxiToEditMileage?.license_plate}
-              </h2>
-
+          <motion.div className="manager-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1050, display: 'flex', justifyContent: 'center', alignItems: 'center' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="manager-modal-content" style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '500px', maxWidth: '95%', position: 'relative' }} initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}>
+              <button onClick={() => setIsMileageModalOpen(false)} style={{ position: 'absolute', top: '24px', right: '24px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#999' }}><X size={24} /></button>
+              <h2 style={{ marginBottom: '24px', color: '#111', fontWeight: 800 }}>Atualizar KM: {taxiToEditMileage?.license_plate}</h2>
               <form onSubmit={handleUpdateMileage}>
-                <div className="auth-field" style={{ marginBottom: 20 }}>
-                  <label className="auth-label">New Mileage (km)</label>
-                  <input
-                    className="auth-input"
-                    type="number"
-                    value={newMileage}
-                    onChange={(e) => setNewMileage(e.target.value)}
-                    required
-                    min={taxiToEditMileage?.mileage || 0}
-                  />
-                </div>
-
-                <button type="submit" className="auth-btn" disabled={updatingMileage}>
-                  {updatingMileage ? 'Updating...' : 'Update Mileage'}
-                </button>
+                <div className="auth-field" style={{ marginBottom: 24 }}><label className="auth-label">Nova Quilometragem (km)</label><input className="auth-input" type="number" value={newMileage} onChange={(e) => setNewMileage(e.target.value)} required min={taxiToEditMileage?.mileage || 0} /></div>
+                <button type="submit" className="auth-btn" disabled={updatingMileage}>{updatingMileage ? 'A atualizar...' : 'Atualizar Quilometragem'}</button>
               </form>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {isDeleteModalOpen && (
-          <motion.div
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
-              display: 'flex', justifyContent: 'center', alignItems: 'center'
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              style={{
-                background: '#fff', padding: '24px', borderRadius: '12px',
-                width: '350px', maxWidth: '90%', textAlign: 'center',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-              }}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <h3 style={{ marginBottom: '12px', color: '#1f2937' }}>Confirm Deletion</h3>
-              <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
-                Are you sure you want to delete this {itemToDelete?.type}? This action cannot be undone.
-              </p>
-              {itemToDelete?.type === 'user' && (
-                <div style={{ marginBottom: 12 }}>
-                  <input
-                    className="auth-input"
-                    type="password"
-                    placeholder="Manager password"
-                    value={managerPassword}
-                    onChange={(e) => setManagerPassword(e.target.value)}
-                    style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                  />
-                </div>
-              )}
-              {deleteError && (
-                <div style={{ color: 'red', marginBottom: 12 }}>{deleteError}</div>
-              )}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                <button
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  style={{
-                    padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db',
-                    background: '#fff', cursor: 'pointer', fontWeight: 500
-                  }}
-                  disabled={deleting}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  style={{
-                    padding: '8px 16px', borderRadius: '6px', border: 'none',
-                    background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
-                  }}
-                  disabled={deleting || (itemToDelete?.type === 'user' && !managerPassword)}
-                >
-                  {deleting ? 'Deleting...' : 'Delete'}
-                </button>
+          <motion.div className="manager-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', justifyContent: 'center', alignItems: 'center' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="manager-modal-content" style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '400px', maxWidth: '90%', textAlign: 'center' }} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
+              <div style={{ color: '#ef4444', marginBottom: '16px' }}><Trash2 size={48} style={{ margin: '0 auto' }} /></div>
+              <h3 style={{ marginBottom: '12px', color: '#111', fontWeight: 800, fontSize: '1.4rem' }}>Confirmar Remoção</h3>
+              <p style={{ marginBottom: '24px', color: '#666', fontSize: '15px' }}>Tem a certeza que deseja apagar este registo? Esta ação é irreversível.</p>
+              {itemToDelete?.type === 'user' && <div style={{ marginBottom: 16 }}><input className="auth-input" type="password" placeholder="Palavra-passe de Gestor" value={managerPassword} onChange={(e) => setManagerPassword(e.target.value)} /></div>}
+              {deleteError && <div style={{ color: 'red', marginBottom: 12, fontSize: '14px' }}>{deleteError}</div>}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setIsDeleteModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontWeight: 600 }} disabled={deleting}>Cancelar</button>
+                <button onClick={handleDelete} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 600 }} disabled={deleting || (itemToDelete?.type === 'user' && !managerPassword)}>{deleting ? 'A remover...' : 'Remover'}</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header */}
       <header className="dash-header">
         <div className="dash-header-left">
-          <button
-            className="dash-icon-btn"
-            onClick={() => setSidebarOpen((p) => !p)}
-            aria-label="Toggle sidebar"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="dash-brand">
-            <span className="dash-brand-name">TUXY</span>
-            <span className="dash-brand-sub">Manager</span>
-          </div>
+          <button className="dash-icon-btn" onClick={() => setSidebarOpen((p) => !p)}><Menu size={20} /></button>
+          <div className="dash-brand"><span className="dash-brand-name">TUXY</span><span className="dash-brand-sub">Backoffice</span></div>
         </div>
-
         <div className="dash-header-right">
-          <span className="dash-greeting">Hello, {user?.name?.split(' ')[0]}</span>
-          <button className="dash-icon-btn" aria-label="Search">
-            <Search size={18} />
-          </button>
-          <button className="dash-icon-btn" aria-label="Notifications">
-            <Bell size={18} />
-          </button>
-          <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout} aria-label="Logout">
-            <LogOut size={18} />
-          </button>
+          <span className="dash-greeting">Olá, {user?.name?.split(' ')[0]}</span>
+          <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout}><LogOut size={18} /></button>
         </div>
       </header>
 
-      <div className="dash-body">
-        {/* Sidebar */}
-        <motion.aside
-          className="dash-sidebar"
-          animate={{ width: sidebarOpen ? 200 : 0, opacity: sidebarOpen ? 1 : 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          <nav className="dash-nav">
+      <div className="manager-body">
+        <aside className="manager-sidebar" style={{ width: sidebarOpen ? 240 : 0, opacity: sidebarOpen ? 1 : 0 }}>
+          <nav className="manager-nav">
             {sidebarItems.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                className={`dash-nav-item ${activeSection === key ? 'dash-nav-item--active' : ''}`}
-                onClick={() => setActiveSection(key)}
-              >
-                <Icon size={16} />
-                <span>{label}</span>
+              <button key={key} className={`manager-nav-item ${activeSection === key ? 'active' : ''}`} onClick={() => setActiveSection(key)}>
+                <Icon size={18} /><span>{label}</span>
               </button>
             ))}
           </nav>
-        </motion.aside>
+        </aside>
 
-        {/* Main */}
-        <main className="dash-main">
-          <motion.div
-            key={activeSection}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <h1 className="dash-title">{sidebarItems.find(i => i.key === activeSection)?.label}</h1>
+        <main className="manager-main">
+          <motion.div key={activeSection} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <div className="section-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <h1 className="section-title">{sidebarItems.find(i => i.key === activeSection)?.label}</h1>
                 {['clients', 'drivers', 'taxis', 'shifts'].includes(activeSection) && (
-                  <button
-                    onClick={() => {
-                      setFormMode('create');
-                      // ensure client form opens with empty fields (avoid prefilled values)
-                      if (activeSection === 'clients') {
-                        setFormData({ nif: '', name: '', email: '', gender: '', password: '' });
-                      } else {
-                        setFormData({});
-                      }
-                      setSubmitError('');
-                      setIsModalOpen(true);
-                    }}
-                    style={{
-                      background: '#16a34a', color: 'white', border: 'none',
-                      borderRadius: '6px', padding: '6px 12px', fontSize: '13px',
-                      fontWeight: 600, cursor: 'pointer'
-                    }}
-                  >
-                    + Add New
+                  <button onClick={() => { setFormMode('create'); setFormData(activeSection === 'clients' ? { nif: '', name: '', email: '', gender: '', password: '' } : {}); setSubmitError(''); setIsModalOpen(true); }} className="fetch-btn" style={{ height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                    <Plus size={16} /> Novo Registo
                   </button>
                 )}
               </div>
-
-              {apiStatus && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{ color: '#16a34a', fontSize: '14px', fontWeight: '500', background: '#dcfce7', padding: '6px 12px', borderRadius: '20px' }}
-                >
-                  {apiStatus}
-                </motion.div>
-              )}
+              {apiStatus && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dash-toast">{apiStatus}</motion.div>}
             </div>
 
             {loading ? (
-              <div className="dash-placeholder-card">Loading {activeSection}...</div>
+              <div className="dash-placeholder-card"><div className="dash-loading">A carregar dados de {activeSection}...</div></div>
             ) : error ? (
-              <div className="dash-placeholder-card" style={{ color: 'red' }}>
-                Failed to load {activeSection}. Make sure you are logged in correctly and endpoints exist. ({error})
-              </div>
+              <div className="dash-placeholder-card" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>Erro ao carregar {activeSection}: {error}</div>
             ) : activeSection === 'clients' ? (
-              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ padding: '12px 16px' }}>ID</th>
-                      <th style={{ padding: '12px 16px' }}>NIF</th>
-                      <th style={{ padding: '12px 16px' }}>Name</th>
-                      <th style={{ padding: '12px 16px' }}>Email</th>
-                      <th style={{ padding: '12px 16px' }}>Status</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead><tr><th>ID</th><th>NIF</th><th>Nome</th><th>Email</th><th>Estado</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                   <tbody>
                     {data.clients.map((c, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                        <td style={{ padding: '12px 16px' }}>{c.id || '-'}</td>
-                        <td style={{ padding: '12px 16px' }}>{c.nif}</td>
-                        <td style={{ padding: '12px 16px' }}>{c.name}</td>
-                        <td style={{ padding: '12px 16px' }}>{c.email}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            color: c.is_banned ? '#ef4444' : '#16a34a',
-                            background: c.is_banned ? '#fee2e2' : '#dcfce7',
-                            padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600
-                          }}>
-                            {c.is_banned ? 'Banned' : 'Active'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                            <button
-                              onClick={() => handleToggleStatus(c.id)}
-                              style={{
-                                border: 'none',
-                                background: c.is_banned ? '#16a34a' : '#ef4444',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                minWidth: '60px'
-                              }}
-                              title={c.is_banned ? 'Unban User' : 'Ban User'}
-                            >
-                              {c.is_banned ? 'UnBan' : 'Ban'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setItemToDelete({ id: c.id, type: 'user' });
-                                setIsDeleteModalOpen(true);
-                              }}
-                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
-                              title="Delete User"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, color: '#999' }}>#{c.id}</td><td>{c.nif}</td><td style={{ fontWeight: 600 }}>{c.name}</td><td>{c.email}</td>
+                        <td><span className={`status-badge ${c.is_banned ? 'status-badge--banned' : 'status-badge--active'}`}>{c.is_banned ? 'Banido' : 'Ativo'}</span></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => handleToggleStatus(c.id)} className="action-btn action-btn--edit" title={c.is_banned ? 'Ativar' : 'Banir'}>{c.is_banned ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}</button>
+                            <button onClick={() => { setItemToDelete({ id: c.id, type: 'user' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" title="Apagar"><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {data.clients.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No clients found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'drivers' ? (
-              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ padding: '12px 16px' }}>ID</th>
-                      <th style={{ padding: '12px 16px' }}>NIF</th>
-                      <th style={{ padding: '12px 16px' }}>Name</th>
-                      <th style={{ padding: '12px 16px' }}>Email</th>
-                      <th style={{ padding: '12px 16px' }}>License</th>
-                      <th style={{ padding: '12px 16px' }}>Status</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead><tr><th>ID</th><th>NIF</th><th>Nome</th><th>Email</th><th>Carta</th><th>Classificação</th><th>Estado</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                   <tbody>
                     {data.drivers.map((d, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                        <td style={{ padding: '12px 16px' }}>{d.id || '-'}</td>
-                        <td style={{ padding: '12px 16px' }}>{d.nif}</td>
-                        <td style={{ padding: '12px 16px' }}>{d.name}</td>
-                        <td style={{ padding: '12px 16px' }}>{d.email}</td>
-                        <td style={{ padding: '12px 16px' }}>{d.license_number}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            color: d.is_banned ? '#ef4444' : '#16a34a',
-                            background: d.is_banned ? '#fee2e2' : '#dcfce7',
-                            padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600
-                          }}>
-                            {d.is_banned ? 'Banned' : 'Active'}
-                          </span>
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, color: '#999' }}>#{d.id}</td><td>{d.nif}</td><td style={{ fontWeight: 600 }}>{d.name}</td><td>{d.email}</td><td>{d.license_number}</td>
+                        <td>
+                          {d.avg_rating ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f1af3d', fontWeight: 'bold' }}>
+                              <Star size={14} fill="#f1af3d" />
+                              {d.avg_rating} <span style={{ color: '#999', fontWeight: 'normal', fontSize: '0.8rem' }}>({d.rating_count})</span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#ccc' }}>N/A</span>
+                          )}
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                            <button
-                              onClick={() => handleToggleStatus(d.id)}
-                              style={{
-                                border: 'none',
-                                background: d.is_banned ? '#16a34a' : '#ef4444',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                minWidth: '60px'
-                              }}
-                              title={d.is_banned ? 'Unban User' : 'Ban User'}
-                            >
-                              {d.is_banned ? 'UnBan' : 'Ban'}
-                            </button>
-
-                            <button
-                              onClick={() => openEditDriver(d)}
-                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
-                              title="Edit Driver"
-                            >
-                              <Edit2 size={18} />
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setItemToDelete({ id: d.id, type: 'user' });
-                                setManagerPassword('');
-                                setIsDeleteModalOpen(true);
-                              }}
-                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
-                              title="Delete User"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-
+                        <td><span className={`status-badge ${d.is_banned ? 'status-badge--banned' : 'status-badge--active'}`}>{d.is_banned ? 'Banido' : 'Ativo'}</span></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => handleToggleStatus(d.id)} className="action-btn action-btn--edit" title="Alterar Estado">{d.is_banned ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}</button>
+                            <button onClick={() => openEditDriver(d)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                            <button onClick={() => { setItemToDelete({ id: d.id, type: 'user' }); setManagerPassword(''); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" title="Apagar"><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {data.drivers.length === 0 && <tr><td colSpan="7" style={{ padding: '16px' }}>No drivers found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'taxis' ? (
-              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ padding: '12px 16px' }}>Plate</th>
-                      <th style={{ padding: '12px 16px' }}>Brand</th>
-                      <th style={{ padding: '12px 16px' }}>Model</th>
-                      <th style={{ padding: '12px 16px' }}>Mileage</th>
-                      <th style={{ padding: '12px 16px' }}>Engine</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead><tr><th>Matrícula</th><th>Veículo</th><th>KM</th><th>Motor</th><th>Conforto</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                   <tbody>
                     {data.taxis.map((t, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                        <td style={{ padding: '12px 16px' }}>{t.license_plate}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.brand}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.model}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.mileage.toLocaleString()} km</td>
-                        <td style={{ padding: '12px 16px' }}>{t.engine_type}</td>
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                            <button
-                              onClick={() => {
-                                setTaxiToEditMileage(t);
-                                setNewMileage(t.mileage.toString());
-                                setIsMileageModalOpen(true);
-                              }}
-                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#16a34a' }}
-                              title="Update Mileage"
-                            >
-                              <Edit2 size={18} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setItemToDelete({ id: t.license_plate, type: 'taxi' });
-                                setIsDeleteModalOpen(true);
-                              }}
-                              style={{
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                width: '32px',
-                                height: '32px',
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                              }}
-                              title="Delete Taxi"
-                            >
-                              <X size={18} />
-                            </button>
-                          </div>
-                        </td>
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700 }}>{t.license_plate}</td>
+                        <td><div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{t.brand} {t.model}</span><span style={{ fontSize: '0.75rem', color: '#999' }}>{t.purchase_year}</span></div></td>
+                        <td>{t.mileage.toLocaleString()} km</td><td><span style={{ textTransform: 'capitalize' }}>{t.engine_type}</span></td><td><span style={{ textTransform: 'capitalize' }}>{t.comfort_level}</span></td>
+                        <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          <button onClick={() => { setTaxiToEditMileage(t); setNewMileage(t.mileage.toString()); setIsMileageModalOpen(true); }} className="action-btn action-btn--edit" title="Atualizar KM"><Edit2 size={16} /></button>
+                          <button onClick={() => { setItemToDelete({ id: t.license_plate, type: 'taxi' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" title="Apagar"><Trash2 size={16} /></button>
+                        </div></td>
                       </tr>
                     ))}
-                    {data.taxis.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No taxis found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'shifts' ? (
-              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ padding: '12px 16px' }}>ID</th>
-                      <th style={{ padding: '12px 16px' }}>Driver</th>
-                      <th style={{ padding: '12px 16px' }}>Taxi</th>
-                      <th style={{ padding: '12px 16px' }}>Scheduled Start</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead><tr><th>ID</th><th>Motorista</th><th>Táxi</th><th>Horário Agendado</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                   <tbody>
                     {data.shifts.map((s, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                        <td style={{ padding: '12px 16px' }}>{s.id}</td>
-                        <td style={{ padding: '12px 16px' }}>{s.driver_name}</td>
-                        <td style={{ padding: '12px 16px' }}>{s.taxi_plate}</td>
-                        <td style={{ padding: '12px 16px' }}>{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString() : '-'}</td>
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => {
-                              setItemToDelete({ id: s.id, type: 'shift' });
-                              setIsDeleteModalOpen(true);
-                            }}
-                            style={{
-                              backgroundColor: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              width: '32px',
-                              height: '32px',
-                              display: 'flex',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              cursor: 'pointer',
-                              margin: '0 auto',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}
-                            title="Delete Shift"
-                          >
-                            <X size={18} />
-                          </button>
-                        </td>
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
+                        <td><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}><CalendarClock size={14} color="#999" />{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
+                        <td><button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0 auto' }}><Trash2 size={16} /></button></td>
                       </tr>
                     ))}
-                    {data.shifts.length === 0 && <tr><td colSpan="5" style={{ padding: '16px' }}>No shifts found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'trips' ? (
-              <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{ padding: '12px 16px' }}>ID</th>
-                      <th style={{ padding: '12px 16px' }}>Status</th>
-                      <th style={{ padding: '12px 16px' }}>Client</th>
-                      <th style={{ padding: '12px 16px' }}>Driver</th>
-                      <th style={{ padding: '12px 16px' }}>Origin</th>
-                      <th style={{ padding: '12px 16px' }}>Destination</th>
-                    </tr>
-                  </thead>
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead><tr><th>ID</th><th>Estado</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Preço</th></tr></thead>
                   <tbody>
                     {data.trips.map((t, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                        <td style={{ padding: '12px 16px' }}>{t.id}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>
-                            {t.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>{t.client_name}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.driver_name || '-'}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.originAddress}</td>
-                        <td style={{ padding: '12px 16px' }}>{t.destAddress}</td>
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
+                        <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
+                        <td><div style={{ fontSize: '0.8rem', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
+                        <td style={{ fontWeight: 700 }}>€{t.price}</td>
                       </tr>
                     ))}
-                    {data.trips.length === 0 && <tr><td colSpan="6" style={{ padding: '16px' }}>No trips found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="card reports-card">
-                <div style={{ padding: 16 }}>
-                  <div className="reports-controls">
-                    <div>
-                      <label>Start date</label>
-                      <input type="date" value={formData.reports_start || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_start: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label>End date</label>
-                      <input type="date" value={formData.reports_end || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_end: e.target.value }))} />
-                    </div>
-                    <div>
-                      <button
-                        onClick={() => {
-                          const s = formData.reports_start; const e = formData.reports_end;
-                          // client-side validation
-                          if (!s || !e) {
-                            setReportsError('Please select both start and end dates.');
-                            return;
-                          }
-                          // ensure start <= end
-                          if (new Date(s) > new Date(e)) {
-                            setReportsError('Start date must be before or equal to end date.');
-                            return;
-                          }
-
-                          setReportsLoading(true);
-                          setReportsError('');
-                          getReports(s, e)
-                            .then(res => {
-                              setData(d => ({ ...d, reports: res.data }));
-                            })
-                            .catch(err => {
-                              const serverMsg = err.response?.data?.error || err.response?.data || err.message;
-                              setReportsError(serverMsg || 'Failed to fetch reports');
-                              setData(d => ({ ...d, reports: null }));
-                            })
-                            .finally(() => setReportsLoading(false));
-                        }}
-                        style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6 }}
-                        disabled={reportsLoading || !formData.reports_start || !formData.reports_end}
-                      >{reportsLoading ? 'Fetching...' : 'Fetch'}</button>
-                      {reportsError && <div style={{ color: 'red', marginTop: 8 }}>{reportsError}</div>}
-                    </div>
-                  </div>
-
-                  {data.reports ? (
-                    <div>
-                      <div className="reports-summary">
-                        <div><strong>Total trips:</strong> {data.reports.total_trips}</div>
-                        <div><strong>Total hours:</strong> {data.reports.total_hours.toFixed ? data.reports.total_hours.toFixed(2) : data.reports.total_hours}</div>
-                        <div><strong>Total km:</strong> {data.reports.total_kilometers}</div>
-                      </div>
-
-                      <div className="reports-columns">
-                        <div>
-                          <h4>By driver</h4>
-                          <ul>
-                            {data.reports.by_driver.map((bd) => (
-                              <li key={bd.driver_id}>{bd.driver_name} — {bd.hours.toFixed(2)} h — {bd.kilometers} km</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h4>By taxi</h4>
-                          <ul>
-                            {data.reports.by_taxi.map((bt) => (
-                              <li key={bt.taxi_plate}>{bt.taxi_plate} — {bt.hours.toFixed(2)} h — {bt.kilometers} km</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="reports-empty">No report loaded. Choose a date range and click Fetch.</div>
-                  )}
+              <div className="reports-container">
+                <div className="reports-filter-card">
+                  <div className="filter-group"><label className="filter-label">Data Início</label><input type="date" className="filter-input" value={formData.reports_start || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_start: e.target.value }))} /></div>
+                  <div className="filter-group"><label className="filter-label">Data Fim</label><input type="date" className="filter-input" value={formData.reports_end || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_end: e.target.value }))} /></div>
+                  <button onClick={() => {
+                    const s = formData.reports_start; const e = formData.reports_end;
+                    if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
+                    if (new Date(s) > new Date(e)) { setReportsError('Data início deve ser anterior ao fim.'); return; }
+                    setReportsLoading(true); setReportsError('');
+                    getReports(s, e).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
+                  }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>
+                  {reportsError && <div style={{ color: 'red', fontSize: '13px', marginLeft: '10px' }}>{reportsError}</div>}
                 </div>
+
+                {data.reports ? (
+                  <>
+                    <div className="reports-grid">
+                      <div className="stat-card"><div className="stat-label">Total de Viagens</div><div className="stat-value">{data.reports.total_trips}</div></div>
+                      <div className="stat-card"><div className="stat-label">Total de Horas</div><div className="stat-value">{data.reports.total_hours?.toFixed(1)}h</div></div>
+                      <div className="stat-card"><div className="stat-label">Total de Distância</div><div className="stat-value">{data.reports.total_kilometers?.toLocaleString()} km</div></div>
+                      <div className="stat-card"><div className="stat-label">Faturação Estimada</div><div className="stat-value">€{(data.reports.total_kilometers * 1.2).toFixed(2)}</div></div>
+                    </div>
+                    <div className="report-details-grid">
+                      <div className="data-table-container">
+                        <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '10px' }}><Users size={20} color="var(--gold-600)" /><h3 style={{ margin: 0, fontSize: '1.1rem' }}>Desempenho por Motorista</h3></div>
+                        <table className="manager-table">
+                          <thead><tr><th>Motorista</th><th>Horas</th><th>KM</th></tr></thead>
+                          <tbody>{data.reports.by_driver.map((bd) => <tr key={bd.driver_id}><td style={{ fontWeight: 600 }}>{bd.driver_name}</td><td>{bd.hours.toFixed(1)}h</td><td>{bd.kilometers} km</td></tr>)}</tbody>
+                        </table>
+                      </div>
+                      <div className="data-table-container">
+                        <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '10px' }}><Car size={20} color="var(--gold-600)" /><h3 style={{ margin: 0, fontSize: '1.1rem' }}>Utilização por Táxi</h3></div>
+                        <table className="manager-table">
+                          <thead><tr><th>Táxi</th><th>Horas</th><th>KM</th></tr></thead>
+                          <tbody>{data.reports.by_taxi.map((bt) => <tr key={bt.taxi_plate}><td style={{ fontWeight: 600 }}>{bt.taxi_plate}</td><td>{bt.hours.toFixed(1)}h</td><td>{bt.kilometers} km</td></tr>)}</tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="dash-placeholder-card"><Info size={40} style={{ margin: '0 auto 16px', display: 'block', color: '#ccc' }} />Nenhum relatório carregado. Escolha um intervalo de datas e clique em "Gerar Relatório".</div>
+                )}
               </div>
             )}
           </motion.div>

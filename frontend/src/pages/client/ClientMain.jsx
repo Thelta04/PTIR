@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry } from '../../api/client';
+import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry, listRatings } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
@@ -21,9 +21,15 @@ export default function ClientMain() {
   const [currentView, setCurrentView] = useState('initial'); // 'initial', 'selection', 'searching'
   const [searchValue, setSearchValue] = useState('');
 
+  const getNowFormatted = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+
   const [origin_address, setOriginAddress] = useState('');
   const [dest_address, setDestinationAddress] = useState('');
-  const [dateTime, setDateTime] = useState('');
+  const [dateTime, setDateTime] = useState(getNowFormatted());
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
@@ -34,6 +40,8 @@ export default function ClientMain() {
   const [selectingFor, setSelectingFor] = useState(null);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [driverRating, setDriverRating] = useState('N/A');
+  const [driverRatingCount, setDriverRatingCount] = useState(0);
 
   const [pricingConfig, setPricingConfig] = useState(null);
   const [estimatedPrice, setEstimatedPrice] = useState(0);
@@ -137,6 +145,27 @@ export default function ClientMain() {
       console.error('Error checking active trip:', err);
     }
   };
+
+  useEffect(() => {
+    if (activeTrip?.driver_id) {
+      const fetchDriverRating = async () => {
+        try {
+          const { data } = await listRatings(activeTrip.driver_id);
+          if (data.length > 0) {
+            const sum = data.reduce((acc, r) => acc + r.score, 0);
+            setDriverRating((sum / data.length).toFixed(1));
+            setDriverRatingCount(data.length);
+          } else {
+            setDriverRating('N/A');
+            setDriverRatingCount(0);
+          }
+        } catch (err) {
+          console.error('Error fetching driver ratings:', err);
+        }
+      };
+      fetchDriverRating();
+    }
+  }, [activeTrip?.driver_id]);
 
   const fetchPricing = async () => {
     try {
@@ -308,13 +337,20 @@ export default function ClientMain() {
 
   const handleCancelTrip = async () => {
     if (!activeTrip) return;
-    try {
-      await cancelTrip(activeTrip.id);
-      setActiveTrip(null);
-      setCurrentView('initial');
-    } catch (err) {
-      alert('Erro ao cancelar viagem');
-    }
+
+    showConfirm(
+      'Recusar Motorista?',
+      'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
+      async () => {
+        try {
+          await cancelTrip(activeTrip.id);
+          setActiveTrip(null);
+          setCurrentView('initial');
+        } catch (err) {
+          alert('Erro ao cancelar viagem');
+        }
+      }
+    );
   };
 
   const handleClientAccept = async () => {
@@ -341,11 +377,11 @@ export default function ClientMain() {
           <div className="accepted-view" style={{ textAlign: 'center' }}>
             <div className="driver-info" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
               <div className="driver-photo" style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#eee', overflow: 'hidden' }}>
-                <img src="https://via.placeholder.com/80" alt="Driver" />
+                <img src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div style={{ textAlign: 'left' }}>
                 <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{activeTrip?.driver_name}</h3>
-                <div style={{ color: '#f1af3d', fontWeight: 'bold' }}>⭐ 4.9 (531 reviews)</div>
+                <div style={{ color: '#f1af3d', fontWeight: 'bold' }}>⭐ {driverRating} ({driverRatingCount} reviews)</div>
               </div>
             </div>
             <div className="car-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid #eee', borderRadius: '12px', marginBottom: '20px' }}>
@@ -836,6 +872,7 @@ export default function ClientMain() {
       <ProfileModal 
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+        forcedType="CLIENT"
       />
       </div>
       );

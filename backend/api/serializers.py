@@ -339,16 +339,29 @@ class DriverSerializer(serializers.ModelSerializer):
     profile_pic = serializers.SerializerMethodField()
     license_number = serializers.CharField(read_only=True)
     birth_year = serializers.CharField(read_only=True)
+    avg_rating = serializers.SerializerMethodField()
+    rating_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Driver
-        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned", 'profile_pic']
+        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned", 'profile_pic', 'avg_rating', 'rating_count']
 
     def get_profile_pic(self, obj):
         try:
             return getattr(obj.user, 'profile_pic', None)
         except Exception:
             return None
+
+    def get_avg_rating(self, obj):
+        # Ratings are on Trips, Trips are on Shifts
+        ratings = Rating.objects.filter(trip__shift__driver=obj)
+        if not ratings.exists():
+            return None
+        avg = sum(r.score for r in ratings) / ratings.count()
+        return round(avg, 1)
+
+    def get_rating_count(self, obj):
+        return Rating.objects.filter(trip__shift__driver=obj).count()
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)

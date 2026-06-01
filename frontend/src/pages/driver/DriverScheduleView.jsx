@@ -17,14 +17,25 @@ const DAYS = [
 export default function DriverScheduleView() {
   const { user } = useAuth();
 
+  const getTodayStr = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+
+  const getTimeStr = (plusHours = 0) => {
+    const d = new Date();
+    d.setHours(d.getHours() + plusHours);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  };
+
   const [step, setStep] = useState(1);
   const [isMultipleDays, setIsMultipleDays] = useState(false);
 
   // Step 1 State
-  const [startTime, setStartTime] = useState('10:00');
-  const [endTime, setEndTime] = useState('14:00');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState(getTimeStr());
+  const [endTime, setEndTime] = useState(getTimeStr(4));
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
   const [selectedDays, setSelectedDays] = useState([]);
 
   // Step 2 State

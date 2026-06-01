@@ -143,10 +143,12 @@ export default function DriverMain() {
               )}
               </AnimatePresence>
 
-              <ProfileModal 
+              <ProfileModal
               isOpen={isProfileModalOpen}
               onClose={() => setIsProfileModalOpen(false)}
+              forcedType="DRIVER"
               />
+
               </div>
               );
               }
