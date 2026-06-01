@@ -22,7 +22,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift, 
   listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
-  deleteTaxi, updateTaxiMileage
+  deleteTaxi, updateTaxiMileage, updateDriver, getReports, getDriver, getTaxi
 } from '../../api/client';
 
 const sidebarItems = [
@@ -46,13 +46,18 @@ export default function ManagerDashboard() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState('create');
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
 
   // Delete State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null); // { id, type: 'shift' | 'user' | 'taxi' }
+  const [managerPassword, setManagerPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   // Mileage Edit State
@@ -144,7 +149,11 @@ export default function ManagerDashboard() {
     setSubmitError('');
 
     let request;
-    if (activeSection === 'clients') {
+    if (formMode === 'edit-driver') {
+      const payload = { ...formData };
+      delete payload.id;
+      request = updateDriver(formData.id, payload);
+    } else if (activeSection === 'clients') {
       request = createClient(formData);
     } else if (activeSection === 'drivers') {
       request = createDriver(formData);
@@ -161,8 +170,12 @@ export default function ManagerDashboard() {
     if (request) {
       request
         .then(() => {
+          // After a successful create/update: close modal and clear form.
+          // User requested that creating a new client opens blank and the form closes on success.
           setIsModalOpen(false);
           setFormData({});
+          setSubmitError('');
+          setFormMode('create');
           fetchData();
         })
         .catch(err => {
@@ -176,6 +189,21 @@ export default function ManagerDashboard() {
     }
   };
 
+  const openEditDriver = (driver) => {
+    setFormMode('edit-driver');
+    setFormData({
+      id: driver.id,
+      nif: driver.nif || '',
+      name: driver.name || '',
+      email: driver.email || '',
+      gender: driver.gender || '',
+      password: '',
+      license_number: driver.license_number || '',
+      birth_year: driver.birth_year || '',
+    });
+    setIsModalOpen(true);
+  };
+
   const handleDelete = () => {
     if (!itemToDelete) return;
     setDeleting(true);
@@ -184,15 +212,17 @@ export default function ManagerDashboard() {
     if (itemToDelete.type === 'shift') {
       request = deleteShift(itemToDelete.id);
     } else if (itemToDelete.type === 'user') {
-      request = deleteUser(itemToDelete.id);
+      request = deleteUser(itemToDelete.id, managerPassword);
     } else if (itemToDelete.type === 'taxi') {
       request = deleteTaxi(itemToDelete.id);
     }
 
+    setDeleteError('');
     request
       .then(() => {
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
+        setManagerPassword('');
         fetchData();
         setApiStatus(`${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} deleted successfully`);
         setTimeout(() => setApiStatus(''), 4000);
@@ -200,7 +230,7 @@ export default function ManagerDashboard() {
       .catch(err => {
         const errData = err.response?.data;
         const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-        alert(`Failed to delete ${itemToDelete.type}: ${errorMsg}`);
+        setDeleteError(errorMsg || 'Failed to delete');
       })
       .finally(() => {
         setDeleting(false);
@@ -248,19 +278,19 @@ export default function ManagerDashboard() {
         <>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">NIF</label>
-            <input className="auth-input" name="nif" required onChange={handleInputChange} />
+            <input autoComplete="off" className="auth-input" name="nif" required onChange={handleInputChange} value={formData.nif || ''} />
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">Name</label>
-            <input className="auth-input" name="name" required onChange={handleInputChange} />
+            <input autoComplete="off" className="auth-input" name="name" required onChange={handleInputChange} value={formData.name || ''} />
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">Email</label>
-            <input className="auth-input" type="email" name="email" required onChange={handleInputChange} />
+            <input autoComplete="off" className="auth-input" type="email" name="email" required onChange={handleInputChange} value={formData.email || ''} />
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">Gender</label>
-            <select className="auth-input" name="gender" required onChange={handleInputChange} defaultValue="">
+            <select autoComplete="off" className="auth-input" name="gender" required onChange={handleInputChange} value={formData.gender || ''}>
               <option value="" disabled>Select Gender</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -269,7 +299,7 @@ export default function ManagerDashboard() {
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">Password</label>
-            <input className="auth-input" type="password" name="password" required onChange={handleInputChange} />
+            <input autoComplete="new-password" className="auth-input" type="password" name="password" onChange={handleInputChange} value={formData.password || ''} />
           </div>
         </>
       );
@@ -304,11 +334,11 @@ export default function ManagerDashboard() {
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">License Number</label>
-            <input className="auth-input" name="license_number" required onChange={handleInputChange} />
+            <input className="auth-input" name="license_number" required onChange={handleInputChange} value={formData.license_number || ''} />
           </div>
           <div className="auth-field" style={{marginBottom: 12}}>
             <label className="auth-label">Birth Year</label>
-            <input className="auth-input" name="birth_year" type="number" min="1900" max="2026" required onChange={handleInputChange} />
+            <input className="auth-input" name="birth_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.birth_year || ''} />
           </div>
         </>
       );
@@ -318,31 +348,31 @@ export default function ManagerDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '4px' }}>
           <div className="auth-field">
             <label className="auth-label">License Plate</label>
-            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} />
+            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} value={formData.license_plate || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Purchase Year</label>
-            <input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} />
+            <input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Mileage (km)</label>
-            <input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} />
+            <input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Brand</label>
-            <input className="auth-input" name="brand" placeholder="e.g. Tesla" required onChange={handleInputChange} />
+            <input className="auth-input" name="brand" placeholder="e.g. Tesla" required onChange={handleInputChange} value={formData.brand || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Model</label>
-            <input className="auth-input" name="model" placeholder="e.g. Model 3" required onChange={handleInputChange} />
+            <input className="auth-input" name="model" placeholder="e.g. Model 3" required onChange={handleInputChange} value={formData.model || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Passengers</label>
-            <input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} />
+            <input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} value={formData.num_passengers || ''} />
           </div>
           <div className="auth-field">
             <label className="auth-label">Comfort Level</label>
-            <select className="auth-input" name="comfort_level" required onChange={handleInputChange} defaultValue="">
+            <select className="auth-input" name="comfort_level" required onChange={handleInputChange} value={formData.comfort_level || ''}>
               <option value="" disabled>Select Level</option>
               <option value="basic">Basic</option>
               <option value="luxury">Luxury</option>
@@ -350,7 +380,7 @@ export default function ManagerDashboard() {
           </div>
           <div className="auth-field">
             <label className="auth-label">Engine Type</label>
-            <select className="auth-input" name="engine_type" required onChange={handleInputChange} defaultValue="">
+            <select className="auth-input" name="engine_type" required onChange={handleInputChange} value={formData.engine_type || ''}>
               <option value="" disabled>Select Engine</option>
               <option value="combustion">Combustion</option>
               <option value="electric">Electric</option>
@@ -444,7 +474,7 @@ export default function ManagerDashboard() {
                 )}
                 
                 <button type="submit" className="auth-btn" disabled={submitting}>
-                  {submitting ? 'Creating...' : 'Create'}
+                  {submitting ? (formMode === 'edit-driver' ? 'Saving...' : 'Saving...') : (formMode === 'edit-driver' ? 'Save Changes' : 'Create')}
                 </button>
               </form>
             </motion.div>
@@ -535,6 +565,21 @@ export default function ManagerDashboard() {
               <p style={{ marginBottom: '24px', color: '#4b5563', fontSize: '14px' }}>
                 Are you sure you want to delete this {itemToDelete?.type}? This action cannot be undone.
               </p>
+              {itemToDelete?.type === 'user' && (
+                <div style={{ marginBottom: 12 }}>
+                  <input
+                    className="auth-input"
+                    type="password"
+                    placeholder="Manager password"
+                    value={managerPassword}
+                    onChange={(e) => setManagerPassword(e.target.value)}
+                    style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              )}
+              {deleteError && (
+                <div style={{ color: 'red', marginBottom: 12 }}>{deleteError}</div>
+              )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                 <button
                   onClick={() => setIsDeleteModalOpen(false)}
@@ -552,7 +597,7 @@ export default function ManagerDashboard() {
                     padding: '8px 16px', borderRadius: '6px', border: 'none',
                     background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 500
                   }}
-                  disabled={deleting}
+                  disabled={deleting || (itemToDelete?.type === 'user' && !managerPassword)}
                 >
                   {deleting ? 'Deleting...' : 'Delete'}
                 </button>
@@ -627,7 +672,13 @@ export default function ManagerDashboard() {
                 {['clients', 'drivers', 'taxis', 'shifts'].includes(activeSection) && (
                   <button 
                     onClick={() => {
-                        setFormData({});
+                        setFormMode('create');
+                        // ensure client form opens with empty fields (avoid prefilled values)
+                        if (activeSection === 'clients') {
+                          setFormData({ nif: '', name: '', email: '', gender: '', password: '' });
+                        } else {
+                          setFormData({});
+                        }
                         setSubmitError('');
                         setIsModalOpen(true);
                     }} 
@@ -775,9 +826,19 @@ export default function ManagerDashboard() {
                             >
                               {d.is_banned ? 'UnBan' : 'Ban'}
                             </button>
+
+                            <button
+                              onClick={() => openEditDriver(d)}
+                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
+                              title="Edit Driver"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+
                             <button
                               onClick={() => {
                                 setItemToDelete({ id: d.id, type: 'user' });
+                                setManagerPassword('');
                                 setIsDeleteModalOpen(true);
                               }}
                               style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}
@@ -785,6 +846,7 @@ export default function ManagerDashboard() {
                             >
                               <Trash2 size={18} />
                             </button>
+                          
                           </div>
                         </td>
                       </tr>
@@ -940,8 +1002,83 @@ export default function ManagerDashboard() {
                 </table>
               </div>
             ) : (
-              <div className="dash-placeholder-card">
-                <p>Reports view is pending implementation.</p>
+              <div className="card reports-card">
+                <div style={{ padding: 16 }}>
+                  <div className="reports-controls">
+                    <div>
+                      <label>Start date</label>
+                      <input type="date" value={formData.reports_start || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_start: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label>End date</label>
+                      <input type="date" value={formData.reports_end || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_end: e.target.value }))} />
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => {
+                          const s = formData.reports_start; const e = formData.reports_end;
+                          // client-side validation
+                          if (!s || !e) {
+                            setReportsError('Please select both start and end dates.');
+                            return;
+                          }
+                          // ensure start <= end
+                          if (new Date(s) > new Date(e)) {
+                            setReportsError('Start date must be before or equal to end date.');
+                            return;
+                          }
+
+                          setReportsLoading(true);
+                          setReportsError('');
+                          getReports(s, e)
+                            .then(res => {
+                              setData(d => ({ ...d, reports: res.data }));
+                            })
+                            .catch(err => {
+                              const serverMsg = err.response?.data?.error || err.response?.data || err.message;
+                              setReportsError(serverMsg || 'Failed to fetch reports');
+                              setData(d => ({ ...d, reports: null }));
+                            })
+                            .finally(() => setReportsLoading(false));
+                        }}
+                        style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6 }}
+                        disabled={reportsLoading || !formData.reports_start || !formData.reports_end}
+                      >{reportsLoading ? 'Fetching...' : 'Fetch'}</button>
+                      {reportsError && <div style={{ color: 'red', marginTop: 8 }}>{reportsError}</div>}
+                    </div>
+                  </div>
+
+                  {data.reports ? (
+                    <div>
+                      <div className="reports-summary">
+                        <div><strong>Total trips:</strong> {data.reports.total_trips}</div>
+                        <div><strong>Total hours:</strong> {data.reports.total_hours.toFixed ? data.reports.total_hours.toFixed(2) : data.reports.total_hours}</div>
+                        <div><strong>Total km:</strong> {data.reports.total_kilometers}</div>
+                      </div>
+
+                      <div className="reports-columns">
+                        <div>
+                          <h4>By driver</h4>
+                          <ul>
+                            {data.reports.by_driver.map((bd) => (
+                              <li key={bd.driver_id}>{bd.driver_name} — {bd.hours.toFixed(2)} h — {bd.kilometers} km</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4>By taxi</h4>
+                          <ul>
+                            {data.reports.by_taxi.map((bt) => (
+                              <li key={bt.taxi_plate}>{bt.taxi_plate} — {bt.hours.toFixed(2)} h — {bt.kilometers} km</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="reports-empty">No report loaded. Choose a date range and click Fetch.</div>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>
