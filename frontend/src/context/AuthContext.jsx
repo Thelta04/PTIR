@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin, createClient, createDriver } from '../api/client';
+import { login as apiLogin, createClient, createDriver, updateProfilePic } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -23,6 +23,9 @@ export function AuthProvider({ children }) {
       name: data.name,
       email: data.email,
       type: data.type,
+      profile_pic: data.profile_pic,
+      gender: data.gender,
+      birth_year: data.birth_year || null,
       access: data.access || null,
       refresh: data.refresh || null,
     };
@@ -43,6 +46,19 @@ export function AuthProvider({ children }) {
     return await login(signupData.email, signupData.password);
   };
 
+  const updateUserPfp = async (pfpId) => {
+    if (!user?.id) return;
+    try {
+      await updateProfilePic(user.id, pfpId);
+      const updatedUser = { ...user, profile_pic: pfpId };
+      setUser(updatedUser);
+      localStorage.setItem('tuxy_user', JSON.stringify(updatedUser));
+    } catch (err) {
+      console.error('Error updating profile pic:', err);
+      throw err;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('tuxy_user');
@@ -54,6 +70,7 @@ export function AuthProvider({ children }) {
     login,
     signup,
     signupDriver,
+    updateUserPfp,
     logout,
     isManager: user?.type === 'MANAGER',
     isDriver: user?.type === 'DRIVER',

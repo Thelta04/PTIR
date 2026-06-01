@@ -34,7 +34,7 @@ export default function LoginUser() {
       }
     } catch (err) {
       const msg =
-        err.response?.data?.error || 'Connection failed. Please try again.';
+        err.response?.data?.error || 'Falha na ligação. Por favor tente novamente.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -47,11 +47,11 @@ export default function LoginUser() {
         {/* Brand */}
           <div className="tuxy-header-div">
           <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>User</span>
+          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Utilizador</span>
         </div>
         <div className="login-form-container">
-          <p className="login-welcome">Welcome Back!</p>
-          <p className="login-subtitle">Sign in to access the app</p>
+          <p className="login-welcome">Bem-vindo de volta!</p>
+          <p className="login-subtitle">Inicie sessão para aceder à aplicação</p>
 
 
           <form onSubmit={handleSubmit} className="login-form">
@@ -61,7 +61,7 @@ export default function LoginUser() {
               label="Email" 
               type="email"
               className="session-input"
-              placeholder="your@email.com"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -72,7 +72,7 @@ export default function LoginUser() {
             <PInputPassword 
             id="login-email"
               className="session-input" 
-              label="Password" 
+              label="Palavra-passe" 
               name="password" 
               toggle={true}
               value={password}
@@ -95,13 +95,13 @@ export default function LoginUser() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'A iniciar sessão…' : 'Entrar'}
 
             
             </button>
-            <p className="login-subtitle">Don't have an account? <a href="/register">Register</a></p>
+            <p className="login-subtitle">Ainda não tem conta? <a href="/register">Registe-se</a></p>
             <hr></hr>
-            <p className="login-subtitle">Want to sign up as a driver? <a href="/signup-driver">Register Here!</a></p>
+            <p className="login-subtitle">Deseja registar-se como motorista? <a href="/signup-driver">Registe-se aqui!</a></p>
           
           </form>
         </div>

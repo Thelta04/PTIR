@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { listTrips } from '../../api/client';
 import { motion } from 'framer-motion';
 import { LogOut, MapPin, ArrowRight } from 'lucide-react';
+import ProfileModal from '../../components/ProfileModal';
 
 const STATUS_STYLES = {
   PENDING:         'trip-badge--pending',
@@ -14,6 +15,15 @@ const STATUS_STYLES = {
   CANCELED:        'trip-badge--canceled',
 };
 
+const STATUS_LABELS = {
+  PENDING:         'Pendente',
+  DRIVER_ACCEPTED: 'Motorista Aceitou',
+  CLIENT_ACCEPTED: 'Confirmada',
+  IN_PROGRESS:     'Em Curso',
+  COMPLETED:       'Concluída',
+  CANCELED:        'Cancelada',
+};
+
 export default function ClientDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -21,6 +31,7 @@ export default function ClientDashboard() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -30,7 +41,7 @@ export default function ClientDashboard() {
         const mine = data.filter((t) => t.client_id === user.id);
         setTrips(mine);
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to load trips.');
+        setError(err.response?.data?.error || 'Erro ao carregar viagens.');
       } finally {
         setLoading(false);
       }
@@ -45,26 +56,37 @@ export default function ClientDashboard() {
         <div className="dash-header-left">
           <div className="dash-brand">
             <span className="dash-brand-name">TUXY</span>
-            <span className="dash-brand-sub">Client</span>
+            <span className="dash-brand-sub">Cliente</span>
           </div>
         </div>
         <div className="dash-header-right">
-          <span className="dash-greeting">Hello, {user?.name}</span>
-          <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout} aria-label="Logout">
+          <div 
+            className="user-name-container" 
+            onClick={() => setIsProfileModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="dash-greeting">Olá, {user?.name?.split(' ')[0]}</span>
+            <img 
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
+              alt="Profile" 
+              className="user-pfp-small"
+            />
+          </div>
+          <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout} aria-label="Sair">
             <LogOut size={18} />
           </button>
         </div>
       </header>
 
       <main className="dash-main" style={{ padding: '2rem' }}>
-        <h1 className="dash-title">My Trips</h1>
+        <h1 className="dash-title">As Minhas Viagens</h1>
 
-        {loading && <p className="dash-loading">Loading trips…</p>}
+        {loading && <p className="dash-loading">A carregar viagens…</p>}
         {error && <p className="dash-error">{error}</p>}
 
         {!loading && trips.length === 0 && (
           <div className="dash-placeholder-card">
-            <p>You have no trips yet. Request one to get started!</p>
+            <p>Ainda não tem viagens. Peça uma para começar!</p>
           </div>
         )}
 
@@ -78,9 +100,9 @@ export default function ClientDashboard() {
               transition={{ duration: 0.2 }}
             >
               <div className="trip-card-header">
-                <span className="trip-card-id">Trip #{t.id}</span>
+                <span className="trip-card-id">Viagem #{t.id}</span>
                 <span className={`trip-badge ${STATUS_STYLES[t.status] || ''}`}>
-                  {t.status.replace('_', ' ')}
+                  {STATUS_LABELS[t.status] || t.status}
                 </span>
               </div>
 
@@ -100,6 +122,11 @@ export default function ClientDashboard() {
           ))}
         </div>
       </main>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </div>
   );
 }

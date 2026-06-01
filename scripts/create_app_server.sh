@@ -8,8 +8,8 @@ set -o pipefail
 
 # Load configuration and utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../common/config.sh"
-source "$SCRIPT_DIR/../common/utils.sh"
+source "$SCRIPT_DIR/common/config.sh"
+source "$SCRIPT_DIR/common/utils.sh"
 
 echo "Discovering existing webapp instances..."
 WEBAPP_INSTANCES=$(get_instances_by_tag "$TAG_WEB")
@@ -94,7 +94,7 @@ done
 echo ""
 echo "--- Building & Packaging Artifacts ---"
 
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../" && pwd)"
 
 echo "Building frontend..."
 (cd "$ROOT_DIR/frontend" && npm install && npm run build)
@@ -123,19 +123,20 @@ echo "--- Deploying webapp to $NEW_NAME ---"
 
 remote_scp "$NEW_NAME" \
     /tmp/webapp_artifacts.tar.gz \
-    "$SCRIPT_DIR/../common/config.sh" \
-    "$SCRIPT_DIR/../common/utils.sh" \
-    "$SCRIPT_DIR/../setup/setup_webapp.sh"
+    "$SCRIPT_DIR/common/config.sh" \
+    "$SCRIPT_DIR/common/utils.sh" \
+    "$SCRIPT_DIR/setup/setup_webapp.sh" \
+    "$SCRIPT_DIR/firewall/web-firewall-rules.sh"
 
 remote_exec "$NEW_NAME" "
     set -e
-    chmod +x /tmp/setup_webapp.sh
+    chmod +x /tmp/setup_webapp.sh /tmp/web-firewall-rules.sh
     /tmp/setup_webapp.sh '$TARGET_DIR' '$REMOTE_USER' 'false' '$NEW_NAME'
+    sudo /tmp/web-firewall-rules.sh
 " || { echo "ERROR: Deployment FAILED on $NEW_NAME. Scale-out incomplete!"; exit 1; }
 
 # Cleanup local artifact
 rm -f /tmp/webapp_artifacts.tar.gz
 
 echo ""
-echo "Scale-out complete! $NEW_NAME ($NEW_IP) is live."
-echo "The Load Balancer health check will automatically discover this new instance within 60 seconds."
+echo "$NEW_NAME ($NEW_IP) is live."

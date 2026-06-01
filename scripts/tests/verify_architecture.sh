@@ -42,7 +42,7 @@ cleanup() {
         echo "  Detected: db-02 was promoted to PRIMARY. Reverting to REPLICA..."
         # Re-run setup_db.sh on db-02 to restore replication
         # Upload setup_db.sh if it might be missing or to ensure latest
-        gcloud compute scp "$SCRIPT_DIR/../setup/setup_db.sh" "db-02:/tmp/setup_db.sh" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap 2>/dev/null
+        gcloud compute scp "$SCRIPT_DIR/../setup/setup_db.sh" "$SCRIPT_DIR/../common/utils.sh" "$SCRIPT_DIR/../config.sh" "db-02:/tmp/" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap 2>/dev/null
         remote_exec "db-02" "chmod +x /tmp/setup_db.sh && sudo /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' 'replica' '$DB_PRIMARY_IP'"
     else
         echo "  db-02 is already in replica mode."
@@ -54,6 +54,10 @@ cleanup() {
     echo "  Ensuring Nginx is running on lb-01..."
     remote_exec "lb-01" "sudo systemctl start nginx"
     
+    echo "  Forcing LB healthcheck update to restore web-1 upstream..."
+    remote_exec "lb-01" "sudo /usr/local/bin/lb_healthcheck.sh"
+    remote_exec "lb-02" "sudo /usr/local/bin/lb_healthcheck.sh"
+
     echo " Restoration complete."
 }
 
@@ -194,7 +198,7 @@ if [ "$VIP_DETECTED" = "false" ]; then
 fi
 
 echo "  Verifying if API is reachable through 'lb-02' internal IP..."
-HTTP_CODE=$(remote_exec "web-2" "curl -k -L -s -o /dev/null -w '%{http_code}' --max-time 2 'http://10.10.10.11/api/check/'" | xargs)
+HTTP_CODE=$(remote_exec "bastion" "curl -k -s -o /dev/null -w '%{http_code}' -H 'Host: tuxy.pt' --max-time 2 'https://10.10.10.11/api/check/'" | xargs)
 if [ "$HTTP_CODE" = "200" ]; then
     echo "  ✅ PASS: API is reachable through 'lb-02' internal IP!"
 else
@@ -213,7 +217,7 @@ echo "▶ TEST 5: Database Replication, Failover & Auto-Replacement"
 echo "  Verifying Replication Status on 'db-02'..."
 REPLICA_STATUS=$(remote_exec "db-02" "sudo -u postgres psql -c 'select count(*) from pg_stat_wal_receiver;' -t" | xargs)
 
-if [ "$REPLICA_STATUS" -gt 0 ]; then
+if [ "${REPLICA_STATUS:-0}" -gt 0 ]; then
     echo "  ✅ PASS: Database replication is active on db-02."
 else
     echo "  ❌ FAIL: Database replication is NOT active."
@@ -281,13 +285,26 @@ check_port "lb-01" "80" "yes"
 check_port "lb-01" "8000" "no"
 check_port "lb-01" "5432" "no"
 
+echo "  Auditing 'lb-02' VM:"
+check_port "lb-02" "80" "yes"
+check_port "lb-02" "8000" "no"
+check_port "lb-02" "5432" "no"
+
 echo "  Auditing 'web-1' VM:"
 check_port "web-1" "8000" "yes"
 check_port "web-1" "5432" "no"
 
+echo "  Auditing 'web-2' VM:"
+check_port "web-2" "8000" "yes"
+check_port "web-2" "5432" "no"
+
 echo "  Auditing 'db-01' VM:"
 check_port "db-01" "5432" "yes"
 check_port "db-01" "8000" "no"
+
+echo "  Auditing 'db-02' VM:"
+check_port "db-02" "5432" "yes"
+check_port "db-02" "8000" "no"
 
 echo ""
 echo "=================================================="

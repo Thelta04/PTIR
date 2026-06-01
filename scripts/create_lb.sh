@@ -24,7 +24,7 @@ gcloud compute instances create "$INSTANCE" \
     --private-network-ip="$LB_PRIMARY_IP" \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
-    --tags="http-server,$TAG_LB" \
+    --tags="http-server,https-server,$TAG_LB" \
     --address="$STATIC_IP_NAME" \
     2>/dev/null || echo "VM '$INSTANCE' already exists."
 
@@ -70,15 +70,17 @@ remote_scp "$INSTANCE" \
     "$SCRIPT_DIR/healthchecks/check_nginx.sh" \
     "$SCRIPT_DIR/healthchecks/notify_master.sh" \
     "$ROOT_DIR/nginx/ssl/fullchain.pem" \
-    "$ROOT_DIR/nginx/ssl/privkey.pem"
+    "$ROOT_DIR/nginx/ssl/privkey.pem" \
+    "$SCRIPT_DIR/firewall/lb-01-firewall-rules.sh"
 
 remote_exec "$INSTANCE" "
     set -e
     source /tmp/config.sh
     sudo mkdir -p \$TARGET_DIR/scripts
-    sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh /tmp/notify_master.sh \$TARGET_DIR/scripts/
-    sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh \$TARGET_DIR/scripts/notify_master.sh
+    sudo mv /tmp/setup_lb.sh /tmp/lb_healthcheck.sh /tmp/config.sh /tmp/utils.sh /tmp/check_nginx.sh /tmp/notify_master.sh /tmp/lb-01-firewall-rules.sh \$TARGET_DIR/scripts/
+    sudo chmod +x \$TARGET_DIR/scripts/setup_lb.sh \$TARGET_DIR/scripts/lb_healthcheck.sh \$TARGET_DIR/scripts/check_nginx.sh \$TARGET_DIR/scripts/notify_master.sh \$TARGET_DIR/scripts/lb-01-firewall-rules.sh
     sudo \$TARGET_DIR/scripts/setup_lb.sh '$WEBAPP_IPS' '$LB_BACKUP_IP'
+    sudo \$TARGET_DIR/scripts/lb-01-firewall-rules.sh
 " || { echo "ERROR: Failed to setup $INSTANCE"; exit 1; }
 
 echo ""

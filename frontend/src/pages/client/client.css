@@ -54,6 +54,28 @@ html, body, #root {
   cursor: pointer;
 }
 
+.user-name-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 5px;
+}
+
+.user-name-text {
+  font-weight: 700;
+  color: #000;
+  font-size: 1.1rem;
+}
+
+.user-pfp-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #f1cf58;
+  object-fit: cover;
+  background: #fff;
+}
+
 .client-main-content {
   position: relative;
   width: 100%;
@@ -634,7 +656,7 @@ html, body, #root {
 }
 
 .car-icon {
-  font-size: 1.5rem;
+  font-size: 2%;
 }
 
 .panel-actions {
@@ -665,7 +687,7 @@ html, body, #root {
 .driver-mini-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
   padding: 12px 16px;
   background: #fefce8;
   border: 1px solid #fef08a;
@@ -675,9 +697,9 @@ html, body, #root {
 
 .plate-badge {
   margin-left: auto;
-  background: #000;
-  color: #fff;
-  padding: 2px 8px;
+  background: #f1cf58;
+  color: #000000;
+  padding: 2px 5px;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 700;

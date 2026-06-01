@@ -140,7 +140,10 @@ export const acceptTrip = (id, driverId, shiftId) =>
 export const clientAcceptTrip = (id) => api.patch(`trip/${id}/client-accept/`);
 export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
 export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
+export const payMockTrip = (id) => api.patch(`trip/${id}/pay-mock/`);
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
+export const getPricing = () => api.get('pricing/');
+export const updateProfilePic = (id, profile_pic) => api.patch(`user/${id}/profile-pic/`, { profile_pic });
 
 export default api;

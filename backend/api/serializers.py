@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice
 from django.utils import timezone as tz
 from .models import Refueling
 
@@ -65,12 +65,103 @@ class CreateDriverSerializer(serializers.Serializer):
             raise serializers.ValidationError("Email already registered.")
         return value
 
+class DriverUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+    license_number = serializers.CharField(max_length=12, required=False)
+    birth_year = serializers.CharField(max_length=4, required=False)
+
+    def validate_birth_year(self, value):
+        try:
+            year = int(value)
+            current_year = date.today().year
+            if year < 1900:
+                raise serializers.ValidationError("Birth year must be >= 1900.")
+            if current_year - year < 18:
+                raise serializers.ValidationError("Driver must be at least 18 years old.")
+        except ValueError:
+            raise serializers.ValidationError("Invalid year format.")
+        return value
+
+    def validate(self, data):
+        driver = self.context.get('driver')
+        user = driver.user if driver else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        if 'license_number' in data and Driver.objects.filter(license_number=data['license_number']).exclude(user=user).exists():
+            raise serializers.ValidationError({"license_number": "A driver with this license number already exists."})
+
+        return data
+
+class DriverUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+    license_number = serializers.CharField(max_length=12, required=False)
+    birth_year = serializers.CharField(max_length=4, required=False)
+
+    def validate_birth_year(self, value):
+        try:
+            year = int(value)
+            current_year = date.today().year
+            if year < 1900:
+                raise serializers.ValidationError("Birth year must be >= 1900.")
+            if current_year - year < 18:
+                raise serializers.ValidationError("Driver must be at least 18 years old.")
+        except ValueError:
+            raise serializers.ValidationError("Invalid year format.")
+        return value
+
+    def validate(self, data):
+        driver = self.context.get('driver')
+        user = driver.user if driver else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        if 'license_number' in data and Driver.objects.filter(license_number=data['license_number']).exclude(user=user).exists():
+            raise serializers.ValidationError({"license_number": "A driver with this license number already exists."})
+
+        return data
+
 class CreateClientSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+
+class ClientUpdateSerializer(serializers.Serializer):
+    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
+    name = serializers.CharField(max_length=60, required=False)
+    email = serializers.EmailField(max_length=60, required=False)
+    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
+    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
+
+    def validate(self, data):
+        client = self.context.get('client')
+        user = client.user if client else None
+
+        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+
+        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        return data
 
     def validate_nif(self, value):
         from .models import User
@@ -126,6 +217,8 @@ class TripCreateSerializer(serializers.Serializer):
     client_id      = serializers.IntegerField()
     originAddress  = serializers.CharField(max_length=255)
     destAddress    = serializers.CharField(max_length=255)
+    originCoords   = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    destCoords     = serializers.CharField(max_length=255, required=False, allow_blank=True)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
     scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
@@ -222,10 +315,11 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
+    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
 
     class Meta:
         model = Client
-        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned", 'profile_pic']
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -235,12 +329,13 @@ class DriverSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     gender = serializers.CharField(source='user.gender', read_only=True)
     is_banned = serializers.BooleanField(source="user.is_banned", read_only=True)
+    profile_pic = serializers.IntegerField(source="user.profile_pic", read_only=True)
     license_number = serializers.CharField(read_only=True)
     birth_year = serializers.CharField(read_only=True)
 
     class Meta:
         model = Driver
-        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned"]
+        fields = ['id', 'nif', 'name', 'email', 'gender', 'license_number', 'birth_year', "is_banned", 'profile_pic']
 
 class TaxiDetailSerializer(serializers.ModelSerializer):
     license_plate = serializers.CharField(read_only=True)
@@ -259,17 +354,19 @@ class TaxiDetailSerializer(serializers.ModelSerializer):
 class TripListSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='shift.driver.user.name', read_only=True, default=None)
     driver_id   = serializers.IntegerField(source='shift.driver.user_id', read_only=True, default=None)
+    driver_pfp  = serializers.IntegerField(source='shift.driver.user.profile_pic', read_only=True, default=1)
     taxi_plate  = serializers.CharField(source='shift.taxi.license_plate', read_only=True, default=None)
     taxi_brand  = serializers.CharField(source='shift.taxi.brand', read_only=True, default=None)
     taxi_model  = serializers.CharField(source='shift.taxi.model', read_only=True, default=None)
     taxi_engine = serializers.CharField(source='shift.taxi.engine_type', read_only=True, default=None)
+    taxi_passengers = serializers.IntegerField(source='shift.taxi.num_passengers', read_only=True, default=None)
     client_id   = serializers.IntegerField(source='client.user_id', read_only=True)
     client_name = serializers.CharField(source='client.user.name', read_only=True)
     interval    = TimeIntervalSerializer(read_only=True)
 
     class Meta:
         model = Trip    
-        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'driver_pfp', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'taxi_passengers', 'interval']
 
 class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
@@ -317,6 +414,28 @@ class TripCompleteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip
         fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_name', 'driver_name', 'taxi_plate', 'interval']
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    trip_id = serializers.IntegerField(source='trip.id', read_only=True)
+    client_id = serializers.IntegerField(source='trip.client.user_id', read_only=True)
+    client_name = serializers.CharField(source='trip.client.user.name', read_only=True)
+    client_gender = serializers.CharField(source='trip.client.user.gender', read_only=True)
+    driver_id = serializers.IntegerField(source='trip.shift.driver.user_id', read_only=True, default=None)
+    driver_name = serializers.CharField(source='trip.shift.driver.user.name', read_only=True, default=None)
+    taxi_plate = serializers.CharField(source='trip.shift.taxi.license_plate', read_only=True, default=None)
+    originAddress = serializers.CharField(source='trip.originAddress', read_only=True)
+    destAddress = serializers.CharField(source='trip.destAddress', read_only=True)
+    trip_start_time = serializers.DateTimeField(source='trip.interval.start_time', read_only=True)
+    trip_end_time = serializers.DateTimeField(source='trip.interval.end_time', read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = [
+            'trip_id', 'number', 'date', 'amount_total', 'amount_paid', 'nif',
+            'client_id', 'client_name', 'client_gender',
+            'driver_id', 'driver_name', 'taxi_plate',
+            'originAddress', 'destAddress', 'trip_start_time', 'trip_end_time',
+        ]
 
 class RefuelSerializer(serializers.ModelSerializer):
     class Meta:

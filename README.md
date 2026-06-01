@@ -62,35 +62,47 @@ The database operates in a **Primary-Replica** model. A custom `db_healthcheck.s
 ```text
                     Internet
                        │
-                ┌------┴------┐
-                │ Public IP   │  ← 34.175.164.1 (Floats via GCP API script)
-                │   LB VIP    │  ← 10.10.10.100 (Keepalived / VRRP)
-                └------┬------┘
-                       │
-           ┌-----------┴-----------┐
-    ┌------┴------┐         ┌------┴------┐
-    │   lb-01     │         │   lb-02     │
-    │ 10.10.10.10 │         │ 10.10.10.11 │
-    └------┬------┘         └------┬------┘
-        (Master)                 (Backup)
-           │                       │
-           └-----------┬-----------┘
-                       │
-           ┌-----------┴-----------┐
-           │                       │
-    ┌------┴------┐         ┌------┴------┐
-    │   web-1     │         │   web-2     │
-    │ 10.10.10.20 │         │ 10.10.10.21 │
-    └------┬------┘         └------┬------┘
-           │  Nginx (:8000) → Gunicorn (:8001)
-           │  Frontend SPA + Backend API
-           │
-    ┌------┴------┐         ┌------┴------┐
-    │    db-01    │         │    db-02    │
-    │ 10.10.10.30 │         │ 10.10.10.31 │
-    └-------------┘         └-------------┘
-       (Primary)               (Replica)
+          ┌────────────┼────────────┐
+          │            │            │
+   ┌──────┴──────┐     │     ┌──────┴──────┐
+   │  bastion    │     │     │ Public IP   │  ← 34.175.164.1
+   │ 10.10.10.5  │     │     │   LB VIP    │  ← 10.10.10.100
+   │ (Jump Host) │     │     └──────┬──────┘
+   └──────┬──────┘     │            │
+     SSH mgmt ─────────┼────────────┤
+          │            │            │
+          │   ┌--------┴-------┐    │
+          │   │                │    │
+          │ ┌─┴──────────┐ ┌──┴────┴─────┐
+          │ │   lb-01     │ │   lb-02     │
+          ├→│ 10.10.10.10 │ │ 10.10.10.11 │
+          │ └──────┬──────┘ └──────┬──────┘
+          │     (Master)        (Backup)
+          │        └───────┬───────┘
+          │                │
+          │   ┌────────────┴────────────┐
+          │   │                         │
+          │ ┌─┴──────────┐   ┌──────────┴─┐
+          │ │   web-1     │   │   web-2     │
+          ├→│ 10.10.10.20 │   │ 10.10.10.21 │
+          │ └──────┬──────┘   └──────┬──────┘
+          │  Nginx (:8000) → Gunicorn (:8001)
+          │        Frontend + Backend
+          │        │                 |
+          │ ┌──────┴──────┐   ┌──────┴───────┐
+          │ │    db-01    │   │    db-02     │
+          └→│ 10.10.10.30 │   │ 10.10.10.31  │
+            └─────────────┘   └──────────────┘
+               (Primary)          (Replica)
 ```
+
+### 4. Bastion Host (Jump Server)
+A hardened **bastion VM** (`10.10.10.5`) is the single SSH entry point to the entire private network. All internal VMs drop SSH traffic from any source other than the bastion.
+- **Static External IP:** Reserved via GCP, allowing stable `~/.ssh/config` entries.
+- **SSH Hardening:** Root login disabled, key-only authentication, idle timeout (5 min), max 3 auth tries.
+- **Fail2ban:** Bans IPs after 5 failed attempts for 1 hour.
+- **Firewall (iptables):** Only inbound SSH and outbound SSH to `10.10.10.0/24` are permitted; everything else is dropped.
+- **SSH Tunneling:** Use `ssh -J` (ProxyJump) to reach any internal VM transparently.
 
 ---
 
@@ -132,6 +144,11 @@ npm run dev
 ### Automation Scripts (§3.1)
 
 Scripts para demonstração e gestão da infraestrutura, executados a partir do diretório raiz do projeto.
+
+**Bastion (Jump Server):**
+| Script | Descrição |
+|:---|:---|
+| `bash scripts/create_bastion.sh` | Cria o bastion host (10.10.10.5) com IP externo estático, hardening SSH e fail2ban |
 
 **Servidores Aplicacionais:**
 | Script | Descrição |
@@ -189,6 +206,7 @@ curl -X POST http://<host>/api/auth/login/ \
 ├── frontend/           # React + Vite SPA
 ├── database/           # PostgreSQL Schema & SQL Logic
 ├── scripts/            # Automation Scripts
+│   ├── create_bastion.sh
 │   ├── create_app_server.sh
 │   ├── kill_app_server.sh
 │   ├── create_db_primary.sh
@@ -201,6 +219,7 @@ curl -X POST http://<host>/api/auth/login/ \
 │   ├── promote_lb_backup.sh
 │   ├── common/         # Shared config & utilities
 │   ├── deploy/         # Modular Deployment Orchestrators
+│   ├── firewall/       # Per-VM iptables rules
 │   ├── healthchecks/   # HA Monitoring & Auto-Promotion
 │   ├── infra/          # GCP VM Provisioning
 │   └── setup/          # On-VM setup scripts
