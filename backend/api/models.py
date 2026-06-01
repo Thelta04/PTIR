@@ -39,8 +39,6 @@ class Driver(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, db_column='id_user', primary_key=True)
     license_number = models.CharField(max_length=12)
     birth_year = models.IntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'driver'
@@ -170,7 +168,6 @@ class TripRequest(models.Model):
         amount = models.DecimalField(max_digits=8, decimal_places=2)
         unit = models.CharField(max_length=10)
         price = models.DecimalField(max_digits=8, decimal_places=2)
-        created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.amount} {self.unit} - {self.price}€"

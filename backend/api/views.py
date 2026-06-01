@@ -1960,7 +1960,7 @@ class RefuelListCreateView(views.APIView):
         responses={200: RefuelSerializer(many=True), 201: RefuelSerializer}
     )
     def get(self, request):
-        refuels = Refueling.objects.all().order_by('-created_at')
+        refuels = Refueling.objects.all()
         serializer = RefuelSerializer(refuels, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

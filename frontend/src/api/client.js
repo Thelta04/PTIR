@@ -94,7 +94,7 @@ export const createDriver = (data) =>
   api.post('auth/create/driver/', data);
 
 export const updateDriver = (id, data) =>
-  api.patch(`driver/${id}/update/`, data);
+  api.patch(`driver/${id}`, data);
 
 export const toggleUserStatus = (id) => api.patch(`user/${id}/toggle-status/`);
 // deleteUser optionally accepts managerPassword (required by backend for manager-only deletions)
