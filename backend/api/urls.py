@@ -23,7 +23,11 @@ urlpatterns = [
     path('taxi/<str:license_plate>/delete/', views.TaxiDeleteView.as_view(), name='delete_taxi'),
     path('taxi/<str:license_plate>/mileage/', views.TaxiUpdateMileageView.as_view()),
 
-
+    # Reports
+    path('reports/', views.ReportsView.as_view(), name='reports'),
+    path('reports/reabastecimento', views.RefuelReportView.as_view(), name='reports_refuels'),
+    path('reports/taxis', views.TaxisReportView.as_view(), name='reports_taxis'),
+    path('reports/clients', views.ClientsReportView.as_view(), name='reports_clients'),
     
     # Shifts
     path('shift/create/', views.ShiftCreateView.as_view(), name='create_shift'),
