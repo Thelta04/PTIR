@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, payMockTrip, startTripPayment, getTripPaymentStatus } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, payMockTrip, startTripPayment, getTripPaymentStatus, rateTrip } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import ProfileModal from '../../components/ProfileModal';
+import RatingModal from '../../components/RatingModal';
 import './client.css';
 
 export default function ClientTrip() {
@@ -27,6 +28,7 @@ export default function ClientTrip() {
   const activeTripRef = useRef(null);
   const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'waiting_pickup', 'in_progress', 'waiting_payment', 'paid'
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [driverPos, setDriverPos] = useState(null);
@@ -124,7 +126,9 @@ export default function ClientTrip() {
               setStatus('waiting_payment');
             } else if (updatedTrip.status === 'PAID') {
               setStatus('paid');
-            } else if (updatedTrip.status === 'CANCELED' || updatedTrip.status === 'COMPLETED') {
+            } else if (updatedTrip.status === 'COMPLETED') {
+              setIsRatingModalOpen(true);
+            } else if (updatedTrip.status === 'CANCELED') {
               navigate('/client');
             }
           }
@@ -207,6 +211,18 @@ export default function ClientTrip() {
         }
       }
     );
+  };
+
+  const handleRate = async (score) => {
+    if (score > 0) {
+      try {
+        await rateTrip(tripId, score);
+      } catch (err) {
+        console.error('Error rating trip:', err);
+      }
+    }
+    setIsRatingModalOpen(false);
+    navigate('/client');
   };
 
   // Mock Driver Logic
@@ -519,14 +535,6 @@ export default function ClientTrip() {
             <h2 className="panel-title">Obrigada por viajar com a TUXY!</h2>
             <p style={{ color: '#666', marginBottom: '15px' }}>O seu pagamento foi recebido com sucesso.</p>
             <p style={{ color: '#666', marginBottom: '20px' }}>O motorista está a emitir a sua fatura.</p>
-            
-            <button 
-              className="panel-btn panel-btn--accept" 
-              onClick={() => navigate('/client')}
-              style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
-            >
-              VOLTAR AO INÍCIO
-            </button>
           </div>
         );
 
@@ -702,6 +710,13 @@ export default function ClientTrip() {
       <ProfileModal 
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      <RatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => handleRate(0)}
+        onRate={handleRate}
+        driverName={activeTrip?.driver_name || 'Motorista'}
       />
     </div>
   );
