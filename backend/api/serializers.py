@@ -179,16 +179,6 @@ class ClientUpdateSerializer(serializers.Serializer):
 
         return data
 
-    def validate_nif(self, value):
-        if User.objects.filter(nif=value).exists():
-            raise serializers.ValidationError("NIF already registered.")
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already registered.")
-        return value
-
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)

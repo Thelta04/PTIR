@@ -9,6 +9,7 @@ import DecisionDriver from './pages/driver/DecisionDriver';
 import ClientMain from './pages/client/ClientMain';
 import ClientTrip from './pages/client/ClientTrip';
 import ClientHistory from './pages/client/ClientHistory';
+import ClientScheduled from './pages/client/ClientScheduled';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
@@ -70,6 +71,12 @@ function App() {
           <Route path="/client/history" element={
             <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientHistory />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/client/scheduled" element={
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
+              <ClientScheduled />
             </ProtectedRoute>
           } />
 

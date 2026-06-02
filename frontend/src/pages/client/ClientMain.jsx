@@ -3,16 +3,14 @@ import { useAuth } from '../../context/AuthContext';
 import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry, listRatings } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus, Check, X } from 'lucide-react';
+import { Menu, Search, MapPin, ChevronLeft, Plus, Minus, Check, X } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import ProfileModal from '../../components/ProfileModal';
-import { EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import './client.css';
 import '../../components/map-background.css';
-import { formatDateTimePT } from '../../utils/dateFormat';
 
 export default function ClientMain() {
   const { user, logout } = useAuth();
@@ -20,18 +18,11 @@ export default function ClientMain() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [currentView, setCurrentView] = useState('initial'); // 'initial', 'selection', 'searching'
+  const [currentView, setCurrentView] = useState('initial');
   const [searchValue, setSearchValue] = useState('');
-
-  const getNowFormatted = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  };
 
   const [origin_address, setOriginAddress] = useState('');
   const [dest_address, setDestinationAddress] = useState('');
-  const [dateTime, setDateTime] = useState(getNowFormatted());
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
@@ -40,7 +31,6 @@ export default function ClientMain() {
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
-  const [isScheduling, setIsScheduling] = useState(false);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [driverRating, setDriverRating] = useState('N/A');
@@ -306,7 +296,7 @@ export default function ClientMain() {
       }
     }
 
-    setCurrentView('selection');
+    setCurrentView('confirmation');
   };
 
   const handleConfirmRide = async () => {
@@ -319,7 +309,7 @@ export default function ClientMain() {
         destCoords: destino ? `${destino.lat},${destino.lon}` : null,
         comfort_level,
         num_passengers,
-        scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
+        scheduled_time: null,
       });
 
       // Navigate to the trip tracking page
@@ -436,92 +426,6 @@ export default function ClientMain() {
           </div>
         );
 
-      case 'selection':
-        return (
-          <div className="selection-view">
-            <div className="view-header">
-              <button
-                className="back-btn"
-                onClick={() => setCurrentView('initial')}
-                title="Voltar"
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <h2 className="view-title">Quando deseja partir?</h2>
-            </div>
-
-            <div className="trip-summary-mini" style={{
-              background: '#fff',
-              padding: '16px',
-              borderRadius: '10px',
-              border: '1.5px solid #f1cf58',
-              marginBottom: '16px',
-              fontSize: '1.05rem',
-              color: '#374151',
-              textAlign: 'left'
-            }}>
-              <div style={{ marginBottom: '6px' }}><strong>De:</strong> {simplifyAddress(origin_address) || 'Localização Atual'}</div>
-              <div style={{ marginBottom: '6px' }}><strong>Para:</strong> {simplifyAddress(dest_address || searchValue)}</div>
-              <div style={{ marginBottom: '6px' }}><strong>Serviço:</strong> {comfort_level === 'basic' ? 'Básico' : 'Luxo'} • {num_passengers} {num_passengers > 1 ? 'passageiros' : 'passageiro'}</div>
-              {estimatedPrice > 0 && (
-                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #f1cf58', fontWeight: '800', color: '#000', fontSize: '1.2rem' }}>
-                  Estimativa: €{estimatedPrice.toFixed(2)} ({estimatedDuration} min)
-                </div>
-              )}
-            </div>
-
-            {!isScheduling ? (
-              <div className="selection-options" style={{ display: 'flex', flexDirection: 'row', gap: '12px', marginTop: '10px' }}>
-                <button
-                  className="search-btn"
-                  style={{ flex: 1, height: '52px', fontSize: '1.05rem', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}
-                  onClick={() => setIsScheduling(true)}
-                >
-                  Agendar
-                </button>
-                <button
-                  className="search-btn search-btn--primary"
-                  style={{ flex: 1, height: '52px', fontSize: '1.05rem' }}
-                  onClick={() => {
-                    setDateTime('');
-                    setCurrentView('confirmation');
-                  }}
-                >
-                  Partir Agora
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
-                <EuropeanDateTimeInput
-                  className="timestamp-input"
-                  value={dateTime}
-                  onChange={setDateTime}
-                />
-                <button
-                  className="search-btn search-btn--primary"
-                  style={{ flex: 'none', width: '48px', height: '48px', padding: 0 }}
-                  onClick={() => {
-                    if (!dateTime) {
-                      alert('Por favor, selecione uma data e hora para a sua viagem agendada.');
-                      return;
-                    }
-                    setCurrentView('confirmation');
-                  }}
-                >
-                  <Check size={24} />
-                </button>
-                <button
-                  className="search-btn"
-                  style={{ flex: 'none', width: '48px', height: '48px', padding: 0, backgroundColor: '#fee2e2', color: '#ef4444' }}
-                  onClick={() => setIsScheduling(false)}
-                >
-                  <X size={24} />
-                </button>
-              </div>
-            )}
-          </div>
-        );
-
       case 'confirmation':
         return (
           <div className="confirmation-view" style={{
@@ -534,7 +438,7 @@ export default function ClientMain() {
             <div className="view-header">
               <button
                 className="back-btn"
-                onClick={() => setCurrentView('selection')}
+                onClick={() => setCurrentView('initial')}
                 title="Voltar"
               >
                 <ChevronLeft size={24} />
@@ -584,7 +488,7 @@ export default function ClientMain() {
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hora de Recolha</span>
                   <div style={{ fontSize: '1rem', color: '#f1af3d', fontWeight: '700' }}>
-                    {dateTime ? formatDateTimePT(dateTime) : 'Imediata'}
+                    Imediata
                   </div>
                 </div>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -788,8 +692,8 @@ export default function ClientMain() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Pedir Viagem
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
+                  Agendar Viagens
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
