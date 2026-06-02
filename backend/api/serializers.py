@@ -1,7 +1,8 @@
 import re
 from datetime import date
+from decimal import Decimal
 from rest_framework import serializers
-from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice, Refueling
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice, Refueling, PricingConfig
 from django.utils import timezone as tz
 
 # Validators that are common to multiple serializers
@@ -28,6 +29,25 @@ class TimeIntervalSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeInterval
         fields = ['start_time', 'end_time']
+
+class PricingConfigSerializer(serializers.ModelSerializer):
+    price_per_min_basic = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal('0.01'))
+    price_per_min_luxury = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal('0.01'))
+    night_surcharge_percent = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=Decimal('0'))
+
+    class Meta:
+        model = PricingConfig
+        fields = ['price_per_min_basic', 'price_per_min_luxury', 'night_surcharge_percent']
+
+class PricingSimulationSerializer(serializers.Serializer):
+    comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'])
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+
+    def validate(self, data):
+        if data['start_time'] >= data['end_time']:
+            raise serializers.ValidationError("End time must be after start time.")
+        return data
 
 # PUT / POST (Should include validations to fail quickly and have informative error messages)
 class CreateDriverSerializer(serializers.Serializer):
@@ -59,6 +79,11 @@ class CreateDriverSerializer(serializers.Serializer):
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered.")
+        return value
+
+    def validate_license_number(self, value):
+        if Driver.objects.filter(license_number=value).exists():
+            raise serializers.ValidationError("License number already registered.")
         return value
 
 class DriverUpdateSerializer(serializers.Serializer):

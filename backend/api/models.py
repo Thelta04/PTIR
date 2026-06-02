@@ -18,6 +18,15 @@ class Taxi(models.Model):
         db_table = 'taxi'
 
 
+class PricingConfig(models.Model):
+    price_per_min_basic = models.DecimalField(max_digits=6, decimal_places=2)
+    price_per_min_luxury = models.DecimalField(max_digits=6, decimal_places=2)
+    night_surcharge_percent = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        db_table = 'config'
+
+
 class User(models.Model):
     nif = models.CharField(max_length=9)
     name = models.CharField(max_length=60)

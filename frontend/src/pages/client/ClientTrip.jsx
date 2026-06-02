@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Bell, Target, ChevronLeft, Star, Clock } from 'lucide-react';
+import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X, MapPin, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
 import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
@@ -29,7 +29,9 @@ export default function ClientTrip() {
   const [status, setStatus] = useState('searching'); // 'searching', 'accepted', 'waiting_pickup', 'in_progress', 'waiting_payment', 'paid'
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isPaidPanelClosed, setIsPaidPanelClosed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isPaymentButtonDisabled, setIsPaymentButtonDisabled] = useState(false);
 
   const [driverPos, setDriverPos] = useState(null);
   const [driverRating, setDriverRating] = useState('N/A');
@@ -169,6 +171,9 @@ export default function ClientTrip() {
     const isSuccess = query.get('payment_success');
 
     if (sessionId && isSuccess && tripId) {
+      setIsPaymentButtonDisabled(true);
+      setTimeout(() => setIsPaymentButtonDisabled(false), 5000);
+
       const verifyPayment = async () => {
         try {
           const { data } = await getTripPaymentStatus(tripId, sessionId);
@@ -357,7 +362,9 @@ export default function ClientTrip() {
                 <strong>{activeTrip?.taxi_brand || 'Tesla'} {activeTrip?.taxi_model || 'Model 3'}</strong>
                 <span>{activeTrip?.taxi_plate || 'AA-00-BB'}</span>
               </div>
-              <div className="car-icon">🚗</div>
+              <div className="car-icon">
+                <Car size={32} color="#f1cf58" />
+              </div>
             </div>
 
             <div className="trip-specs" style={{
@@ -385,7 +392,7 @@ export default function ClientTrip() {
 
             <div className="trip-route-summary" style={{ fontSize: '1.05rem', color: '#333', margin: '15px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: '6px' }}></div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Origem</span>
                   <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
@@ -394,7 +401,9 @@ export default function ClientTrip() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }}>
+                  <MapPin size={16} fill="#ef4444" />
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Destino</span>
                   <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
@@ -448,24 +457,34 @@ export default function ClientTrip() {
               </div>
             )}
 
-            <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
-              <motion.div
-                animate={{
-                  opacity: [0.3, 1, 0.3],
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 3,
-                  ease: "easeInOut"
-                }}
-                style={{
-                  height: '8px',
-                  width: '100%',
-                  background: '#f1cf58',
-                  borderRadius: '4px',
-                  boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
-                }}
-              />
+            <div className="trip-progress-container" style={{ margin: '30px 10px', position: 'relative' }}>
+              <div style={{ height: '4px', width: '100%', background: '#e0e0e0', borderRadius: '2px', position: 'relative' }}>
+                <motion.div
+                  animate={{ width: ['0%', '100%', '0%'] }}
+                  transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
+                  style={{
+                    height: '100%',
+                    background: '#f1cf58',
+                    borderRadius: '2px',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    right: '-12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#000'
+                  }}>
+                    <motion.div
+                      animate={{ scaleX: [1, 1, -1, -1] }}
+                      transition={{ repeat: Infinity, duration: 16, times: [0, 0.499, 0.5, 1], ease: "linear" }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#000" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 12.3 2 13v3c0 .6.4 1 1 1h2m14 0c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2zM7 17c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2z"/></svg>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              </div>
             </div>
 
             <div className="driver-mini-card" style={{
@@ -518,24 +537,40 @@ export default function ClientTrip() {
               </div>
             )}
 
-            <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
-              <motion.div
-                animate={{
-                  opacity: [0.3, 1, 0.3],
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 3,
-                  ease: "easeInOut"
-                }}
-                style={{
-                  height: '8px',
-                  width: '100%',
-                  background: '#f1cf58',
-                  borderRadius: '4px',
-                  boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
-                }}
-              />
+            <div className="trip-progress-container" style={{ margin: '30px 20px 30px 10px', position: 'relative' }}>
+              <div style={{ height: '4px', width: '100%', background: '#e0e0e0', borderRadius: '2px', position: 'relative' }}>
+                <motion.div
+                  animate={{ width: ['0%', '100%'] }}
+                  transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
+                  style={{
+                    height: '100%',
+                    background: '#f1cf58',
+                    borderRadius: '2px',
+                    position: 'relative',
+                    zIndex: 2
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    right: '-12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#000'
+                  }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#000" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 12.3 2 13v3c0 .6.4 1 1 1h2m14 0c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2zM7 17c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2z"/></svg>
+                  </div>
+                </motion.div>
+                
+                <div style={{
+                  position: 'absolute',
+                  right: '-18px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 1
+                }}>
+                  <Flag size={20} color="#000" />
+                </div>
+              </div>
             </div>
 
             <p style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>A caminho do seu destino...</p>
@@ -570,8 +605,31 @@ export default function ClientTrip() {
         );
 
       case 'paid':
+        if (isPaidPanelClosed) return null;
         return (
-          <div className="status-panel paid" style={{ textAlign: 'center' }}>
+          <div className="status-panel paid" style={{ textAlign: 'center', position: 'relative' }}>
+            <button 
+              onClick={() => {
+                setIsPaidPanelClosed(true);
+                setIsRatingModalOpen(true);
+              }}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#666',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px',
+                borderRadius: '50%'
+              }}
+            >
+              <X size={20} />
+            </button>
             <div className="success-icon" style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
             <h2 className="panel-title">Obrigada por viajar com a TUXY!</h2>
             <p style={{ color: '#666', marginBottom: '15px' }}>O seu pagamento foi recebido com sucesso.</p>
@@ -607,9 +665,17 @@ export default function ClientTrip() {
               <button
                 className="panel-btn panel-btn--accept"
                 onClick={handleStripePayment}
-                style={{ width: '100%', height: 'auto', padding: '18px 0', fontSize: '1.1rem' }}
+                disabled={isPaymentButtonDisabled}
+                style={{ 
+                  width: '100%', 
+                  height: 'auto', 
+                  padding: '18px 0', 
+                  fontSize: '1.1rem',
+                  opacity: isPaymentButtonDisabled ? 0.6 : 1,
+                  cursor: isPaymentButtonDisabled ? 'not-allowed' : 'pointer'
+                }}
               >
-                PAGAR COM STRIPE
+                {isPaymentButtonDisabled ? 'A VERIFICAR...' : 'Pagar Viagem'}
               </button>
             </div>
           </div>

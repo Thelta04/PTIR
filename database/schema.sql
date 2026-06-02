@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS rating, invoice, trip, refueling, shift, time_interval, driver, manager, client, user_account, taxi CASCADE;
+DROP TABLE IF EXISTS rating, invoice, trip, refueling, shift, time_interval, driver, manager, client, user_account, taxi, config CASCADE;
 
 -- TAXI
 CREATE TABLE taxi ( 
@@ -10,6 +10,14 @@ CREATE TABLE taxi (
     comfort_level VARCHAR(10) NOT NULL,  
     engine_type VARCHAR(40) NOT NULL,
     num_passengers INT NOT NULL
+);
+
+-- PRICING CONFIG
+CREATE TABLE config (
+    id SERIAL PRIMARY KEY,
+    price_per_min_basic DECIMAL(6,2) NOT NULL,
+    price_per_min_luxury DECIMAL(6,2) NOT NULL,
+    night_surcharge_percent DECIMAL(5,2) NOT NULL
 );
 
 -- USERS
@@ -126,6 +134,11 @@ ALTER TABLE taxi
     ADD CONSTRAINT chk_taxi_mileage CHECK (mileage >= 0),
     ADD CONSTRAINT chk_taxi_comfort_level CHECK (comfort_level IN ('basic', 'luxury')), -- RIA 16
     ADD CONSTRAINT chk_taxi_num_passengers CHECK (num_passengers BETWEEN 1 AND 6); -- RIA 18
+
+ALTER TABLE config
+    ADD CONSTRAINT chk_config_basic_price_positive CHECK (price_per_min_basic > 0),
+    ADD CONSTRAINT chk_config_luxury_price_positive CHECK (price_per_min_luxury > 0),
+    ADD CONSTRAINT chk_config_night_surcharge_non_negative CHECK (night_surcharge_percent >= 0);
 
 ALTER TABLE time_interval
     ADD CONSTRAINT chk_interval_time CHECK (start_time < end_time); -- RIA 1

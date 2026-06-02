@@ -7,6 +7,10 @@ INSERT INTO taxi (license_plate, purchase_year, mileage, brand, model, comfort_l
 ('II-55-JJ', 2022, 45000,  'Kia',     'EV6',    'luxury', 'electric',   4),
 ('KK-66-LL', 2020, 150000, 'Renault', 'Trafic', 'basic',  'combustion', 6);
 
+-- PRICING CONFIG
+INSERT INTO config (id, price_per_min_basic, price_per_min_luxury, night_surcharge_percent) VALUES
+(1, 0.25, 0.50, 25.00);
+
 -- USER ACCOUNT
 INSERT INTO user_account (nif, name, email, gender, password, is_banned) VALUES
 ('123456789', 'Joao Silva',    'joao@email.com',   'Male',   'Joao123',   false),
