@@ -158,5 +158,6 @@ export const rateTrip = (tripId, score) => api.post('rating/create/', { trip_id:
 export const listRatings = (driverId) => api.get(`rating/${driverId}/`);
 export const getPricing = () => api.get('pricing/');
 export const updateProfilePic = (id, profile_pic) => api.patch(`user/${id}/profile-pic/`, { profile_pic });
+export const createRefuel = (data) => api.post('refuels/', data);
 
 export default api;

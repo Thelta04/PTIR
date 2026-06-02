@@ -104,7 +104,7 @@ class TaxiUpdateSerializer(serializers.ModelSerializer):
     model = serializers.CharField(max_length=40, required=False)
     comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'], required=False)
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'], required=False)
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4, required=False)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6, required=False)
 
     class Meta:
         model = Taxi
@@ -138,7 +138,7 @@ class ShiftUpdateSerializer(serializers.Serializer):
                 driver_id=driver_id,
                 scheduled_interval__start_time__lt=end,
                 scheduled_interval__end_time__gt=start
-            ).exclude(id=shift.id if shift else None).exists()
+            ).exclude(id=shift.id if shift else None).exclude(real_interval__end_time__isnull=False).exists()
             if driver_overlap:
                 raise serializers.ValidationError("Driver already has a shift in this time period.")
 
@@ -147,7 +147,7 @@ class ShiftUpdateSerializer(serializers.Serializer):
                 taxi__license_plate=taxi_plate,
                 scheduled_interval__start_time__lt=end,
                 scheduled_interval__end_time__gt=start
-            ).exclude(id=shift.id if shift else None).exists()
+            ).exclude(id=shift.id if shift else None).exclude(real_interval__end_time__isnull=False).exists()
             if taxi_overlap:
                 raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
@@ -179,16 +179,6 @@ class ClientUpdateSerializer(serializers.Serializer):
 
         return data
 
-    def validate_nif(self, value):
-        if User.objects.filter(nif=value).exists():
-            raise serializers.ValidationError("NIF already registered.")
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already registered.")
-        return value
-
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
@@ -214,7 +204,7 @@ class CreateTaxiSerializer(serializers.ModelSerializer):
     model = serializers.CharField(max_length=40)
     comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'])
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'])
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6)
 
     def validate(self, data):
         if not data.get('brand') or not data.get('model'):
@@ -232,7 +222,7 @@ class TripCreateSerializer(serializers.Serializer):
     originCoords   = serializers.CharField(max_length=255, required=False, allow_blank=True)
     destCoords     = serializers.CharField(max_length=255, required=False, allow_blank=True)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6)
     scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate(self, data):
@@ -285,7 +275,7 @@ class ShiftCreateSerializer(serializers.Serializer):
             driver_id=data['driver_id'],
             scheduled_interval__start_time__lt=end,
             scheduled_interval__end_time__gt=start
-        ).exists()
+        ).exclude(real_interval__end_time__isnull=False).exists()
         if driver_overlap:
             raise serializers.ValidationError("Driver already has a shift in this time period.")
 
@@ -293,7 +283,7 @@ class ShiftCreateSerializer(serializers.Serializer):
             taxi__license_plate=data['taxi_license_plate'],
             scheduled_interval__start_time__lt=end,
             scheduled_interval__end_time__gt=start
-        ).exists()
+        ).exclude(real_interval__end_time__isnull=False).exists()
         if taxi_overlap:
             raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             

@@ -30,6 +30,17 @@ const sidebarItems = [
   { key: 'reports', label: 'Relatórios', icon: BarChart3 },
 ];
 
+const taxiModelsByBrand = {
+  Peugeot: ['208', '308', '508', '2008', '3008', '5008', 'Rifter'],
+  Ferrari: ['Roma', 'Portofino M', '296 GTB', 'SF90 Stradale', '812 Superfast', 'F8 Tributo', 'Purosangue'],
+  Honda: ['Civic', 'Accord', 'Jazz', 'HR-V', 'CR-V', 'e:Ny1', 'ZR-V'],
+  Mercedes: ['Classe A', 'Classe C', 'Classe E', 'Classe S', 'GLA', 'GLC', 'EQE'],
+  Fiat: ['500', 'Panda', 'Tipo', 'Punto', 'Ducato', 'Doblo', '500X'],
+  Ford: ['Fiesta', 'Focus', 'Mondeo', 'Puma', 'Kuga', 'Mustang', 'Transit'],
+  Dacia: ['Sandero', 'Logan', 'Duster', 'Jogger', 'Spring', 'Lodgy', 'Dokker'],
+  Tesla: ['Model 3', 'Model S', 'Model X', 'Model Y', 'Cybertruck', 'Roadster', 'Semi'],
+};
+
 const monthAgoDateInput = () => {
   const date = new Date();
   date.setMonth(date.getMonth() - 1);
@@ -162,7 +173,11 @@ export default function ManagerDashboard() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'brand' ? { model: '' } : {}),
+    }));
   };
 
   const formatError = (err) => {
@@ -377,17 +392,35 @@ export default function ManagerDashboard() {
       );
     }
     if (activeSection === 'taxis') {
+      const selectedBrandModels = taxiModelsByBrand[formData.brand] || [];
+
       return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div className="auth-field">
             <label className="auth-label">Matrícula</label>
-            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required readOnly={formMode === 'edit-taxi'} style={formMode === 'edit-taxi' ? { background: '#f5f5f5', color: '#888' } : {}} onChange={handleInputChange} value={formData.license_plate || ''} />
+            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required pattern="^([A-Za-z]{2}-\d{2}-\d{2}|\d{2}-\d{2}-[A-Za-z]{2}|\d{2}-[A-Za-z]{2}-\d{2}|[A-Za-z]{2}-\d{2}-[A-Za-z]{2})$" readOnly={formMode === 'edit-taxi'} style={{ textTransform: 'uppercase', ...(formMode === 'edit-taxi' ? { background: '#f5f5f5', color: '#888' } : {}) }} onChange={(e) => { e.target.value = e.target.value.toUpperCase(); handleInputChange(e); e.target.setCustomValidity(''); }} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.patternMismatch ? 'Formato inválido (ex: AA-00-00, 00-00-AA, 00-AA-00, AA-00-AA)' : 'Campo obrigatório')} value={formData.license_plate || ''} />
           </div>
-          <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} /></div>
-          <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Marca</label><input className="auth-input" name="brand" required onChange={handleInputChange} value={formData.brand || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Modelo</label><input className="auth-input" name="model" required onChange={handleInputChange} value={formData.model || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="4" required onChange={handleInputChange} value={formData.num_passengers || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="2011" max="2026" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeUnderflow ? 'O ano de compra deve ser superior a 2010' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido'))} onInput={(e) => e.target.setCustomValidity('')} value={formData.purchase_year || ''} /></div>
+          <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" min="0" max="350000" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeOverflow ? 'A quilometragem não pode exceder 350.000 km' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido'))} onInput={(e) => e.target.setCustomValidity('')} value={formData.mileage || ''} /></div>
+          <div className="auth-field">
+            <label className="auth-label">Marca</label>
+            <select className="auth-input" name="brand" required onChange={handleInputChange} value={formData.brand || ''}>
+              <option value="" disabled>Selecionar marca</option>
+              {Object.keys(taxiModelsByBrand).map(brand => (
+                <option key={brand} value={brand}>{brand}</option>
+              ))}
+            </select>
+          </div>
+          <div className="auth-field">
+            <label className="auth-label">Modelo</label>
+            <select className="auth-input" name="model" required disabled={!formData.brand} onChange={handleInputChange} value={formData.model || ''}>
+              <option value="" disabled>{formData.brand ? 'Selecionar modelo' : 'Escolha a marca primeiro'}</option>
+              {selectedBrandModels.map(model => (
+                <option key={model} value={model}>{model}</option>
+              ))}
+            </select>
+          </div>
+          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="6" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeOverflow ? 'O máximo permitido são 6 passageiros' : (e.target.validity.rangeUnderflow ? 'Deve ter pelo menos 1 passageiro' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido')))} onInput={(e) => e.target.setCustomValidity('')} value={formData.num_passengers || ''} /></div>
           <div className="auth-field">
             <label className="auth-label">Conforto</label>
             <select className="auth-input" name="comfort_level" required onChange={handleInputChange} value={formData.comfort_level || ''}>

@@ -601,7 +601,7 @@ export default function ClientMain() {
                   <span className="number-value">{num_passengers}</span>
                   <button
                     className="number-btn"
-                    onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
+                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
                   >
                     <Plus size={16} />
                   </button>
@@ -630,7 +630,8 @@ export default function ClientMain() {
           <Menu size={24} color="#000" />
         </button>
 
-        <div className="client-brand">
+        <div className="client-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
           <span className="client-brand-name">TUXY</span>
         </div>
 
