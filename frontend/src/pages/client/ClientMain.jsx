@@ -613,8 +613,9 @@ export default function ClientMain() {
 
             <div className="trip-settings-row">
               <div className="setting-item">
-                <label>Nível de Conforto</label>
+                <label htmlFor="comfort-level-select">Nível de Conforto</label>
                 <select
+                  id="comfort-level-select"
                   className="setting-input"
                   value={comfort_level}
                   onChange={(e) => setComfort(e.target.value)}
@@ -628,6 +629,7 @@ export default function ClientMain() {
                 <div className="number-control">
                   <button
                     className="number-btn"
+                    aria-label="Diminuir número de passageiros"
                     onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
                   >
                     <Minus size={16} />
@@ -635,6 +637,7 @@ export default function ClientMain() {
                   <span className="number-value">{num_passengers}</span>
                   <button
                     className="number-btn"
+                    aria-label="Aumentar número de passageiros"
                     onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
                   >
                     <Plus size={16} />

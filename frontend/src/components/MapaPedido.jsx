@@ -93,19 +93,19 @@ export default function MapaPedido({ origem, destino, onEscolherPonto, routeCoor
         <ClickHandler onPick={onEscolherPonto} />
 
         {origem && (
-          <Marker position={[origem.lat, origem.lon]} icon={isInProgress ? carIcon : originIcon}>
+          <Marker position={[origem.lat, origem.lon]} icon={isInProgress ? carIcon : originIcon} title={isInProgress ? 'Você está aqui' : 'Origem'} alt={isInProgress ? 'Você está aqui' : 'Origem'}>
             <Popup>{isInProgress ? 'Você está aqui' : 'Origem'}</Popup>
           </Marker>
         )}
 
         {destino && (
-          <Marker position={[destino.lat, destino.lon]} icon={destIcon}>
+          <Marker position={[destino.lat, destino.lon]} icon={destIcon} title="Destino" alt="Destino">
             <Popup>Destino</Popup>
           </Marker>
         )}
 
         {carPos && (
-          <Marker position={[carPos.lat, carPos.lon]} icon={carIcon}>
+          <Marker position={[carPos.lat, carPos.lon]} icon={carIcon} title="Motorista" alt="Motorista">
             <Popup>Motorista</Popup>
           </Marker>
         )}

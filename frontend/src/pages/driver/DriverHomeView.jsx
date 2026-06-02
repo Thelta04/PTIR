@@ -663,7 +663,7 @@ export default function DriverHomeView({ onNavigate }) {
             attribution="&copy; Google Maps"
             maxZoom={20}
           />
-          <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
+          <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon} title="Você está aqui" alt="Você está aqui">
             <Popup>Você está aqui</Popup>
           </Marker>
 
@@ -671,13 +671,13 @@ export default function DriverHomeView({ onNavigate }) {
             <>
               {/* Pickup location marker (hide if trip is in progress) */}
               {activeTrip.status !== 'IN_PROGRESS' && activeTrip.originCoords && (
-                <Marker position={activeTrip.originCoords.split(',').map(Number)} icon={createIcon('#ef4444')}>
+                <Marker position={activeTrip.originCoords.split(',').map(Number)} icon={createIcon('#ef4444')} title={`Recolha: ${activeTrip.originAddress}`} alt={`Recolha: ${activeTrip.originAddress}`}>
                   <Popup>Recolha: {activeTrip.originAddress}</Popup>
                 </Marker>
               )}
               {/* Destination location marker (only if in progress) */}
               {activeTrip.status === 'IN_PROGRESS' && activeTrip.destCoords && (
-                <Marker position={activeTrip.destCoords.split(',').map(Number)} icon={createIcon('#10b981')}>
+                <Marker position={activeTrip.destCoords.split(',').map(Number)} icon={createIcon('#10b981')} title={`Destino: ${activeTrip.destAddress}`} alt={`Destino: ${activeTrip.destAddress}`}>
                   <Popup>Destino: {activeTrip.destAddress}</Popup>
                 </Marker>
               )}
@@ -692,7 +692,7 @@ export default function DriverHomeView({ onNavigate }) {
               const [tLat, tLon] = trip.originCoords.split(',').map(Number);
               if (isNaN(tLat) || isNaN(tLon)) return null;
               return (
-                <Marker key={trip.id} position={[tLat, tLon]} icon={createIcon(pinColors[index % pinColors.length])}>
+                <Marker key={trip.id} position={[tLat, tLon]} icon={createIcon(pinColors[index % pinColors.length])} title={trip.client_name} alt={trip.client_name}>
                   <Popup>{trip.client_name}</Popup>
                 </Marker>
               );
