@@ -56,6 +56,7 @@ class CreateDriverSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+    profile_pic = serializers.IntegerField(min_value=1, max_value=12, required=False, default=1)
     license_number = serializers.CharField(max_length=12)
     birth_year = serializers.CharField(max_length=4)
 
@@ -184,6 +185,7 @@ class CreateClientSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+    profile_pic = serializers.IntegerField(min_value=1, max_value=12, required=False, default=1)
 
 class ClientUpdateSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
@@ -210,6 +212,7 @@ class CreateManagerSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=60)
     gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'])
     password = serializers.CharField(max_length=40, validators=[validate_password])
+    profile_pic = serializers.IntegerField(min_value=1, max_value=12, required=False, default=1)
 
     def validate_nif(self, value):
         if User.objects.filter(nif=value).exists():
