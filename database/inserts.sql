@@ -65,10 +65,8 @@ VALUES ('2025-01-01 08:00:00+00:00', '2025-01-01 16:00:00+00:00'),
        (CURRENT_TIMESTAMP - INTERVAL '1 hour', CURRENT_TIMESTAMP + INTERVAL '7 hours'),
        (CURRENT_TIMESTAMP - INTERVAL '1 hour', NULL),
        ('2025-01-01 14:00:00+00:00', '2025-01-01 14:15:00+00:00'),
-       -- Int 13: Mid-day refuel for Shift 1
-('2025-01-01 22:00:00+00:00', '2025-01-01 22:20:00+00:00'),
-                                            -- Int 14: Night refuel for Shift 2
-(CURRENT_TIMESTAMP - INTERVAL '10 minutes', CURRENT_TIMESTAMP); -- Int 15: Recent refuel for Shift 3
+       ('2025-01-01 22:00:00+00:00', '2025-01-01 22:20:00+00:00'),
+       (CURRENT_TIMESTAMP - INTERVAL '10 minutes', CURRENT_TIMESTAMP);
 
 -- SHIFT
 
@@ -93,19 +91,19 @@ VALUES (CURRENT_TIMESTAMP - INTERVAL '45 minutes', NULL),
 
 
 INSERT INTO trip (id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval)
-VALUES (2, 5, '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa', 'Saldanha, Lisboa', 'basic', 6.50, 1, 'PENDING', NULL, 9),
-       (4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 10),
-       (2, 3, '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa', 'basic', 4.90, 4, 'PENDING', NULL, 11),
-       (4, 8, '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa', 'El Corte Inglés, Lisboa', 'basic', 14.50, 2, 'PENDING', NULL, 12);
+VALUES (2, 5, '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa', 'Saldanha, Lisboa', 'basic', 6.50, 1, 'PENDING', NULL, 12),
+       (4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 13),
+       (2, 3, '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa', 'basic', 4.90, 4, 'PENDING', NULL, 14),
+       (4, 8, '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa', 'El Corte Inglés, Lisboa', 'basic', 14.50, 2, 'PENDING', NULL, 15);
 
 -- REFUELING
 
 INSERT INTO refueling (cost, kwh, liters, initial_mileage, id_shift, id_interval)
 VALUES (40.00, NULL, 30, 120000, 1, 3),
        (25.00, 50, NULL, 50000, 2, 4),
-       (35.00, NULL, 25, 120150, 1, 13),
-       (15.00, 30, NULL, 50100, 2, 14),
-       (45.00, NULL, 32, 120500, 3, 15);
+       (35.00, NULL, 25, 120150, 1, 9),
+       (15.00, 30, NULL, 50100, 2, 10),
+       (45.00, NULL, 32, 120500, 3, 11);
 
 -- RATING
 
