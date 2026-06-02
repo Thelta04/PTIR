@@ -14,6 +14,7 @@ import {
   completeTrip,
   getRouteGeometry,
   getPricing,
+  updateDriverLocation,
   emitInvoice,
   endShift,
   cancelTrip
@@ -139,6 +140,7 @@ export default function DriverHomeView({ onNavigate }) {
   const lastFetchedRouteKey = useRef('');
   const [eta, setEta] = useState(null);
   const driverLocRef = useRef(null);
+  const lastLocationPublishRef = useRef(0);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
@@ -187,15 +189,30 @@ export default function DriverHomeView({ onNavigate }) {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          setDriverLoc({
+          const nextLoc = {
             lat: position.coords.latitude,
             lon: position.coords.longitude
-          });
+          };
+          setDriverLoc(nextLoc);
+
+          const now = Date.now();
+          if (now - lastLocationPublishRef.current > 5000) {
+            lastLocationPublishRef.current = now;
+            updateDriverLocation(nextLoc.lat, nextLoc.lon).catch((err) => {
+              console.error('Error publishing driver location:', err);
+            });
+          }
         },
         (error) => {
           console.error("Error getting driver location:", error);
           // Fallback if denied or error
-          setDriverLoc(prev => prev || { lat: 38.7115, lon: -9.1360 });
+          setDriverLoc(prev => {
+            const fallbackLoc = prev || { lat: 38.7115, lon: -9.1360 };
+            updateDriverLocation(fallbackLoc.lat, fallbackLoc.lon).catch((err) => {
+              console.error('Error publishing fallback driver location:', err);
+            });
+            return fallbackLoc;
+          });
         },
         { enableHighAccuracy: true }
       );
@@ -204,6 +221,18 @@ export default function DriverHomeView({ onNavigate }) {
       setDriverLoc({ lat: 38.7115, lon: -9.1360 });
     }
   }, []);
+
+  useEffect(() => {
+    if (!driverLoc) return undefined;
+
+    const intervalId = setInterval(() => {
+      updateDriverLocation(driverLoc.lat, driverLoc.lon).catch((err) => {
+        console.error('Error refreshing driver location:', err);
+      });
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [driverLoc]);
   const [shiftDuration, setShiftDuration] = useState('');
   const [isShiftEnded, setIsShiftEnded] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
@@ -838,4 +867,3 @@ export default function DriverHomeView({ onNavigate }) {
     </div>
   );
 }
-
