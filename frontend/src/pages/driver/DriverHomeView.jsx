@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -139,7 +139,7 @@ export default function DriverHomeView({ onNavigate }) {
     if (!activeTripRef.current) return;
     try {
       await cancelTrip(activeTripRef.current.id);
-      alert('A viagem foi cancelada automaticamente (tempo de espera esgotado).');
+      showToast('A viagem foi cancelada automaticamente (tempo de espera esgotado).');
       fetchData();
     } catch (err) {
       console.error('Error auto-canceling trip:', err);
@@ -214,6 +214,12 @@ export default function DriverHomeView({ onNavigate }) {
     message: '',
     onConfirm: () => {},
   });
+
+  const [toastMsg, setToastMsg] = useState('');
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 4000);
+  };
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
@@ -290,7 +296,7 @@ export default function DriverHomeView({ onNavigate }) {
 
   const handleAccept = async (trip) => {
     if (!activeShift) {
-      alert('Você precisa estar em um turno ativo para aceitar viagens.');
+      showToast('Você precisa estar em um turno ativo para aceitar viagens.');
       return;
     }
 
@@ -374,7 +380,7 @@ export default function DriverHomeView({ onNavigate }) {
           fetchData();
         } catch (err) {
           console.error('Error accepting trip:', err);
-          alert('Erro ao aceitar viagem.');
+          showToast('Erro ao aceitar viagem.');
         }
       }
     );
@@ -392,7 +398,7 @@ export default function DriverHomeView({ onNavigate }) {
           fetchData();
         } catch (err) {
           console.error('Error picking up client:', err);
-          alert('Erro ao iniciar viagem.');
+          showToast('Erro ao iniciar viagem.');
         }
       }
     );
@@ -410,7 +416,7 @@ export default function DriverHomeView({ onNavigate }) {
           fetchData();
         } catch (err) {
           console.error('Error completing trip:', err);
-          alert('Erro ao concluir viagem.');
+          showToast('Erro ao concluir viagem.');
         }
       }
     );
@@ -423,7 +429,7 @@ export default function DriverHomeView({ onNavigate }) {
       fetchData();
     } catch (err) {
       console.error('Error emitting invoice:', err);
-      alert('Erro ao emitir fatura.');
+      showToast('Erro ao emitir fatura.');
     }
   };
 
@@ -439,7 +445,7 @@ export default function DriverHomeView({ onNavigate }) {
           if (onNavigate) onNavigate('shifts');
         } catch (err) {
           console.error('Error ending shift:', err);
-          alert('Erro ao terminar turno.');
+          showToast('Erro ao terminar turno.');
         }
       }
     );
@@ -767,6 +773,40 @@ export default function DriverHomeView({ onNavigate }) {
         onConfirm={modalConfig.onConfirm}
         onCancel={closeModal}
       />
+
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            className="dash-toast"
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              bottom: '10px',
+              left: '50%',
+              background: '#fef2f2',
+              color: '#991b1b',
+              padding: '1rem 2rem',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              zIndex: 9999,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              fontWeight: '500',
+              textAlign: 'center',
+              width: 'max-content',
+              maxWidth: '90%',
+              maxHeight: '5%',
+              wordWrap: 'break-word',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {toastMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
