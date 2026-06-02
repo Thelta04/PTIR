@@ -303,7 +303,7 @@ export default function DriverHomeView({ onNavigate }) {
         setActiveTrip(null);
         setRouteCoords([]);
         setEta(null);
-        const loc = driverLocRef.current || { lat: 38.7115, lon: -9.1360 };
+        const loc = driverLocRef.current || { lat: 0.0, lon: 0.0 };
         const { data: pending } = await listPendingTrips(user.id, loc.lat, loc.lon);
         setTrips(pending);
       }
@@ -634,9 +634,6 @@ export default function DriverHomeView({ onNavigate }) {
             attribution="&copy; Google Maps"
             maxZoom={20}
           />
-
-          <MapController activeTrip={activeTrip} routeCoords={routeCoords} driverLoc={driverLoc} />
-
           <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
             <Popup>Você está aqui</Popup>
           </Marker>

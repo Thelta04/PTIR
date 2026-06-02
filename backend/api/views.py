@@ -1001,11 +1001,8 @@ class TripListView(views.APIView):
                 max_passengers = active_shift.taxi.num_passengers
                 taxi_comfort = active_shift.taxi.comfort_level
                 
-                # A basic taxi can only see basic trips
-                # A luxury taxi can see both luxury and basic trips
-                if taxi_comfort == 'basic':
-                    trips = trips.filter(comfort_level='basic')
-                # If taxi is luxury, we don't filter out basic trips.
+            if comfort_filter:
+                trips = trips.filter(comfort_level=comfort_filter)
                 
         else:
             # If no driver_id, use the explicit query parameters
