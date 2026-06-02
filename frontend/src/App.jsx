@@ -61,7 +61,7 @@ function App() {
           } />
 
           <Route path="/client/trip" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientTrip />
             </ProtectedRoute>
           } />
