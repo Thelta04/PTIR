@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { PSelect, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 import PFPSelector from '../components/PFPSelector';
+import { getPasswordValidationMessage } from '../utils/validation';
 
 
 const ROLE_ROUTES = {
@@ -29,6 +30,12 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const passwordValidationMessage = getPasswordValidationMessage(password);
+    if (passwordValidationMessage) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -49,6 +56,8 @@ export default function Signup() {
       setLoading(false);
     }
   };
+
+  const passwordWarning = password ? getPasswordValidationMessage(password) : '';
 
   return (
     <div className="login-page-user">
@@ -130,6 +139,12 @@ export default function Signup() {
             required={true}
           />
 
+          {passwordWarning && (
+            <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
+              {passwordWarning}
+            </div>
+          )}
+
           {error && (
             <motion.div
               className="login-error"
@@ -158,4 +173,3 @@ export default function Signup() {
 
   );
 }
-
