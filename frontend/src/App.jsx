@@ -33,12 +33,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginUser />} />
-          <Route path="/manager" element={<LoginManager />} />
+          <Route path="/login-manager" element={<LoginManager />} />
           <Route path="/register" element={<Signup />} />
           <Route path="/signup-driver" element={<SignupDriver />} />
 
           <Route path="/manager" element={
-            <ProtectedRoute allowedRoles={['MANAGER']}>
+            <ProtectedRoute allowedRoles={['MANAGER']} redirectTo="/login-manager">
               <ManagerDashboard />
             </ProtectedRoute>
           } />

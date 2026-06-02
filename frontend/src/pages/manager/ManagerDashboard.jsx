@@ -100,7 +100,7 @@ export default function ManagerDashboard() {
 
   const handleLogout = () => {
     logout();
-    navigate('/manager');
+    navigate('/login-manager');
   };
 
   const openCreateModal = () => {
