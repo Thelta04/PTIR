@@ -6,6 +6,10 @@ import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { formatDateTimePT } from '../../utils/dateFormat';
 
+function formatDt(iso) {
+  return formatDateTimePT(iso);
+}
+
 export default function DriverShiftsView() {
   const { user } = useAuth();
   const [shifts, setShifts] = useState([]);
@@ -204,9 +208,9 @@ export default function DriverShiftsView() {
 
               <div className="shift-card-body">
                 <p><strong>Táxi:</strong> {s.taxi_plate}</p>
-                <p><strong>Agendado:</strong> {formatDateTimePT(s.scheduled_interval?.start_time)} → {formatDateTimePT(s.scheduled_interval?.end_time)}</p>
+                <p><strong>Agendado:</strong> {formatDt(s.scheduled_interval?.start_time)} → {formatDt(s.scheduled_interval?.end_time)}</p>
                 {started && (
-                  <p><strong>Real:</strong> {formatDateTimePT(s.real_interval?.start_time)} → {formatDateTimePT(s.real_interval?.end_time)}</p>
+                  <p><strong>Real:</strong> {formatDt(s.real_interval?.start_time)} → {formatDt(s.real_interval?.end_time)}</p>
                 )}
               </div>
 

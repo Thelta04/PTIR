@@ -15,6 +15,7 @@ import { EuropeanDateInput, EuropeanDateTimeInput } from '../../components/Europ
 import {
   formatDateTimePT,
   dateInputToLocalDate,
+  dateTimeInput,
   todayDateInput,
   nowDateTimeInput,
   plusHoursDateTimeInput,
@@ -259,8 +260,8 @@ export default function ManagerDashboard() {
       id: shift.id,
       driver_id: shift.driver_id,
       taxi_license_plate: shift.taxi_plate,
-      start_time: shift.scheduled_interval?.start_time ? new Date(shift.scheduled_interval.start_time).toISOString().slice(0, 16) : '',
-      end_time: shift.scheduled_interval?.end_time ? new Date(shift.scheduled_interval.end_time).toISOString().slice(0, 16) : '',
+      start_time: dateTimeInput(shift.scheduled_interval?.start_time),
+      end_time: dateTimeInput(shift.scheduled_interval?.end_time),
     });
     setIsModalOpen(true);
   };
@@ -608,7 +609,6 @@ export default function ManagerDashboard() {
                       .map((s, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
-<<<<<<< HEAD
                         <td>
                           <div
                             style={{
@@ -624,14 +624,10 @@ export default function ManagerDashboard() {
                             {formatDateTimePT(s.scheduled_interval?.end_time)}
                           </div>
                         </td>
-                        <td><button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0 auto' }}><Trash2 size={16} /></button></td>
-=======
-                        <td><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}><CalendarClock size={14} color="#999" />{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
                         <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                           <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
                           <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
                         </div></td>
->>>>>>> 8fe12b99592d269ed4895bf399bbeaf639dcb94b
                       </tr>
                     ))}
                   </tbody>
