@@ -177,6 +177,7 @@ export default function DriverShiftsView({ onNavigate }) {
 
         <div className="filter-group">
           <select
+            aria-label="Filtrar estado dos turnos"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             style={{
@@ -291,8 +292,8 @@ export default function DriverShiftsView({ onNavigate }) {
                       onClick={() => handleDelete(s.id)}
                       style={{
                         background: 'transparent',
-                        border: '1px solid #ef4444',
-                        color: '#ef4444',
+                        border: '1px solid #b91c1c',
+                        color: '#b91c1c',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',

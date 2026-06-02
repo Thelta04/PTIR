@@ -492,6 +492,36 @@ class InvoiceSerializer(serializers.ModelSerializer):
         ]
 
 class RefuelSerializer(serializers.ModelSerializer):
+    duration = serializers.IntegerField(required=False, write_only=True)
+
     class Meta:
         model = Refueling
         fields = '__all__'
+
+    def validate(self, data):
+        shift = data.get('shift')
+        if not shift:
+            raise serializers.ValidationError({"shift": "Shift is required."})
+        
+        taxi = shift.taxi
+        
+        kwh = data.get('kwh')
+        liters = data.get('liters')
+        initial_mileage = data.get('initial_mileage')
+        
+        if taxi.engine_type == 'electric':
+            if not kwh or kwh <= 0:
+                raise serializers.ValidationError({"kwh": "Electric vehicles require a valid kWh amount."})
+            if liters is not None:
+                raise serializers.ValidationError({"liters": "Electric vehicles cannot be refueled with liters."})
+        else: # combustion
+            if not liters or liters <= 0:
+                raise serializers.ValidationError({"liters": "Combustion vehicles require a valid liters amount."})
+            if kwh is not None:
+                raise serializers.ValidationError({"kwh": "Combustion vehicles cannot be refueled with kWh."})
+                
+        if initial_mileage is not None:
+            if initial_mileage < taxi.mileage:
+                raise serializers.ValidationError({"initial_mileage": f"Reported mileage ({initial_mileage} km) cannot be lower than the taxi's last known mileage ({taxi.mileage} km)."})
+
+        return data
