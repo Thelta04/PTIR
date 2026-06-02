@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X } from 'lucide-react';
+import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X, MapPin, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
 import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
@@ -362,7 +362,9 @@ export default function ClientTrip() {
                 <strong>{activeTrip?.taxi_brand || 'Tesla'} {activeTrip?.taxi_model || 'Model 3'}</strong>
                 <span>{activeTrip?.taxi_plate || 'AA-00-BB'}</span>
               </div>
-              <div className="car-icon">🚗</div>
+              <div className="car-icon">
+                <Car size={32} color="#f1cf58" />
+              </div>
             </div>
 
             <div className="trip-specs" style={{
@@ -390,7 +392,7 @@ export default function ClientTrip() {
 
             <div className="trip-route-summary" style={{ fontSize: '1.05rem', color: '#333', margin: '15px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: '6px' }}></div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Origem</span>
                   <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
@@ -399,7 +401,9 @@ export default function ClientTrip() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', flexShrink: 0, marginTop: '6px' }}></div>
+                <div style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }}>
+                  <MapPin size={16} fill="#ef4444" />
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '2px' }}>Destino</span>
                   <span style={{ fontWeight: '500', lineHeight: '1.3' }}>
