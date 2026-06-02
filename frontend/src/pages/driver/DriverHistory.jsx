@@ -94,7 +94,6 @@ export default function DriverHistory() {
       <section className="driver-history-toolbar">
         <div>
           <h1>Histórico de viagens</h1>
-          <p>{totals.count} viagens organizadas da mais recente para a mais antiga.</p>
         </div>
       </section>
 
