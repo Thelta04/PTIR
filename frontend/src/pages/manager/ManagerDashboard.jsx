@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift,
   listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
-  deleteTaxi, updateTaxiMileage, updateDriver, getReports
+  deleteTaxi, updateDriver, getReports, updateClient, updateTaxi, updateShift
 } from '../../api/client';
 import './manager.css';
 
@@ -30,11 +30,15 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apiStatus, setApiStatus] = useState('');
+  const [tripStatusFilter, setTripStatusFilter] = useState('');
+  const [shiftStatusFilter, setShiftStatusFilter] = useState('');
+
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formMode, setFormMode] = useState('create');
   const [formData, setFormData] = useState({});
+  const [originalId, setOriginalId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -46,12 +50,6 @@ export default function ManagerDashboard() {
   const [itemToDelete, setItemToDelete] = useState(null); // { id, type: 'shift' | 'user' | 'taxi' }
   const [managerPassword, setManagerPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
-
-  // Mileage Edit State
-  const [isMileageModalOpen, setIsMileageModalOpen] = useState(false);
-  const [taxiToEditMileage, setTaxiToEditMileage] = useState(null);
-  const [newMileage, setNewMileage] = useState('');
-  const [updatingMileage, setUpdatingMileage] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -123,9 +121,24 @@ export default function ManagerDashboard() {
     if (formMode === 'edit-driver') {
       const payload = { ...formData };
       delete payload.id;
-      // If password is blank, don't send it to keep current
       if (!payload.password) delete payload.password;
-      request = updateDriver(formData.id, payload);
+      request = updateDriver(originalId, payload);
+    } else if (formMode === 'edit-client') {
+      const payload = { ...formData };
+      delete payload.id;
+      if (!payload.password) delete payload.password;
+      request = updateClient(originalId, payload);
+    } else if (formMode === 'edit-taxi') {
+      const payload = { ...formData };
+      request = updateTaxi(originalId, payload);
+    } else if (formMode === 'edit-shift') {
+      const payload = { 
+        driver_id: parseInt(formData.driver_id, 10),
+        taxi_license_plate: formData.taxi_license_plate,
+        start_time: formData.start_time,
+        end_time: formData.end_time
+      };
+      request = updateShift(originalId, payload);
     } else if (activeSection === 'clients') {
       request = createClient(formData);
     } else if (activeSection === 'drivers') {
@@ -145,6 +158,8 @@ export default function ManagerDashboard() {
           setSubmitError('');
           setFormMode('create');
           fetchData();
+          setApiStatus(formMode.startsWith('edit') ? 'Registo atualizado com sucesso' : 'Registo criado com sucesso');
+          setTimeout(() => setApiStatus(''), 4000);
         })
         .catch(err => {
           const errData = err.response?.data;
@@ -156,6 +171,7 @@ export default function ManagerDashboard() {
 
   const openEditDriver = (driver) => {
     setFormMode('edit-driver');
+    setOriginalId(driver.id);
     setFormData({
       id: driver.id,
       nif: driver.nif || '',
@@ -165,6 +181,49 @@ export default function ManagerDashboard() {
       password: '',
       license_number: driver.license_number || '',
       birth_year: driver.birth_year || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditClient = (client) => {
+    setFormMode('edit-client');
+    setOriginalId(client.id);
+    setFormData({
+      id: client.id,
+      nif: client.nif || '',
+      name: client.name || '',
+      email: client.email || '',
+      gender: client.gender || '',
+      password: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditTaxi = (taxi) => {
+    setFormMode('edit-taxi');
+    setOriginalId(taxi.license_plate);
+    setFormData({
+      license_plate: taxi.license_plate,
+      purchase_year: taxi.purchase_year || '',
+      mileage: taxi.mileage || 0,
+      brand: taxi.brand || '',
+      model: taxi.model || '',
+      comfort_level: taxi.comfort_level || '',
+      engine_type: taxi.engine_type || '',
+      num_passengers: taxi.num_passengers || 1,
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditShift = (shift) => {
+    setFormMode('edit-shift');
+    setOriginalId(shift.id);
+    setFormData({
+      id: shift.id,
+      driver_id: shift.driver_id,
+      taxi_license_plate: shift.taxi_plate,
+      start_time: shift.scheduled_interval?.start_time ? new Date(shift.scheduled_interval.start_time).toISOString().slice(0, 16) : '',
+      end_time: shift.scheduled_interval?.end_time ? new Date(shift.scheduled_interval.end_time).toISOString().slice(0, 16) : '',
     });
     setIsModalOpen(true);
   };
@@ -196,27 +255,6 @@ export default function ManagerDashboard() {
       .finally(() => setDeleting(false));
   };
 
-  const handleUpdateMileage = (e) => {
-    e.preventDefault();
-    if (!taxiToEditMileage) return;
-    setUpdatingMileage(true);
-    updateTaxiMileage(taxiToEditMileage.license_plate, parseInt(newMileage, 10))
-      .then(() => {
-        setIsMileageModalOpen(false);
-        setTaxiToEditMileage(null);
-        setNewMileage('');
-        fetchData();
-        setApiStatus('Quilometragem atualizada');
-        setTimeout(() => setApiStatus(''), 4000);
-      })
-      .catch(err => {
-        const errData = err.response?.data;
-        const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-        alert('Falha ao atualizar: ' + errorMsg);
-      })
-      .finally(() => setUpdatingMileage(false));
-  };
-
   const handleToggleStatus = (id) => {
     toggleUserStatus(id)
       .then(res => {
@@ -240,7 +278,12 @@ export default function ManagerDashboard() {
               <option value="" disabled>Selecionar</option><option value="Male">Masculino</option><option value="Female">Feminino</option><option value="Other">Outro</option>
             </select>
           </div>
-          <div className="auth-field"><label className="auth-label">Palavra-passe</label><input className="auth-input" type="password" name="password" onChange={handleInputChange} value={formData.password || ''} /></div>
+          <div className="auth-field">
+            <label className="auth-label">
+              Palavra-passe {formMode === 'edit-client' && '(deixar em branco para manter)'}
+            </label>
+            <input className="auth-input" type="password" name="password" required={formMode === 'create'} onChange={handleInputChange} value={formData.password || ''} />
+          </div>
         </div>
       );
     }
@@ -270,12 +313,15 @@ export default function ManagerDashboard() {
     if (activeSection === 'taxis') {
       return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div className="auth-field"><label className="auth-label">Matrícula</label><input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required onChange={handleInputChange} value={formData.license_plate || ''} /></div>
+          <div className="auth-field">
+            <label className="auth-label">Matrícula</label>
+            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required readOnly={formMode === 'edit-taxi'} style={formMode === 'edit-taxi' ? { background: '#f5f5f5', color: '#888' } : {}} onChange={handleInputChange} value={formData.license_plate || ''} />
+          </div>
           <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} /></div>
           <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} /></div>
           <div className="auth-field"><label className="auth-label">Marca</label><input className="auth-input" name="brand" required onChange={handleInputChange} value={formData.brand || ''} /></div>
           <div className="auth-field"><label className="auth-label">Modelo</label><input className="auth-input" name="model" required onChange={handleInputChange} value={formData.model || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="10" required onChange={handleInputChange} value={formData.num_passengers || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="4" required onChange={handleInputChange} value={formData.num_passengers || ''} /></div>
           <div className="auth-field">
             <label className="auth-label">Conforto</label>
             <select className="auth-input" name="comfort_level" required onChange={handleInputChange} value={formData.comfort_level || ''}>
@@ -323,26 +369,11 @@ export default function ManagerDashboard() {
           <motion.div className="manager-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="manager-modal-content" style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '700px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }} initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}>
               <button onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', top: '24px', right: '24px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#999' }}><X size={24} /></button>
-              <h2 style={{ marginBottom: '24px', color: '#111', fontWeight: 800, fontSize: '1.5rem' }}>{formMode === 'edit-driver' ? 'Editar Motorista' : `Adicionar ${sidebarItems.find(i => i.key === activeSection)?.label.slice(0, -1)}`}</h2>
+              <h2 style={{ marginBottom: '24px', color: '#111', fontWeight: 800, fontSize: '1.5rem' }}>{formMode.startsWith('edit') ? 'Editar Registo' : `Adicionar ${sidebarItems.find(i => i.key === activeSection)?.label.slice(0, -1)}`}</h2>
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {renderFormFields()}
                 {submitError && <div style={{ color: 'red', fontSize: '14px', background: '#fee2e2', padding: '10px', borderRadius: '8px', whiteSpace: 'pre-line' }}>{submitError}</div>}
-                <button type="submit" className="auth-btn" disabled={submitting}>{submitting ? 'A processar...' : (formMode === 'edit-driver' ? 'Guardar Alterações' : 'Criar Registo')}</button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isMileageModalOpen && (
-          <motion.div className="manager-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1050, display: 'flex', justifyContent: 'center', alignItems: 'center' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div className="manager-modal-content" style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '500px', maxWidth: '95%', position: 'relative' }} initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}>
-              <button onClick={() => setIsMileageModalOpen(false)} style={{ position: 'absolute', top: '24px', right: '24px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#999' }}><X size={24} /></button>
-              <h2 style={{ marginBottom: '24px', color: '#111', fontWeight: 800 }}>Atualizar KM: {taxiToEditMileage?.license_plate}</h2>
-              <form onSubmit={handleUpdateMileage}>
-                <div className="auth-field" style={{ marginBottom: 24 }}><label className="auth-label">Nova Quilometragem (km)</label><input className="auth-input" type="number" value={newMileage} onChange={(e) => setNewMileage(e.target.value)} required min={taxiToEditMileage?.mileage || 0} /></div>
-                <button type="submit" className="auth-btn" disabled={updatingMileage}>{updatingMileage ? 'A atualizar...' : 'Atualizar Quilometragem'}</button>
+                <button type="submit" className="auth-btn" disabled={submitting}>{submitting ? 'A processar...' : (formMode.startsWith('edit') ? 'Guardar Alterações' : 'Criar Registo')}</button>
               </form>
             </motion.div>
           </motion.div>
@@ -419,6 +450,7 @@ export default function ManagerDashboard() {
                         <td>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                             <button onClick={() => handleToggleStatus(c.id)} className="action-btn action-btn--edit" title={c.is_banned ? 'Ativar' : 'Banir'}>{c.is_banned ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}</button>
+                            <button onClick={() => openEditClient(c)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
                             <button onClick={() => { setItemToDelete({ id: c.id, type: 'user' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" title="Apagar"><Trash2 size={16} /></button>
                           </div>
                         </td>
@@ -469,7 +501,7 @@ export default function ManagerDashboard() {
                         <td><div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{t.brand} {t.model}</span><span style={{ fontSize: '0.75rem', color: '#999' }}>{t.purchase_year}</span></div></td>
                         <td>{t.mileage.toLocaleString()} km</td><td><span style={{ textTransform: 'capitalize' }}>{t.engine_type}</span></td><td><span style={{ textTransform: 'capitalize' }}>{t.comfort_level}</span></td>
                         <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button onClick={() => { setTaxiToEditMileage(t); setNewMileage(t.mileage.toString()); setIsMileageModalOpen(true); }} className="action-btn action-btn--edit" title="Atualizar KM"><Edit2 size={16} /></button>
+                          <button onClick={() => openEditTaxi(t)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
                           <button onClick={() => { setItemToDelete({ id: t.license_plate, type: 'taxi' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" title="Apagar"><Trash2 size={16} /></button>
                         </div></td>
                       </tr>
@@ -479,14 +511,52 @@ export default function ManagerDashboard() {
               </div>
             ) : activeSection === 'shifts' ? (
               <div className="data-table-container">
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
+                  <select 
+                    className="auth-input" 
+                    style={{ width: 'auto', padding: '8px 12px' }}
+                    value={shiftStatusFilter}
+                    onChange={(e) => setShiftStatusFilter(e.target.value)}
+                  >
+                    <option value="">Todos os Estados</option>
+                    <option value="SCHEDULED">Agendado</option>
+                    <option value="HAPPENING">A Decorrer</option>
+                    <option value="COMPLETED">Concluído</option>
+                    <option value="DID_NOT_HAPPEN">Não Realizado</option>
+                  </select>
+                </div>
                 <table className="manager-table">
                   <thead><tr><th>ID</th><th>Motorista</th><th>Táxi</th><th>Horário Agendado</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                   <tbody>
-                    {data.shifts.map((s, i) => (
+                    {data.shifts
+                      .filter(s => {
+                        if (!shiftStatusFilter) return true;
+                        
+                        let status = 'SCHEDULED';
+                        if (s.real_interval?.start_time && s.real_interval?.end_time) {
+                          status = 'COMPLETED';
+                        } else if (s.real_interval?.start_time && !s.real_interval?.end_time) {
+                          status = 'HAPPENING';
+                        } else {
+                          const now = new Date();
+                          const scheduledEnd = new Date(s.scheduled_interval?.end_time);
+                          if (!s.real_interval && now > scheduledEnd) status = 'DID_NOT_HAPPEN';
+                        }
+                        return status === shiftStatusFilter;
+                      })
+                      .sort((a, b) => {
+                        const timeA = a.scheduled_interval?.start_time ? new Date(a.scheduled_interval.start_time).getTime() : 0;
+                        const timeB = b.scheduled_interval?.start_time ? new Date(b.scheduled_interval.start_time).getTime() : 0;
+                        return timeB - timeA;
+                      })
+                      .map((s, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
                         <td><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}><CalendarClock size={14} color="#999" />{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
-                        <td><button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0 auto' }}><Trash2 size={16} /></button></td>
+                        <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                          <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
+                        </div></td>
                       </tr>
                     ))}
                   </tbody>
@@ -494,17 +564,59 @@ export default function ManagerDashboard() {
               </div>
             ) : activeSection === 'trips' ? (
               <div className="data-table-container">
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
+                  <select 
+                    className="auth-input" 
+                    style={{ width: 'auto', padding: '8px 12px' }}
+                    value={tripStatusFilter}
+                    onChange={(e) => setTripStatusFilter(e.target.value)}
+                  >
+                    <option value="">Todos os Estados</option>
+                    <option value="PENDING">Pendente</option>
+                    <option value="DRIVER_ACCEPTED">Motorista Aceitou</option>
+                    <option value="CLIENT_ACCEPTED">Cliente Aceitou</option>
+                    <option value="IN_PROGRESS">Em Progresso</option>
+                    <option value="WAITING_PAYMENT">A Aguardar Pagamento</option>
+                    <option value="PAID">Pago</option>
+                    <option value="COMPLETED">Concluído</option>
+                    <option value="CANCELED">Cancelado</option>
+                  </select>
+                </div>
                 <table className="manager-table">
-                  <thead><tr><th>ID</th><th>Estado</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Preço</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Estado</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Data/Hora</th><th>Duração</th><th>Preço</th></tr></thead>
                   <tbody>
-                    {data.trips.map((t, i) => (
-                      <tr key={i}>
-                        <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
-                        <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
-                        <td><div style={{ fontSize: '0.8rem', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
-                        <td style={{ fontWeight: 700 }}>€{t.price}</td>
-                      </tr>
-                    ))}
+                    {data.trips
+                      .filter(t => tripStatusFilter ? t.status === tripStatusFilter : true)
+                      .sort((a, b) => {
+                        const timeA = a.interval?.start_time ? new Date(a.interval.start_time).getTime() : 0;
+                        const timeB = b.interval?.start_time ? new Date(b.interval.start_time).getTime() : 0;
+                        return timeB - timeA;
+                      })
+                      .map((t, i) => {
+                      let durationStr = '-';
+                      if (t.interval?.start_time && t.interval?.end_time) {
+                        const start = new Date(t.interval.start_time);
+                        const end = new Date(t.interval.end_time);
+                        const diffMs = end - start;
+                        if (diffMs > 0) {
+                          const mins = Math.floor(diffMs / 60000);
+                          const hours = Math.floor(mins / 60);
+                          const remMins = mins % 60;
+                          durationStr = hours > 0 ? `${hours}h ${remMins}m` : `${mins}m`;
+                        }
+                      }
+                      
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
+                          <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
+                          <td><div style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
+                          <td><div style={{ fontSize: '0.85rem', color: '#555' }}>{t.interval?.start_time ? new Date(t.interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
+                          <td style={{ fontWeight: 500, color: '#666' }}>{durationStr}</td>
+                          <td style={{ fontWeight: 700 }}>€{t.price}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -33,6 +33,7 @@ urlpatterns = [
     path('shift/create/', views.ShiftCreateView.as_view(), name='create_shift'),
     path('shift/get/<int:id>/', views.ShiftListView.as_view(), name='list_shifts_driver'),
     path('shift/', views.ShiftListViews.as_view(), name='list_shifts_all'),
+    path('shift/<int:id>/', views.ShiftDetailView.as_view(), name='shift_detail'),
     path('shift/<int:id>/start', views.ShiftStartView.as_view(), name='start_shift'),
     path('shift/<int:id>/end', views.ShiftEndView.as_view(), name='end_shift'),
     path('shift/<int:id>/delete/', views.ShiftDeleteView.as_view(), name='delete_shift'),

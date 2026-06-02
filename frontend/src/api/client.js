@@ -87,6 +87,9 @@ export const listClients = () => api.get('client/');
 export const createClient = (data) =>
   api.post('auth/create/client/', data);
 
+export const updateClient = (id, data) =>
+  api.patch(`client/${id}`, data);
+
 export const getDriver = (id) => api.get(`driver/${id}`);
 export const listDrivers = () => api.get('driver/');
 
@@ -105,6 +108,7 @@ export const deleteUser = (id, managerPassword) =>
 export const getTaxi = (plate) => api.get(`taxi/${plate}`);
 export const listTaxis = () => api.get('taxi/');
 export const createTaxi = (data) => api.post('taxi/create/', data);
+export const updateTaxi = (plate, data) => api.patch(`taxi/${plate}`, data);
 export const deleteTaxi = (plate) => api.delete(`taxi/${plate}/delete/`);
 export const updateTaxiMileage = (plate, mileage) => api.patch(`taxi/${plate}/mileage/`, { mileage });
 
@@ -112,6 +116,7 @@ export const updateTaxiMileage = (plate, mileage) => api.patch(`taxi/${plate}/mi
 export const listShifts = (driverId) => api.get(`shift/get/${driverId}/`);
 export const listAllShifts = () => api.get('shift/');
 export const createShift = (data) => api.post('shift/create/', data);
+export const updateShift = (id, data) => api.patch(`shift/${id}/`, data);
 export const startShift = (id) => api.patch(`shift/${id}/start`);
 export const endShift = (id) => api.patch(`shift/${id}/end`);
 export const deleteShift = (id) => api.delete(`shift/${id}/delete/`);
