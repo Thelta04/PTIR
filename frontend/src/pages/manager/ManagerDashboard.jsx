@@ -30,6 +30,14 @@ const sidebarItems = [
   { key: 'reports', label: 'Relatórios', icon: BarChart3 },
 ];
 
+const monthAgoDateInput = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 1);
+
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 export default function ManagerDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +106,23 @@ export default function ManagerDashboard() {
     }
   }, [activeSection]); // eslint-disable-line
 
+  useEffect(() => {
+    if (activeSection !== 'reports') return;
+
+    setFormData((fd) => ({
+      ...fd,
+      reports_start: fd.reports_start || monthAgoDateInput(),
+      reports_end: fd.reports_end || todayDateInput(),
+      reports_driver_id: fd.reports_driver_id || '',
+    }));
+
+    if (data.drivers.length === 0) {
+      listDrivers()
+        .then(res => setData(d => ({ ...d, drivers: res.data })))
+        .catch(() => { });
+    }
+  }, [activeSection]); // eslint-disable-line
+
   const handleLogout = () => {
     logout();
     navigate('/login-manager');
@@ -122,8 +147,9 @@ export default function ManagerDashboard() {
       });
     } else if (activeSection === 'reports') {
       setFormData({
-        reports_start: todayDateInput(),
+        reports_start: monthAgoDateInput(),
         reports_end: todayDateInput(),
+        reports_driver_id: '',
       });
     } else {
       setFormData({});
@@ -721,6 +747,26 @@ export default function ManagerDashboard() {
                       }
                     />
                   </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Motorista</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_driver_id || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_driver_id: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os motoristas</option>
+                      {data.drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <button onClick={() => {
                     const s = formData.reports_start; const e = formData.reports_end;
                     if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
@@ -729,7 +775,7 @@ export default function ManagerDashboard() {
                       return;
                     }
                     setReportsLoading(true); setReportsError('');
-                    getReports(s, e).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
+                    getReports(s, e, formData.reports_driver_id).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
                   }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>
                   {reportsError && <div style={{ color: 'red', fontSize: '13px', marginLeft: '10px' }}>{reportsError}</div>}
                 </div>

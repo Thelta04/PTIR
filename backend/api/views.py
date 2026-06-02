@@ -1233,6 +1233,7 @@ class ReportsView(views.APIView):
     def get(self, request):
         start = request.query_params.get('start_date')
         end = request.query_params.get('end_date')
+        driver_id = request.query_params.get('driver_id')
         if not start or not end:
             return Response({'error': 'start_date and end_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1248,6 +1249,17 @@ class ReportsView(views.APIView):
             interval__start_time__date__gte=start_date,
             interval__start_time__date__lte=end_date
         )
+
+        if driver_id:
+            try:
+                driver_id = int(driver_id)
+            except ValueError:
+                return Response({'error': 'driver_id must be a valid integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not Driver.objects.filter(user__id=driver_id).exists():
+                return Response({'error': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            trips = trips.filter(shift__driver__user_id=driver_id)
 
         total_trips = trips.count()
         total_kilometers = 0.0
