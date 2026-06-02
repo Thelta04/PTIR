@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
 import { ArrowLeft, Check, Car, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EuropeanDateInput } from '../../components/EuropeanDateInput';
+import { formatDatePT, formatTimePT, todayDateInput } from '../../utils/dateFormat';
 
 const DAYS = [
   { label: 'Segunda', val: 1 },
@@ -17,11 +19,6 @@ const DAYS = [
 export default function DriverScheduleView() {
   const { user } = useAuth();
 
-  const getTodayStr = () => {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  };
-
   const getTimeStr = (plusHours = 0) => {
     const d = new Date();
     d.setHours(d.getHours() + plusHours);
@@ -34,8 +31,8 @@ export default function DriverScheduleView() {
   // Step 1 State
   const [startTime, setStartTime] = useState(getTimeStr());
   const [endTime, setEndTime] = useState(getTimeStr(4));
-  const [startDate, setStartDate] = useState(getTodayStr());
-  const [endDate, setEndDate] = useState(getTodayStr());
+  const [startDate, setStartDate] = useState(todayDateInput());
+  const [endDate, setEndDate] = useState(todayDateInput());
   const [selectedDays, setSelectedDays] = useState([]);
 
   // Step 2 State
@@ -251,11 +248,11 @@ export default function DriverScheduleView() {
   };
 
   const formatShortDate = (dateObj) => {
-    return dateObj.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return formatDatePT(dateObj);
   };
 
   const formatShortTime = (dateObj) => {
-    return dateObj.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    return formatTimePT(dateObj);
   };
 
   return (
@@ -294,7 +291,19 @@ export default function DriverScheduleView() {
             <div className="schedule-card">
               <div className="schedule-row">
                 <span className="schedule-label">Data:</span>
-                <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+                <EuropeanDateInput
+                  className="schedule-input"
+                  value={startDate}
+                  onChange={setStartDate}
+                  required
+                />
+
+                <EuropeanDateInput
+                  className="schedule-input"
+                  value={endDate}
+                  onChange={setEndDate}
+                  required
+                />
               </div>
             </div>
           ) : (
@@ -303,9 +312,9 @@ export default function DriverScheduleView() {
                 <div className="schedule-row">
                   <span className="schedule-label">Datas:</span>
                   <label className="schedule-sublabel">De</label>
-                  <input type="date" className="schedule-input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+                  <EuropeanDateInput className="schedule-input" value={startDate} onChange={setStartDate} required />
                   <label className="schedule-sublabel">Até:</label>
-                  <input type="date" className="schedule-input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                  <EuropeanDateInput className="schedule-input" value={endDate} onChange={setEndDate} required />
                 </div>
               </div>
 

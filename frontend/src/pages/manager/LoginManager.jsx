@@ -36,7 +36,7 @@ export default function LoginManager() {
   return (
     <div className="login-page">
       <motion.div
-        className="login-card"
+      className="login-card"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}

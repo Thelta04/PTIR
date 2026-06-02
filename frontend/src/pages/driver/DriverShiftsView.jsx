@@ -4,13 +4,10 @@ import { listShifts, startShift, endShift, deleteShift } from '../../api/client'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { formatDateTimePT } from '../../utils/dateFormat';
 
 function formatDt(iso) {
-  if (!iso) return '-';
-  return new Date(iso).toLocaleString('pt-PT', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTimePT(iso);
 }
 
 export default function DriverShiftsView() {
@@ -265,4 +262,3 @@ export default function DriverShiftsView() {
     </div>
   );
 }
-

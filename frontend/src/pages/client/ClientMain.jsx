@@ -8,9 +8,11 @@ import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import ProfileModal from '../../components/ProfileModal';
+import { EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import './client.css';
 import '../../components/map-background.css';
+import { formatDateTimePT } from '../../utils/dateFormat';
 
 export default function ClientMain() {
   const { user, logout } = useAuth();
@@ -458,11 +460,10 @@ export default function ClientMain() {
             </div>
 
             <div className="form-group" style={{ width: '100%', marginBottom: '20px' }}>
-              <input
-                type="datetime-local"
+              <EuropeanDateTimeInput
                 className="timestamp-input"
                 value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
+                onChange={setDateTime}
               />
             </div>
 
@@ -554,7 +555,7 @@ export default function ClientMain() {
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hora de Recolha</span>
                   <div style={{ fontSize: '1rem', color: '#f1af3d', fontWeight: '700' }}>
-                    {dateTime ? new Date(dateTime).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : 'Imediata'}
+                    {dateTime ? formatDateTimePT(dateTime) : 'Imediata'}
                   </div>
                 </div>
                 <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

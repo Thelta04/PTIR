@@ -46,7 +46,7 @@ INSERT INTO shift (id_taxi, id_driver, id_scheduled_interval, id_real_interval) 
 -- TRIP
 INSERT INTO trip(id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval) VALUES
 (2, 12, '38.7223,-9.1393', '38.6970,-9.3017', 'Marquês de Pombal, Lisboa', 'Estação, Oeiras', 'basic',  15.00, 2, 'COMPLETED', 1, 5),
-(4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais',           'Saldanha, Lisboa', 'luxury', 35.00, 3, 'COMPLETED', 2, 6);
+(4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais',           'Saldanha, Lisboa', 'luxur   ', 35.00, 3, 'COMPLETED', 2, 6);
 
 -- -- NEW PENDING TRIPS FOR TESTING
 -- INSERT INTO time_interval (start_time, end_time) VALUES
