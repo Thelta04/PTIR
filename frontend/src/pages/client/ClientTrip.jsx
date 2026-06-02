@@ -699,7 +699,7 @@ export default function ClientTrip() {
               </div>
 
               <nav className="drawer-nav">
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
