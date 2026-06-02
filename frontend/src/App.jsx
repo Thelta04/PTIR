@@ -8,6 +8,7 @@ import DriverMain from './pages/driver/DriverMain';
 import DecisionDriver from './pages/driver/DecisionDriver';
 import ClientMain from './pages/client/ClientMain';
 import ClientTrip from './pages/client/ClientTrip';
+import ClientHistory from './pages/client/ClientHistory';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
@@ -32,12 +33,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginUser />} />
-          <Route path="/manager" element={<LoginManager />} />
+          <Route path="/login-manager" element={<LoginManager />} />
           <Route path="/register" element={<Signup />} />
           <Route path="/signup-driver" element={<SignupDriver />} />
 
           <Route path="/manager" element={
-            <ProtectedRoute allowedRoles={['MANAGER']}>
+            <ProtectedRoute allowedRoles={['MANAGER']} redirectTo="/login-manager">
               <ManagerDashboard />
             </ProtectedRoute>
           } />
@@ -63,6 +64,12 @@ function App() {
           <Route path="/client/trip" element={
             <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientTrip />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/client/history" element={
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
+              <ClientHistory />
             </ProtectedRoute>
           } />
 

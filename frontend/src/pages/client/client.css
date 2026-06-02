@@ -98,7 +98,7 @@ html, body, #root {
   background: #fffdf2;
   border: 1.5px solid #f1cf58;
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 16px;
   z-index: 20;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
@@ -137,8 +137,9 @@ html, body, #root {
 }
 
 .pinpoint-btn--small {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
 }
 
 .search-icon {
@@ -193,10 +194,10 @@ html, body, #root {
 
 .search-btn {
   flex: 1;
-  height: 54px;
+  height: 46px;
   border: none;
-  border-radius: 10px;
-  font-size: 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -274,6 +275,7 @@ html, body, #root {
   align-items: center;
   gap: 12px;
   width: 100%;
+  margin-bottom: 16px;
 }
 
 .back-btn {
@@ -312,7 +314,7 @@ html, body, #root {
 .trip-settings-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .setting-item {
@@ -330,9 +332,9 @@ html, body, #root {
 
 .setting-input {
   width: 100%;
-  height: 48px;
+  height: 40px;
   border: 1.5px solid #f1cf58;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0 12px;
   background: #fff;
   font-size: 0.95rem;
@@ -342,9 +344,9 @@ html, body, #root {
 .number-control {
   display: flex;
   align-items: center;
-  height: 48px;
+  height: 40px;
   border: 1.5px solid #f1cf58;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   background: #fff;
 }
@@ -407,29 +409,29 @@ html, body, #root {
 .more-options-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .form-group label {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #374151;
 }
 
 .form-group input {
   width: 100%;
-  height: 48px;
+  height: 40px;
   border: 1.5px solid #f1cf58;
-  border-radius: 10px;
-  padding: 0 12px 0 40px;
+  border-radius: 8px;
+  padding: 0 12px 0 36px;
   background: #fff;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .schedule-inputs {
@@ -513,6 +515,11 @@ html, body, #root {
   cursor: pointer;
 }
 
+.drawer-link--active {
+  background: #f1cf58;
+  font-weight: 700;
+}
+
 .drawer-footer {
   margin-top: auto;
   padding: 20px;
@@ -532,6 +539,260 @@ html, body, #root {
 @media (max-width: 480px) {
   .search-panel {
     width: 95%;
+  }
+}
+
+/* Client Trip History */
+.client-history-page {
+  background: #f8fafc;
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.client-history-main {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.history-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.history-toolbar h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.history-toolbar p {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 0.98rem;
+}
+
+.history-back-btn {
+  min-width: 112px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: #f1cf58;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.history-stat {
+  min-height: 88px;
+  border: 1px solid #f1cf58;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+}
+
+.history-stat svg {
+  grid-row: 1 / 3;
+  color: #b7791f;
+}
+
+.history-stat span {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.history-stat strong {
+  color: #111827;
+  font-size: 1.2rem;
+}
+
+.history-message,
+.history-empty {
+  border: 1px solid #f1cf58;
+  border-radius: 8px;
+  background: #fff;
+  padding: 22px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.history-message--error {
+  border-color: #ef4444;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.history-trip-card {
+  border: 1px solid #e5e7eb;
+  border-left: 5px solid #f1cf58;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.06);
+}
+
+.history-trip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.history-trip-id {
+  display: block;
+  color: #b7791f;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-trip-header h2 {
+  margin: 4px 0 0;
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.history-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f9fafb;
+  margin-bottom: 14px;
+}
+
+.history-route-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: #374151;
+  line-height: 1.35;
+}
+
+.history-route-point span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-route-point svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #b7791f;
+}
+
+.history-route-arrow {
+  color: #9ca3af;
+}
+
+.history-trip-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.history-trip-details div {
+  min-height: 62px;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.history-trip-details span {
+  display: block;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.history-trip-details strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #111827;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+  .client-history-main {
+    width: min(100% - 20px, 680px);
+    padding-top: 18px;
+  }
+
+  .history-toolbar {
+    flex-direction: column;
+  }
+
+  .history-back-btn {
+    width: 100%;
+  }
+
+  .history-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .history-route {
+    grid-template-columns: 1fr;
+  }
+
+  .history-route-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .history-trip-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .history-toolbar h1 {
+    font-size: 1.55rem;
+  }
+
+  .history-trip-header {
+    flex-direction: column;
+  }
+
+  .history-trip-details {
+    grid-template-columns: 1fr;
   }
 }
 

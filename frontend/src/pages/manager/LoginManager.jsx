@@ -8,7 +8,7 @@ const ROLE_ROUTES = {
 };
 
 export default function LoginManager() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -23,6 +23,11 @@ export default function LoginManager() {
 
     try {
       const user = await login(email, password);
+      if (user.type !== 'MANAGER') {
+        logout();
+        setError('Esta conta não tem permissões de gestor.');
+        return;
+      }
       navigate(ROLE_ROUTES[user.type] || '/manager');
     } catch (err) {
       const msg =
