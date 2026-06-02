@@ -8,17 +8,22 @@ VALUES ('AA-11-BB', 2018, 120000, 'Smart', 'Fortwo', 'basic', 'combustion', 2),
        ('II-55-JJ', 2022, 45000, 'Kia', 'EV6', 'luxury', 'electric', 4),
        ('KK-66-LL', 2020, 150000, 'Renault', 'Trafic', 'basic', 'combustion', 6);
 
+-- PRICING CONFIG
+
+INSERT INTO config (id, price_per_min_basic, price_per_min_luxury, night_surcharge_percent)
+VALUES (1, 0.25, 0.50, 25.00);
+
 -- USER ACCOUNT
 
-INSERT INTO user_account (nif, name, email, gender, password, is_banned)
-VALUES ('123456789', 'Joao Silva', 'joao@email.com', 'Male', 'Joao123', false),
-       ('987654321', 'Maria Costa', 'maria@email.com', 'Female', 'Maria123', false),
-       ('456789123', 'Pedro Santos', 'pedro@email.com', 'Male', 'Pedro123', false),
-       ('321654987', 'Ana Ferreira', 'ana@email.com', 'Female', 'Ana123', false),
-       ('741852963', 'Carlos Mendes', 'carlos@email.com', 'Male', 'Carlos123', false),
+INSERT INTO user_account (nif, name, email, gender, password, is_banned, profile_pic)
+VALUES ('123456789', 'Joao Silva', 'joao@email.com', 'Male', 'Joao123', false, 1),
+       ('987654321', 'Maria Costa', 'maria@email.com', 'Female', 'Maria123', false, 1),
+       ('456789123', 'Pedro Santos', 'pedro@email.com', 'Male', 'Pedro123', false, 1),
+       ('321654987', 'Ana Ferreira', 'ana@email.com', 'Female', 'Ana123', false, 1),
+       ('741852963', 'Carlos Mendes', 'carlos@email.com', 'Male', 'Carlos123', false, 1),
        ('111222333', 'Tiago Almeida', 'tiago@email.com', 'Male', 'Tiago123', false, 1),
        ('444555666', 'Sofia Ribeiro', 'sofia@email.com', 'Female', 'Sofia123', false, 2),
-       ('777888999', 'Rui Silva', 'rui@email.com', 'Male', 'Rui123', true, 0),
+       ('777888999', 'Rui Silva', 'rui@email.com', 'Male', 'Rui123', true, 1),
        -- Banned user
 ('222333444', 'Beatriz Gomes', 'beatriz@email.com', 'Female', 'Beatriz123', false, 3),
                      ('555666777', 'Miguel Pinto', 'miguel@email.com', 'Male', 'Miguel123', false, 5);
@@ -76,7 +81,7 @@ VALUES ('AA-11-BB', 1, 1, NULL),
 
 INSERT INTO trip(id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval)
 VALUES (2, 12, '38.7223,-9.1393', '38.6970,-9.3017', 'Marquês de Pombal, Lisboa', 'Estação, Oeiras', 'basic', 15.00, 2, 'COMPLETED', 1, 5),
-       (4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais', 'Saldanha, Lisboa', 'luxur   ', 35.00, 3, 'COMPLETED', 2, 6);
+       (4, 25, '38.6970,-9.3017', '38.7223,-9.1393', 'Marina, Cascais', 'Saldanha, Lisboa', 'luxury', 35.00, 3, 'COMPLETED', 2, 6);
 
 -- NEW PENDING TRIPS FOR TESTING
 
