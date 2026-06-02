@@ -179,7 +179,7 @@ export default function ClientTrip() {
       }
     } catch (err) {
       console.error('Stripe error:', err);
-      alert('Erro ao iniciar pagamento. Verifique se as chaves do Stripe estão configuradas no backend.');
+      alert(err.response?.data?.error || 'Erro ao iniciar pagamento. Verifique se as chaves do Stripe estão configuradas no backend.');
     }
   };
 
@@ -390,6 +390,7 @@ export default function ClientTrip() {
   const driverDistanceKm = driverPos && mapOrigem
     ? haversine(driverPos.lat, driverPos.lon, mapOrigem.lat, mapOrigem.lon).toFixed(1)
     : null;
+  const canPayActiveTrip = activeTrip && activeTrip.client_id === user?.id;
 
   const renderStatusPanel = () => {
     if (loading) return null;
@@ -736,23 +737,29 @@ export default function ClientTrip() {
               </div>
             </div>
 
-            <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button
-                className="panel-btn panel-btn--accept"
-                onClick={handleStripePayment}
-                disabled={isPaymentButtonDisabled}
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  padding: '18px 0', 
-                  fontSize: '1.1rem',
-                  opacity: isPaymentButtonDisabled ? 0.6 : 1,
-                  cursor: isPaymentButtonDisabled ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {isPaymentButtonDisabled ? 'A VERIFICAR...' : 'Pagar Viagem'}
-              </button>
-            </div>
+            {canPayActiveTrip ? (
+              <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  className="panel-btn panel-btn--accept"
+                  onClick={handleStripePayment}
+                  disabled={isPaymentButtonDisabled}
+                  style={{ 
+                    width: '100%', 
+                    height: 'auto', 
+                    padding: '18px 0', 
+                    fontSize: '1.1rem',
+                    opacity: isPaymentButtonDisabled ? 0.6 : 1,
+                    cursor: isPaymentButtonDisabled ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isPaymentButtonDisabled ? 'A VERIFICAR...' : 'Pagar Viagem'}
+                </button>
+              </div>
+            ) : (
+              <p style={{ color: '#666', margin: 0 }}>
+                Apenas o cliente desta viagem pode efetuar o pagamento.
+              </p>
+            )}
           </div>
         );
 
