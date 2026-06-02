@@ -107,6 +107,12 @@ export default function DriverScheduleView() {
           const endDt = new Date(d);
           endDt.setHours(parseInt(eh, 10), parseInt(em, 10), 0, 0);
 
+          if (stDt < new Date()) {
+            setError('Não é possível agendar um turno para uma data/hora no passado.');
+            setLoading(false);
+            return;
+          }
+
           if (endDt <= stDt) {
             endDt.setDate(endDt.getDate() + 1);
           }
