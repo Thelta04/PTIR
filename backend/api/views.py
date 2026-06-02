@@ -1140,6 +1140,21 @@ def normalize_checkout_url(url: str) -> str:
         return url
     return f"http://{url}"
 
+def get_or_create_client_for_trip(user_id):
+    try:
+        return Client.objects.get(user__id=user_id)
+    except Client.DoesNotExist:
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+        if not Driver.objects.filter(user=user).exists():
+            return None
+
+        client, _ = Client.objects.get_or_create(user=user)
+        return client
+
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
@@ -1154,9 +1169,8 @@ class TripCreateView(views.APIView):
         
         data = serializer.validated_data
         
-        try:
-            client = Client.objects.get(user__id=data['client_id'])
-        except Client.DoesNotExist:
+        client = get_or_create_client_for_trip(data['client_id'])
+        if client is None:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
         active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID']

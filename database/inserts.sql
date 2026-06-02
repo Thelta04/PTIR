@@ -23,7 +23,9 @@ INSERT INTO manager (id_user) VALUES
 
 -- CLIENT
 INSERT INTO client (id_user) VALUES
+(1),
 (2),
+(3),
 (4);
 
 -- TIME_INTERVAL
