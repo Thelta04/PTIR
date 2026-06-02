@@ -39,6 +39,7 @@ export default function ClientMain() {
   const [pricingConfig, setPricingConfig] = useState(null);
   const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [estimatedDuration, setEstimatedDuration] = useState(0); // in minutes
+  const [routeCoords, setRouteCoords] = useState([]);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState({
@@ -186,6 +187,39 @@ export default function ClientMain() {
     checkActiveTrip();
     fetchPricing();
   }, []);
+
+  useEffect(() => {
+    const calculateRoute = async () => {
+      if (origem && destino) {
+        try {
+          const originStr = `${origem.lat},${origem.lon}`;
+          const destStr = `${destino.lat},${destino.lon}`;
+          const { data } = await getRouteGeometry(originStr, destStr);
+
+          if (data.geometry) {
+            const { decodePolyline } = await import('../../utils/map');
+            setRouteCoords(decodePolyline(data.geometry));
+          } else {
+            setRouteCoords([[origem.lat, origem.lon], [destino.lat, destino.lon]]);
+          }
+
+          if (data.duration) {
+            const minutes = data.duration / 60;
+            setEstimatedDuration(Math.round(minutes));
+            if (pricingConfig) {
+              const price = calculateEstimatedPrice(minutes, comfort_level, pricingConfig);
+              setEstimatedPrice(price);
+            }
+          }
+        } catch (err) {
+          console.error('Error calculating automatic route:', err);
+        }
+      } else {
+        setRouteCoords([]);
+      }
+    };
+    calculateRoute();
+  }, [origem, destino, pricingConfig, comfort_level]);
 
   const handleSearchAddress = async (type) => {
     const addressToSearch = type === 'origin' ? origin_address : (type === 'destination' ? dest_address : searchValue);
@@ -655,6 +689,7 @@ export default function ClientMain() {
             origem={origem}
             destino={destino}
             onEscolherPonto={handleEscolherPonto}
+            routeCoords={routeCoords}
           />
         </div>
 

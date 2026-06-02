@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginManager from './pages/manager/LoginManager';
+import LandingPage from './pages/LandingPage';
 import LoginUser from './pages/LoginUser';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 import DriverMain from './pages/driver/DriverMain';
@@ -24,8 +25,15 @@ const ROLE_ROUTES = {
 function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={ROLE_ROUTES[user.type] || '/login'} replace />;
+  if (!user) return <Navigate to="/home" replace />;
+  return <Navigate to={ROLE_ROUTES[user.type] || '/home'} replace />;
+}
+
+function LandingOrRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to={ROLE_ROUTES[user.type] || '/home'} replace />;
+  return <LandingPage />;
 }
 
 function App() {
@@ -33,6 +41,8 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/home" element={<LandingOrRedirect />} />
           <Route path="/login" element={<LoginUser />} />
           <Route path="/login-manager" element={<LoginManager />} />
           <Route path="/register" element={<Signup />} />

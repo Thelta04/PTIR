@@ -52,6 +52,29 @@ function MapRefresher({ center }) {
   return null
 }
 
+function AutoFit({ points, routeCoords }) {
+  const map = useMapEvents({});
+  useEffect(() => {
+    const validPoints = points.filter(p => p && p.lat !== undefined && p.lon !== undefined);
+    
+    // Large bottom padding to push the route/points into the top half of the screen,
+    // avoiding the UI panel that covers the bottom area.
+    const fitOptions = {
+      paddingTopLeft: [50, 50],
+      paddingBottomRight: [50, 320] 
+    };
+
+    if (routeCoords && routeCoords.length > 0) {
+      const bounds = L.latLngBounds(routeCoords);
+      map.fitBounds(bounds, fitOptions);
+    } else if (validPoints.length > 1) {
+      const bounds = L.latLngBounds(validPoints.map(p => [p.lat, p.lon]));
+      map.fitBounds(bounds, fitOptions);
+    }
+  }, [points, routeCoords, map]);
+  return null;
+}
+
 export default function MapaPedido({ origem, destino, onEscolherPonto, routeCoords = [], carPos = null, isInProgress = false }) {
   const centroPortugal = [38.7223, -9.1393]
   const center = carPos ? [carPos.lat, carPos.lon] : (origem ? [origem.lat, origem.lon] : centroPortugal)
@@ -59,13 +82,6 @@ export default function MapaPedido({ origem, destino, onEscolherPonto, routeCoor
   return (
     <div style={{ height: '100%', width: '100%', minHeight: '100%' }}>
       <MapContainer center={center} zoom={15} style={{ height: '100%', width: '100%', minHeight: '100%' }}>
-        {/* BACKUP: OSM HOT (Humanitarian) - Good contrast but has electrical lines
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France'
-          maxZoom={19}
-        />
-        */}
         <TileLayer
           url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
           attribution="&copy; Google Maps"
@@ -73,6 +89,7 @@ export default function MapaPedido({ origem, destino, onEscolherPonto, routeCoor
         />
 
         <MapRefresher center={center} />
+        <AutoFit points={[origem, destino, carPos]} routeCoords={routeCoords} />
         <ClickHandler onPick={onEscolherPonto} />
 
         {origem && (
