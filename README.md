@@ -15,7 +15,7 @@
 
 ### 🚖 Driver Portal
 *   **Shift Management:** Drivers manage their active shifts. For safety, the system enforces a strict **maximum of 8 hours** per shift (real and scheduled).
-*   **Trip Acceptance:** View pending trip requests and accept them to start a ride.
+*   **Trip Acceptance:** View pending trip requests and accept them to start a ride. Includes an automatic 60-second timeout while waiting for the client's confirmation.
 *   **Refueling Logs:** Register refueling events (liters for combustion engines, kWh for electric) directly during their shift.
 *   **Dynamic Matching:** Drivers only receive trip requests that match their vehicle's capacity and comfort level.
 

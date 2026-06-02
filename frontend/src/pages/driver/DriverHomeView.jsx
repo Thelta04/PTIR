@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
 import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
@@ -15,7 +15,8 @@ import {
   getRouteGeometry,
   getPricing,
   emitInvoice,
-  endShift
+  endShift,
+  cancelTrip
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -88,6 +89,29 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (activeTrip && (activeTrip.status === 'CLIENT_ACCEPTED' || activeTrip.status === 'IN_PROGRESS')) {
+      if (routeCoords && routeCoords.length > 0) {
+        try {
+          const bounds = L.latLngBounds(routeCoords);
+          map.fitBounds(bounds, { padding: [50, 50], animate: true });
+        } catch (e) {
+          console.error("Error fitting bounds", e);
+        }
+      }
+    } else if (!activeTrip && driverLoc) {
+      try {
+        map.setView([driverLoc.lat, driverLoc.lon], 14, { animate: true });
+      } catch (e) {}
+    }
+  }, [activeTrip?.status, routeCoords, map]);
+
+  return null;
+};
+
 export default function DriverHomeView({ onNavigate }) {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
@@ -96,12 +120,50 @@ export default function DriverHomeView({ onNavigate }) {
   const activeTripRef = useRef(null);
   const lastFetchedRouteKey = useRef('');
   const [eta, setEta] = useState(null);
+  const driverLocRef = useRef(null);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
   }, [activeTrip]);
   const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc, setDriverLoc] = useState(null);
+  
+  useEffect(() => {
+    driverLocRef.current = driverLoc;
+  }, [driverLoc]);
+
+  // Driver Accepted Timeout Logic
+  const [driverAcceptCountdown, setDriverAcceptCountdown] = useState(60);
+
+  const handleAutoCancel = async () => {
+    if (!activeTripRef.current) return;
+    try {
+      await cancelTrip(activeTripRef.current.id);
+      alert('A viagem foi cancelada automaticamente (tempo de espera esgotado).');
+      fetchData();
+    } catch (err) {
+      console.error('Error auto-canceling trip:', err);
+    }
+  };
+
+  useEffect(() => {
+    let timer;
+    if (activeTrip && activeTrip.status === 'DRIVER_ACCEPTED') {
+      timer = setInterval(() => {
+        setDriverAcceptCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleAutoCancel();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setDriverAcceptCountdown(60);
+    }
+    return () => clearInterval(timer);
+  }, [activeTrip?.status, activeTrip?.id]);
   
   useEffect(() => {
     if (navigator.geolocation) {
@@ -125,6 +187,7 @@ export default function DriverHomeView({ onNavigate }) {
     }
   }, []);
   const [shiftDuration, setShiftDuration] = useState('');
+  const [isShiftEnded, setIsShiftEnded] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
 
   // Calculate target for active trip display
@@ -216,7 +279,8 @@ export default function DriverHomeView({ onNavigate }) {
         setActiveTrip(null);
         setRouteCoords([]);
         setEta(null);
-        const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
+        const loc = driverLocRef.current || { lat: 38.7115, lon: -9.1360 };
+        const { data: pending } = await listPendingTrips(user.id, loc.lat, loc.lon);
         setTrips(pending);
       }
     } catch (err) {
@@ -401,6 +465,10 @@ export default function DriverHomeView({ onNavigate }) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         setShiftDuration(`${hours}h ${minutes}m`);
+
+        if (activeShift.scheduled_interval?.end_time) {
+          setIsShiftEnded(now >= new Date(activeShift.scheduled_interval.end_time));
+        }
       };
       updateTimer();
       timer = setInterval(updateTimer, 60000);
@@ -475,15 +543,21 @@ export default function DriverHomeView({ onNavigate }) {
   return (
     <div className="driver-home-container">
       {activeShift ? (
-        <div className="shift-status-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="shift-status-bar" style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          backgroundColor: isShiftEnded ? '#10b981' : undefined,
+          color: isShiftEnded ? 'white' : undefined
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Clock size={18} />
-            <span>Turno em curso: {shiftDuration} decorridos</span>
+            {isShiftEnded ? <CheckCircle size={18} /> : <Clock size={18} />}
+            <span>
+              {isShiftEnded ? 'O turno terminou!' : `Turno em curso: ${shiftDuration} decorridos`}
+            </span>
           </div>
           <button 
             onClick={handleEndShift}
             style={{
-              background: '#ef4444',
+              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#ef4444',
               border: 'none',
               padding: '4px 12px',
               borderRadius: '4px',
@@ -495,8 +569,8 @@ export default function DriverHomeView({ onNavigate }) {
               gap: '6px'
             }}
           >
-            <Square size={14} />
-            Terminar
+            {isShiftEnded ? <CheckCircle size={14} /> : <Square size={14} />}
+            {isShiftEnded ? 'Concluir' : 'Terminar'}
           </button>
         </div>
       ) : (
@@ -536,6 +610,8 @@ export default function DriverHomeView({ onNavigate }) {
             attribution="&copy; Google Maps"
             maxZoom={20}
           />
+
+          <MapController activeTrip={activeTrip} routeCoords={routeCoords} driverLoc={driverLoc} />
 
           <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
             <Popup>Você está aqui</Popup>
@@ -602,7 +678,9 @@ export default function DriverHomeView({ onNavigate }) {
                   Viagem Cancelada - Continuar
                 </button>
               ) : activeTrip.status === 'DRIVER_ACCEPTED' ? (
-                <div className="waiting-msg">Aguardando cliente...</div>
+                <div className="waiting-msg">
+                  Aguardando cliente... ({driverAcceptCountdown}s)
+                </div>
               ) : activeTrip.status === 'WAITING_PAYMENT' ? (
                 <div className="waiting-msg" style={{ background: '#fdf2b3', color: '#856404' }}>
                   Aguardando Pagamento...

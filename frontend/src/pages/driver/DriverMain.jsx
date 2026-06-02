@@ -6,6 +6,7 @@ import { Menu, Bell, ChevronLeft, X } from 'lucide-react';
 import DriverHomeView from './DriverHomeView';
 import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
+import DriverHistory from './DriverHistory';
 import ProfileModal from '../../components/ProfileModal';
 import './driver.css';
 import '../client/client.css';
@@ -40,6 +41,8 @@ export default function DriverMain() {
         return <DriverShiftsView onNavigate={handleNav} />;
       case 'refuels':
         return <Refuels />;
+      case 'history':
+        return <DriverHistory />;
       default:
         return <DriverHomeView />;
 
@@ -53,7 +56,8 @@ export default function DriverMain() {
         <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
           <Menu size={24} />
         </button>
-        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
+        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
           <span className="client-brand-name">TUXY</span>
         </div>
         <div
@@ -120,8 +124,8 @@ export default function DriverMain() {
                   Gerir Turnos
                 </button>
                 <button
-                  className="drawer-link"
-                  onClick={() => setIsMenuOpen(false)}
+                  className={`drawer-link ${activeTab === 'history' ? 'active' : ''}`}
+                  onClick={() => handleNav('history')}
                 >
                   Ver Histórico de Viagens
                 </button>
@@ -146,4 +150,3 @@ export default function DriverMain() {
     </div>
   );
 }
-

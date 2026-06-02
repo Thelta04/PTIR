@@ -726,7 +726,8 @@ export default function ClientMain() {
           <Menu size={24} color="#000" />
         </button>
 
-        <div className="client-brand">
+        <div className="client-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
           <span className="client-brand-name">TUXY</span>
         </div>
 

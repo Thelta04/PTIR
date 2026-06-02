@@ -138,7 +138,7 @@ class ShiftUpdateSerializer(serializers.Serializer):
                 driver_id=driver_id,
                 scheduled_interval__start_time__lt=end,
                 scheduled_interval__end_time__gt=start
-            ).exclude(id=shift.id if shift else None).exists()
+            ).exclude(id=shift.id if shift else None).exclude(real_interval__end_time__isnull=False).exists()
             if driver_overlap:
                 raise serializers.ValidationError("Driver already has a shift in this time period.")
 
@@ -147,7 +147,7 @@ class ShiftUpdateSerializer(serializers.Serializer):
                 taxi__license_plate=taxi_plate,
                 scheduled_interval__start_time__lt=end,
                 scheduled_interval__end_time__gt=start
-            ).exclude(id=shift.id if shift else None).exists()
+            ).exclude(id=shift.id if shift else None).exclude(real_interval__end_time__isnull=False).exists()
             if taxi_overlap:
                 raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
@@ -285,7 +285,7 @@ class ShiftCreateSerializer(serializers.Serializer):
             driver_id=data['driver_id'],
             scheduled_interval__start_time__lt=end,
             scheduled_interval__end_time__gt=start
-        ).exists()
+        ).exclude(real_interval__end_time__isnull=False).exists()
         if driver_overlap:
             raise serializers.ValidationError("Driver already has a shift in this time period.")
 
@@ -293,7 +293,7 @@ class ShiftCreateSerializer(serializers.Serializer):
             taxi__license_plate=data['taxi_license_plate'],
             scheduled_interval__start_time__lt=end,
             scheduled_interval__end_time__gt=start
-        ).exists()
+        ).exclude(real_interval__end_time__isnull=False).exists()
         if taxi_overlap:
             raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
             
