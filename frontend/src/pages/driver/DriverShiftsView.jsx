@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listShifts, startShift, endShift, deleteShift } from '../../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
+import { Play, Square, Clock, Trash2, Filter, Plus } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { formatDateTimePT } from '../../utils/dateFormat';
 
@@ -10,12 +10,17 @@ function formatDt(iso) {
   return formatDateTimePT(iso);
 }
 
-export default function DriverShiftsView() {
+export default function DriverShiftsView({ onNavigate }) {
   const { user } = useAuth();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+
+  const showToast = (msg) => {
+    setActionMsg(msg);
+    setTimeout(() => setActionMsg(''), 4000);
+  };
   const [filter, setFilter] = useState('pending'); // 'pending' (Por realizar), 'completed' (Concluído), 'missed' (Não realizado)
 
   // Modal State for Start/Delete
@@ -23,7 +28,7 @@ export default function DriverShiftsView() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -33,7 +38,7 @@ export default function DriverShiftsView() {
       setLoading(true);
       const { data } = await listShifts(user.id);
       // Sort by date
-      const sorted = [...data].sort((a, b) => 
+      const sorted = [...data].sort((a, b) =>
         new Date(a.scheduled_interval?.start_time) - new Date(b.scheduled_interval?.start_time)
       );
       setShifts(sorted);
@@ -45,7 +50,14 @@ export default function DriverShiftsView() {
     }
   };
 
-  useEffect(() => { fetchShifts(); }, []);
+  useEffect(() => {
+    fetchShifts();
+    const msg = sessionStorage.getItem('shiftSuccessMsg');
+    if (msg) {
+      showToast(msg);
+      sessionStorage.removeItem('shiftSuccessMsg');
+    }
+  }, []);
 
   const handleStart = async (id) => {
     // Only allow to clock in one shift at a time
@@ -62,10 +74,10 @@ export default function DriverShiftsView() {
       onConfirm: async () => {
         try {
           await startShift(id);
-          setActionMsg('Turno iniciado!');
+          showToast('Turno iniciado!');
           fetchShifts();
         } catch (err) {
-          setActionMsg(err.response?.data?.error || 'Erro ao iniciar turno.');
+          showToast(err.response?.data?.error || 'Erro ao iniciar turno.');
         }
         closeModal();
       }
@@ -80,10 +92,10 @@ export default function DriverShiftsView() {
       onConfirm: async () => {
         try {
           await endShift(id);
-          setActionMsg('Turno terminado!');
+          showToast('Turno terminado!');
           fetchShifts();
         } catch (err) {
-          setActionMsg(err.response?.data?.error || 'Erro ao terminar turno.');
+          showToast(err.response?.data?.error || 'Erro ao terminar turno.');
         }
         closeModal();
       }
@@ -98,7 +110,7 @@ export default function DriverShiftsView() {
       onConfirm: async () => {
         try {
           await deleteShift(id);
-          setActionMsg('Turno apagado com sucesso!');
+          showToast('Turno apagado com sucesso!');
           fetchShifts();
         } catch (err) {
           const errData = err.response?.data;
@@ -115,7 +127,7 @@ export default function DriverShiftsView() {
     const ended = started && s.real_interval?.end_time !== null;
     const now = new Date();
     const isMissed = !started && new Date(s.scheduled_interval?.end_time) < now;
-    
+
     if (filter === 'pending') {
       return (!started && !isMissed) || (started && !ended);
     } else if (filter === 'completed') {
@@ -140,11 +152,32 @@ export default function DriverShiftsView() {
   return (
     <div className="driver-shifts-view" style={{ padding: '2rem', background: '#fff', minHeight: '100%' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 className="dash-title" style={{ margin: 0 }}>Consultar turnos</h1>
-        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="dash-title" style={{ margin: 0 }}>Gerir turnos</h1>
+          <button
+            onClick={() => onNavigate && onNavigate('schedule')}
+            style={{
+              background: '#eab308',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            title="Registar novo turno"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+
         <div className="filter-group">
-          <select 
-            value={filter} 
+          <select
+            value={filter}
             onChange={(e) => setFilter(e.target.value)}
             style={{
               padding: '10px 16px',
@@ -166,16 +199,39 @@ export default function DriverShiftsView() {
         </div>
       </header>
 
-      {actionMsg && (
-        <motion.div
-          className="dash-toast"
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{ background: '#ecfdf5', color: '#065f46', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #a7f3d0' }}
-        >
-          {actionMsg}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {actionMsg && (
+          <motion.div
+            className="dash-toast"
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              bottom: '10px',
+              left: '50%',
+              background: '#ecfdf5',
+              color: '#065f46',
+              padding: '1rem 2rem',
+              borderRadius: '8px',
+              border: '1px solid #a7f3d0',
+              zIndex: 9999,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              fontWeight: '500',
+              textAlign: 'center',
+              width: 'max-content',
+              maxWidth: '90%',
+              maxHeight: '5%',
+              wordWrap: 'break-word',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {actionMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {loading && <p className="dash-loading">A carregar turnos…</p>}
       {error && <p className="dash-error">{error}</p>}
@@ -183,9 +239,9 @@ export default function DriverShiftsView() {
       {!loading && filteredShifts.length === 0 && (
         <div className="dash-placeholder-card" style={{ textAlign: 'center', padding: '3rem', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #e5e7eb' }}>
           <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            {filter === 'pending' ? 'Não tem turnos por realizar ou em curso.' : 
-             filter === 'completed' ? 'Não tem turnos concluídos.' : 
-             'Não tem turnos não realizados.'}
+            {filter === 'pending' ? 'Não tem turnos por realizar ou em curso.' :
+              filter === 'completed' ? 'Não tem turnos concluídos.' :
+                'Não tem turnos não realizados.'}
           </p>
         </div>
       )}
@@ -209,7 +265,7 @@ export default function DriverShiftsView() {
                 <Clock size={16} />
                 <span className="shift-card-id">Turno #{s.id}</span>
                 <span className={`shift-badge ${isMissed ? 'shift-badge--missed' : ended ? 'shift-badge--done' : started ? 'shift-badge--active' : 'shift-badge--pending'}`}
-                      style={isMissed ? { background: '#fee2e2', color: '#991b1b' } : {}}>
+                  style={isMissed ? { background: '#fee2e2', color: '#991b1b' } : {}}>
                   {isMissed ? 'Não Realizado' : ended ? 'Concluído' : started ? 'Em Curso' : 'Agendado'}
                 </span>
               </div>
@@ -230,8 +286,8 @@ export default function DriverShiftsView() {
                         <Play size={14} /> Iniciar
                       </button>
                     )}
-                    <button 
-                      className="btn btn--danger-outline" 
+                    <button
+                      className="btn btn--danger-outline"
                       onClick={() => handleDelete(s.id)}
                       style={{
                         background: 'transparent',
@@ -262,7 +318,7 @@ export default function DriverShiftsView() {
         })}
       </div>
 
-      <ConfirmationModal 
+      <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
         message={modalConfig.message}

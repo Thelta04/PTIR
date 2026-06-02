@@ -16,7 +16,7 @@ const DAYS = [
   { label: 'Domingo', val: 0 },
 ];
 
-export default function DriverScheduleView() {
+export default function DriverScheduleView({ onNavigate }) {
   const { user } = useAuth();
 
   const getTimeStr = (plusHours = 0) => {
@@ -247,10 +247,11 @@ export default function DriverScheduleView() {
       }
     }
 
-    setMsg(`Turnos agendados com sucesso! (${createdCount} turnos)`);
+    sessionStorage.setItem('shiftSuccessMsg', `Turnos agendados com sucesso! (${createdCount} turnos)`);
     setGeneratedShifts([]);
     setStep(1); // Go back to start on success
     setLoading(false);
+    if (onNavigate) onNavigate('shifts');
   };
 
   const formatShortDate = (dateObj) => {
@@ -263,9 +264,27 @@ export default function DriverScheduleView() {
 
   return (
     <div className="driver-schedule-view" style={{ padding: '2rem', background: '#fff', minHeight: '100%' }}>
-      <h1 className="dash-title" style={{ marginBottom: '1.5rem', fontSize: '1.8rem' }}>
-        {step === 1 ? 'Registar turnos' : 'Selecionar Carro'}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+        <button
+          type="button"
+          onClick={() => onNavigate && onNavigate('shifts')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#374151'
+          }}
+          title="Voltar para Gerir turnos"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="dash-title" style={{ margin: 0, fontSize: '1.8rem' }}>
+          {step === 1 ? 'Registar turnos' : 'Selecionar Carro'}
+        </h1>
+      </div>
 
       {msg && <p className="dash-toast" style={{ color: 'green', marginBottom: '1rem' }}>{msg}</p>}
       {error && <p className="dash-error" style={{ marginBottom: '1rem' }}>{error}</p>}
@@ -301,13 +320,6 @@ export default function DriverScheduleView() {
                   className="schedule-input"
                   value={startDate}
                   onChange={setStartDate}
-                  required
-                />
-
-                <EuropeanDateInput
-                  className="schedule-input"
-                  value={endDate}
-                  onChange={setEndDate}
                   required
                 />
               </div>

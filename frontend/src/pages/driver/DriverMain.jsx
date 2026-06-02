@@ -35,9 +35,9 @@ export default function DriverMain() {
       case 'home':
         return <DriverHomeView onNavigate={handleNav} />;
       case 'schedule':
-        return <DriverScheduleView />;
+        return <DriverScheduleView onNavigate={handleNav} />;
       case 'shifts':
-        return <DriverShiftsView />;
+        return <DriverShiftsView onNavigate={handleNav} />;
       case 'refuels':
         return <Refuels />;
       default:
@@ -108,12 +108,6 @@ export default function DriverMain() {
                   Página Inicial
                 </button>
                 <button
-                  className={`drawer-link ${activeTab === 'schedule' ? 'active' : ''}`}
-                  onClick={() => handleNav('schedule')}
-                >
-                  Registar Turno
-                </button>
-                <button
                   className={`drawer-link ${activeTab === 'refuels' ? 'active' : ''}`}
                   onClick={() => handleNav('refuels')}
                 >
@@ -123,7 +117,7 @@ export default function DriverMain() {
                   className={`drawer-link ${activeTab === 'shifts' ? 'active' : ''}`}
                   onClick={() => handleNav('shifts')}
                 >
-                  Consultar Turnos
+                  Gerir Turnos
                 </button>
                 <button
                   className="drawer-link"
