@@ -179,16 +179,6 @@ class ClientUpdateSerializer(serializers.Serializer):
 
         return data
 
-    def validate_nif(self, value):
-        if User.objects.filter(nif=value).exists():
-            raise serializers.ValidationError("NIF already registered.")
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already registered.")
-        return value
-
 class CreateManagerSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
@@ -215,6 +205,12 @@ class CreateTaxiSerializer(serializers.ModelSerializer):
     comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'])
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=6)
+
+    def validate_license_plate(self, value):
+        plate = value.upper()
+        if Taxi.objects.filter(license_plate=plate).exists():
+            raise serializers.ValidationError("License plate already registered.")
+        return plate
 
     def validate(self, data):
         if not data.get('brand') or not data.get('model'):

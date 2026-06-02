@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { 
-  listPendingTrips, 
-  listShifts, 
-  acceptTrip, 
-  listTrips, 
-  pickupTrip, 
-  completeTrip, 
+import {
+  listPendingTrips,
+  listShifts,
+  acceptTrip,
+  listTrips,
+  pickupTrip,
+  completeTrip,
   getRouteGeometry,
   getPricing,
   emitInvoice,
@@ -32,10 +32,28 @@ const createIcon = (color) => new L.DivIcon({
 });
 
 const carIcon = new L.DivIcon({
-  html: `<div style="color: #333;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="1"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 12.3 2 13v3c0 .6.4 1 1 1h2m14 0c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2zM7 17c0 1.1-.9 2-2 2s-2-.9-2-2 1.1-2 2-2 2 .9 2 2z"/></svg></div>`,
-  className: 'custom-car',
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
+  html: `
+    <div style="
+      background-color: #111827; 
+      color: #f0c14b; 
+      border-radius: 50%; 
+      width: 40px; 
+      height: 40px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      border: 2px solid #fff;
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 15c-.83 0-1.5-.67-1.5-1.5S5.67 12 6.5 12s1.5.67 1.5 1.5S7.33 15 6.5 15zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z" />
+        <path d="M8 3h8v2H8z" />
+      </svg>
+    </div>
+  `,
+  className: 'custom-car-marker',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
 });
 
 const pinColors = ['#ef4444', '#facc15', '#f97316']; // Red, Yellow, Orange
@@ -43,10 +61,10 @@ const pinColors = ['#ef4444', '#facc15', '#f97316']; // Red, Yellow, Orange
 const simplifyAddress = (addr) => {
   if (!addr || addr === 'Current Location') return addr;
   const parts = addr.split(',').map(p => p.trim());
-  
+
   // Portuguese street prefixes to identify the main street part
   const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
-  
+
   let streetIdx = -1;
   // Look for the street name in the first 3 parts (skipping POI name if present)
   for (let i = 0; i < Math.min(parts.length, 3); i++) {
@@ -60,7 +78,7 @@ const simplifyAddress = (addr) => {
   if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
     streetIdx = 2;
   }
-  
+
   // Final fallback to part 0
   if (streetIdx === -1) streetIdx = 0;
 
@@ -91,7 +109,7 @@ const haversine = (lat1, lon1, lat2, lon2) => {
 
 const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (activeTrip && (activeTrip.status === 'CLIENT_ACCEPTED' || activeTrip.status === 'IN_PROGRESS')) {
       if (routeCoords && routeCoords.length > 0) {
@@ -105,7 +123,7 @@ const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
     } else if (!activeTrip && driverLoc) {
       try {
         map.setView([driverLoc.lat, driverLoc.lon], 14, { animate: true });
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [activeTrip?.status, routeCoords, map]);
 
@@ -127,7 +145,7 @@ export default function DriverHomeView({ onNavigate }) {
   }, [activeTrip]);
   const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc, setDriverLoc] = useState(null);
-  
+
   useEffect(() => {
     driverLocRef.current = driverLoc;
   }, [driverLoc]);
@@ -164,14 +182,14 @@ export default function DriverHomeView({ onNavigate }) {
     }
     return () => clearInterval(timer);
   }, [activeTrip?.status, activeTrip?.id]);
-  
+
   useEffect(() => {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          setDriverLoc({ 
-            lat: position.coords.latitude, 
-            lon: position.coords.longitude 
+          setDriverLoc({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
           });
         },
         (error) => {
@@ -192,8 +210,8 @@ export default function DriverHomeView({ onNavigate }) {
 
   // Calculate target for active trip display
   const targetCoordsStr = activeTrip ? (
-    (activeTrip.status === 'IN_PROGRESS' || activeTrip.status === 'CANCELED') 
-      ? activeTrip.destCoords 
+    (activeTrip.status === 'IN_PROGRESS' || activeTrip.status === 'CANCELED')
+      ? activeTrip.destCoords
       : activeTrip.originCoords
   ) : null;
   const targetAddress = activeTrip ? (
@@ -212,7 +230,7 @@ export default function DriverHomeView({ onNavigate }) {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const [toastMsg, setToastMsg] = useState('');
@@ -258,8 +276,8 @@ export default function DriverHomeView({ onNavigate }) {
 
       // Check for active trip assigned to this driver
       const { data: allTrips } = await listTrips();
-      let myActive = allTrips.find(t => 
-        t.driver_id === user.id && 
+      let myActive = allTrips.find(t =>
+        t.driver_id === user.id &&
         ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
       );
 
@@ -492,7 +510,7 @@ export default function DriverHomeView({ onNavigate }) {
         lastFetchedRouteKey.current = '';
         return;
       }
-      
+
       let origin, dest;
       let type = '';
       if (activeTrip.status === 'CLIENT_ACCEPTED') {
@@ -533,8 +551,8 @@ export default function DriverHomeView({ onNavigate }) {
   }, [activeTrip, driverLoc]);
 
   const sheetVariants = {
-    closed: { y: 'calc(100% - 160px)' }, 
-    open: { y: '15%' }, 
+    closed: { y: 'calc(100% - 160px)' },
+    open: { y: '15%' },
   };
 
   if (!driverLoc) {
@@ -549,7 +567,7 @@ export default function DriverHomeView({ onNavigate }) {
   return (
     <div className="driver-home-container">
       {activeShift ? (
-        <div className="shift-status-bar" style={{ 
+        <div className="shift-status-bar" style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           backgroundColor: isShiftEnded ? '#10b981' : undefined,
           color: isShiftEnded ? 'white' : undefined
@@ -560,7 +578,7 @@ export default function DriverHomeView({ onNavigate }) {
               {isShiftEnded ? 'O turno terminou!' : `Turno em curso: ${shiftDuration} decorridos`}
             </span>
           </div>
-          <button 
+          <button
             onClick={handleEndShift}
             style={{
               background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#ef4444',
@@ -585,7 +603,7 @@ export default function DriverHomeView({ onNavigate }) {
             <Clock size={18} />
             <span>Não está num turno</span>
           </div>
-          <button 
+          <button
             onClick={() => onNavigate && onNavigate('shifts')}
             style={{
               background: 'rgba(255,255,255,0.2)',
@@ -601,7 +619,7 @@ export default function DriverHomeView({ onNavigate }) {
           </button>
         </div>
       )}
-      
+
       <div className="map-full">
         <MapContainer center={[driverLoc.lat, driverLoc.lon]} zoom={14} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
           {/* BACKUP: OSM HOT (Humanitarian) - Good contrast but has electrical lines
@@ -661,7 +679,7 @@ export default function DriverHomeView({ onNavigate }) {
         <div className="active-trip-permanent-bar">
           <div className="active-bar-content">
             <h3 className="active-client-name">{activeTrip.client_name}</h3>
-            
+
             <div className="active-stats-row">
               <div className="stat-item">
                 <Navigation size={18} />
@@ -714,11 +732,11 @@ export default function DriverHomeView({ onNavigate }) {
           animate={sheetState}
           variants={sheetVariants}
           drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.1}
+          dragConstraints={{ top: -100, bottom: 100 }}
+          dragElastic={0.8}
           onDragEnd={(e, info) => {
-            if (info.offset.y < -30) setSheetState('open');
-            else if (info.offset.y > 30) setSheetState('closed');
+            if (info.offset.y < -50) setSheetState('open');
+            else if (info.offset.y > 50) setSheetState('closed');
           }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         >
@@ -746,16 +764,29 @@ export default function DriverHomeView({ onNavigate }) {
 
                 return (
                   <div key={trip.id} className="passenger-card" onClick={() => handleAccept(trip)}>
-                    <div className="card-icon" style={{ color }}>
-                      <MapPin size={24} fill="currentColor" />
-                    </div>
                     <div className="card-info">
                       <div className="card-top">
-                        <span className="passenger-name">{trip.client_name} - {dist}km de si</span>
+                        <div className="passenger-name-group">
+                          <MapPin size={22} fill="currentColor" style={{ color, flexShrink: 0 }} />
+                          <span className="passenger-name">{trip.client_name}</span>
+                        </div>
+                        <div className="card-badges">
+                          <span className="driver-dist">a {dist}km</span>
+                          <div className="trip-distance-badge">
+                            <Navigation size={12} />
+                            <span>Percurso: {trip.kilometers}km</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="card-bottom">
-                        <span className="passenger-address">{simplifyAddress(trip.originAddress)}</span>
-                        <span className="trip-distance">{trip.kilometers}km</span>
+                      <div className="card-route">
+                        <div className="route-point">
+                          <span className="route-label">Recolha:</span>
+                          <span className="route-address" title={trip.originAddress}>{simplifyAddress(trip.originAddress)}</span>
+                        </div>
+                        <div className="route-point">
+                          <span className="route-label">Destino:</span>
+                          <span className="route-address" title={trip.destAddress}>{simplifyAddress(trip.destAddress)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -766,7 +797,7 @@ export default function DriverHomeView({ onNavigate }) {
         </motion.div>
       ) : null}
 
-      <ConfirmationModal 
+      <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
         message={modalConfig.message}

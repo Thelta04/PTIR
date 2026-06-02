@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronLeft, Clock, MapPin, Menu, Route, User, Wallet } from 'lucide-react';
+import { ArrowRight, CalendarClock, ChevronLeft, Clock, MapPin, Menu, Route, User, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { listTrips } from '../../api/client';
 import ProfileModal from '../../components/ProfileModal';
@@ -9,8 +9,8 @@ import { formatDateTimePT } from '../../utils/dateFormat';
 import './client.css';
 
 const STATUS_LABELS = {
-  PENDING: 'Pendente',
-  DRIVER_ACCEPTED: 'Motorista aceite',
+  PENDING: 'Agendada',
+  DRIVER_ACCEPTED: 'Motorista atribuído',
   CLIENT_ACCEPTED: 'Confirmada',
   IN_PROGRESS: 'Em curso',
   WAITING_PAYMENT: 'A aguardar pagamento',
@@ -30,10 +30,10 @@ const STATUS_CLASSES = {
   CANCELED: 'trip-badge--canceled',
 };
 
-function getTripDateValue(trip) {
+function getTripDate(trip) {
   const rawDate = trip.interval?.start_time;
   const date = rawDate ? new Date(rawDate) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 
 function formatPrice(value) {
@@ -47,7 +47,7 @@ function formatComfort(value) {
   return value || '-';
 }
 
-export default function ClientHistory() {
+export default function ClientScheduled() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -61,12 +61,16 @@ export default function ClientHistory() {
     const fetchTrips = async () => {
       try {
         const { data } = await listTrips();
-        const mine = data
-          .filter((trip) => trip.client_id === user.id)
-          .sort((a, b) => getTripDateValue(b) - getTripDateValue(a));
-        setTrips(mine);
+        const now = new Date();
+        const futureTrips = data
+          .filter((trip) => {
+            const tripDate = getTripDate(trip);
+            return trip.client_id === user.id && tripDate && tripDate > now;
+          })
+          .sort((a, b) => getTripDate(a) - getTripDate(b));
+        setTrips(futureTrips);
       } catch (err) {
-        setError(err.response?.data?.error || 'Erro ao carregar o histórico de viagens.');
+        setError(err.response?.data?.error || 'Erro ao carregar as viagens futuras.');
       } finally {
         setLoading(false);
       }
@@ -80,10 +84,10 @@ export default function ClientHistory() {
       (acc, trip) => {
         acc.count += 1;
         acc.kilometers += Number(trip.kilometers) || 0;
-        acc.spent += Number(trip.price) || 0;
+        acc.estimated += Number(trip.price) || 0;
         return acc;
       },
-      { count: 0, kilometers: 0, spent: 0 }
+      { count: 0, kilometers: 0, estimated: 0 }
     );
   }, [trips]);
 
@@ -125,14 +129,14 @@ export default function ClientHistory() {
       <main className="client-history-main">
         <section className="history-toolbar">
           <div>
-            <h1>Histórico de viagens</h1>
+            <h1>Viagens futuras</h1>
           </div>
         </section>
 
         <section className="history-stats">
           <div className="history-stat">
-            <Clock size={18} />
-            <span>Viagens</span>
+            <CalendarClock size={18} />
+            <span>Agendadas</span>
             <strong>{totals.count}</strong>
           </div>
           <div className="history-stat">
@@ -142,17 +146,17 @@ export default function ClientHistory() {
           </div>
           <div className="history-stat">
             <Wallet size={18} />
-            <span>Total</span>
-            <strong>{formatPrice(totals.spent)}</strong>
+            <span>Estimativa</span>
+            <strong>{formatPrice(totals.estimated)}</strong>
           </div>
         </section>
 
-        {loading && <div className="history-message">A carregar viagens...</div>}
+        {loading && <div className="history-message">A carregar viagens futuras...</div>}
         {error && <div className="history-message history-message--error">{error}</div>}
 
         {!loading && !error && trips.length === 0 && (
           <div className="history-empty">
-            Ainda não existem viagens associadas a esta conta.
+            Não existem viagens futuras associadas a esta conta.
           </div>
         )}
 
@@ -207,7 +211,7 @@ export default function ClientHistory() {
                   </div>
                   <div>
                     <span>Motorista</span>
-                    <strong>{trip.driver_name || '-'}</strong>
+                    <strong>{trip.driver_name || 'Por atribuir'}</strong>
                   </div>
                   <div>
                     <span>Táxi</span>
@@ -216,8 +220,11 @@ export default function ClientHistory() {
                     </strong>
                   </div>
                   <div>
-                    <span>Motor</span>
-                    <strong>{trip.taxi_engine || '-'}</strong>
+                    <span>Data/hora</span>
+                    <strong>
+                      <Clock size={14} />
+                      {formatDateTimePT(trip.interval?.start_time)}
+                    </strong>
                   </div>
                   <div>
                     <span>Cliente</span>
@@ -261,10 +268,10 @@ export default function ClientHistory() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
+                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/scheduled')}>
                   Agendar Viagens
                 </button>
-                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/history')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
               </nav>
