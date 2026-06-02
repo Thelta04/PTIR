@@ -33,7 +33,7 @@ export default function DriverMain() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <DriverHomeView />;
+        return <DriverHomeView onNavigate={handleNav} />;
       case 'schedule':
         return <DriverScheduleView />;
       case 'shifts':

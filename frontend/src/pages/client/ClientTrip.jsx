@@ -233,18 +233,10 @@ export default function ClientTrip() {
     navigate('/client');
   };
 
-  // Mock Driver Logic
+  // Driver location updates from backend would be handled here
+  // (Requires real-time socket or polling endpoint, currently missing in API)
   useEffect(() => {
-    if ((status === 'accepted' || status === 'waiting_pickup') && activeTrip && !driverPos) {
-      // Mock a driver position near origin (e.g., ~1km away)
-      const coords = activeTrip.originCoords.split(',').map(Number);
-      if (coords.length === 2) {
-        const [oLat, oLon] = coords;
-        const mLat = oLat + 0.008;
-        const mLon = oLon + 0.008;
-        setDriverPos({ lat: mLat, lon: mLon });
-      }
-    }
+    // Left intentionally blank to enforce the removal of mockup
   }, [status, activeTrip, driverPos]);
 
   useEffect(() => {
