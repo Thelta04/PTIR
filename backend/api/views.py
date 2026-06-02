@@ -33,6 +33,8 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from django.db import IntegrityError
 
 STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'eur')
+DRIVER_LOCATION_TTL_SECONDS = 30
+driver_locations = {}
 # --- Views with Business Logic ---
 
 class UserDeleteView(views.APIView):
@@ -187,9 +189,6 @@ class ClientListView(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DriverCreateView(views.APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsManager]
-
     @extend_schema(
         summary="Create a new Driver",
         description="Creates the base user and associates the license number and birth year to the Driver profile.",
@@ -1635,6 +1634,89 @@ class RouteGeometryView(views.APIView):
         except Exception as e:
             print(f"RouteGeometryView Exception: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DriverLocationView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Update driver live location",
+        description="Stores the driver's latest browser geolocation in memory for active trip ETA calculation.",
+        request=inline_serializer(
+            name='DriverLocationUpdateRequest',
+            fields={'lat': serializers.FloatField(), 'lon': serializers.FloatField()}
+        ),
+        responses={200: inline_serializer(name='DriverLocationUpdateResponse', fields={'ok': serializers.BooleanField()})}
+    )
+    def post(self, request):
+        user = request.user
+        if not Driver.objects.filter(user=user).exists():
+            return Response({"error": "Only drivers can update their location."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            lat = float(request.data.get('lat'))
+            lon = float(request.data.get('lon'))
+        except (TypeError, ValueError):
+            return Response({"error": "lat and lon are required numbers."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return Response({"error": "Invalid coordinates."}, status=status.HTTP_400_BAD_REQUEST)
+
+        driver_locations[user.id] = {
+            "lat": lat,
+            "lon": lon,
+            "updated_at": timezone.now(),
+        }
+        return Response({"ok": True}, status=status.HTTP_200_OK)
+
+class TripDriverLocationView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get live driver location for a trip",
+        description="Returns the latest known driver position while the client is waiting for pickup.",
+        responses={
+            200: inline_serializer(
+                name='TripDriverLocationResponse',
+                fields={
+                    'available': serializers.BooleanField(),
+                    'lat': serializers.FloatField(),
+                    'lon': serializers.FloatField(),
+                    'updated_at': serializers.DateTimeField(),
+                }
+            ),
+            404: inline_serializer(name='TripDriverLocationMissing', fields={'error': serializers.CharField()}),
+        }
+    )
+    def get(self, request, id):
+        try:
+            trip = Trip.objects.select_related('client__user', 'shift__driver__user').get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        is_client = trip.client.user_id == request.user.id
+        is_driver = bool(trip.shift_id and trip.shift.driver.user_id == request.user.id)
+        if not (is_client or is_driver):
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not trip.shift_id:
+            return Response({"available": False, "reason": "Trip has no assigned driver."}, status=status.HTTP_200_OK)
+
+        loc = driver_locations.get(trip.shift.driver.user_id)
+        if not loc:
+            return Response({"available": False, "reason": "Driver location unavailable."}, status=status.HTTP_200_OK)
+
+        age = (timezone.now() - loc["updated_at"]).total_seconds()
+        if age > DRIVER_LOCATION_TTL_SECONDS:
+            return Response({"available": False, "reason": "Driver location is stale."}, status=status.HTTP_200_OK)
+
+        return Response({
+            "available": True,
+            "lat": loc["lat"],
+            "lon": loc["lon"],
+            "updated_at": loc["updated_at"],
+        }, status=status.HTTP_200_OK)
 
 class RatingListView(views.APIView):
     @extend_schema(

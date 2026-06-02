@@ -153,6 +153,8 @@ export const startTripPayment = (id, successUrl, cancelUrl) =>
 export const getTripPaymentStatus = (id, sessionId) =>
   api.get(`trip/${id}/payment/status/`, { params: { session_id: sessionId } });
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
+export const updateDriverLocation = (lat, lon) => api.post('driver/location/', { lat, lon });
+export const getTripDriverLocation = (id) => api.get(`trip/${id}/driver-location/`);
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 export const rateTrip = (tripId, score) => api.post('rating/create/', { trip_id: tripId, score });
 export const listRatings = (driverId) => api.get(`rating/${driverId}/`);

@@ -158,7 +158,7 @@ ALTER TABLE refueling
     
 ALTER TABLE trip
     ADD CONSTRAINT chk_trip_comfort CHECK (comfort_level IN ('basic', 'luxury')),
-    ADD CONSTRAINT chk_trip_passengers CHECK (num_passengers BETWEEN 1 AND 4),
+    ADD CONSTRAINT chk_trip_passengers CHECK (num_passengers BETWEEN 1 AND 6),
     ADD CONSTRAINT chk_trip_status CHECK (status IN ('PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID', 'COMPLETED', 'CANCELED'));
 
 ALTER TABLE invoice

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X, MapPin, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, getTripDriverLocation, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -62,6 +62,25 @@ export default function ClientTrip() {
     const freguesia = parts[streetIdx + 1] || '';
     const concelho = parts[streetIdx + 2] || '';
     return [street, freguesia, concelho].filter(Boolean).join(', ');
+  };
+
+  const parseCoords = (coords) => {
+    if (!coords) return null;
+    const [lat, lon] = coords.split(',').map(Number);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+    return { lat, lon };
+  };
+
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
   // Modal State
@@ -160,7 +179,7 @@ export default function ClientTrip() {
       }
     } catch (err) {
       console.error('Stripe error:', err);
-      alert('Erro ao iniciar pagamento. Verifique se as chaves do Stripe estão configuradas no backend.');
+      alert(err.response?.data?.error || 'Erro ao iniciar pagamento. Verifique se as chaves do Stripe estão configuradas no backend.');
     }
   };
 
@@ -218,7 +237,7 @@ export default function ClientTrip() {
       async () => {
         try {
           await clientAcceptTrip(tripId);
-          setStatus('in_progress');
+          setStatus('waiting_pickup');
         } catch (err) {
           alert('Erro ao aceitar viagem');
         }
@@ -238,11 +257,40 @@ export default function ClientTrip() {
     navigate('/client');
   };
 
-  // Driver location updates from backend would be handled here
-  // (Requires real-time socket or polling endpoint, currently missing in API)
   useEffect(() => {
-    // Left intentionally blank to enforce the removal of mockup
-  }, [status, activeTrip, driverPos]);
+    if (!tripId || !['accepted', 'waiting_pickup'].includes(status)) {
+      setDriverPos(null);
+      if (status !== 'in_progress') setEta(null);
+      return undefined;
+    }
+
+    let isMounted = true;
+    const fetchDriverLocation = async () => {
+      try {
+        const { data } = await getTripDriverLocation(tripId);
+        if (isMounted && data.available) {
+          setDriverPos({ lat: data.lat, lon: data.lon });
+        } else if (isMounted) {
+          setDriverPos(null);
+          setEta(null);
+          setRouteCoords([]);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setDriverPos(null);
+          setEta(null);
+          setRouteCoords([]);
+        }
+      }
+    };
+
+    fetchDriverLocation();
+    const intervalId = setInterval(fetchDriverLocation, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [tripId, status]);
 
   useEffect(() => {
     const fetchRoute = async () => {
@@ -337,6 +385,13 @@ export default function ClientTrip() {
     return mapping[engine] || engine;
   };
 
+  const mapOrigem = origem || parseCoords(activeTrip?.originCoords);
+  const mapDestino = destino || parseCoords(activeTrip?.destCoords);
+  const driverDistanceKm = driverPos && mapOrigem
+    ? haversine(driverPos.lat, driverPos.lon, mapOrigem.lat, mapOrigem.lon).toFixed(1)
+    : null;
+  const canPayActiveTrip = activeTrip && activeTrip.client_id === user?.id;
+
   const renderStatusPanel = () => {
     if (loading) return null;
 
@@ -369,10 +424,31 @@ export default function ClientTrip() {
 
             <div className="trip-specs" style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
+              gridTemplateColumns: '1fr 1fr',
               gap: '10px',
               padding: '15px 0',
               borderTop: '1px solid #f0f0f0',
+              textAlign: 'center'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Distância</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>
+                  {driverDistanceKm ? `${driverDistanceKm} km` : '--'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Chegada</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>
+                  {eta !== null ? `${eta} min` : '--'}
+                </span>
+              </div>
+            </div>
+
+            <div className="trip-specs" style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '10px',
+              padding: '15px 0',
               borderBottom: '1px solid #f0f0f0',
               textAlign: 'center'
             }}>
@@ -661,23 +737,29 @@ export default function ClientTrip() {
               </div>
             </div>
 
-            <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button
-                className="panel-btn panel-btn--accept"
-                onClick={handleStripePayment}
-                disabled={isPaymentButtonDisabled}
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  padding: '18px 0', 
-                  fontSize: '1.1rem',
-                  opacity: isPaymentButtonDisabled ? 0.6 : 1,
-                  cursor: isPaymentButtonDisabled ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {isPaymentButtonDisabled ? 'A VERIFICAR...' : 'Pagar Viagem'}
-              </button>
-            </div>
+            {canPayActiveTrip ? (
+              <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  className="panel-btn panel-btn--accept"
+                  onClick={handleStripePayment}
+                  disabled={isPaymentButtonDisabled}
+                  style={{ 
+                    width: '100%', 
+                    height: 'auto', 
+                    padding: '18px 0', 
+                    fontSize: '1.1rem',
+                    opacity: isPaymentButtonDisabled ? 0.6 : 1,
+                    cursor: isPaymentButtonDisabled ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isPaymentButtonDisabled ? 'A VERIFICAR...' : 'Pagar Viagem'}
+                </button>
+              </div>
+            ) : (
+              <p style={{ color: '#666', margin: 0 }}>
+                Apenas o cliente desta viagem pode efetuar o pagamento.
+              </p>
+            )}
           </div>
         );
 
@@ -724,8 +806,8 @@ export default function ClientTrip() {
       <main className="client-main-content">
         <div className="map-wrapper">
           <MapaPedido
-            origem={origem}
-            destino={destino}
+            origem={mapOrigem}
+            destino={mapDestino}
             onEscolherPonto={() => { }}
             routeCoords={routeCoords}
             carPos={driverPos}

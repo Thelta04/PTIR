@@ -63,6 +63,8 @@ urlpatterns = [
     path('trip/<int:id>/invoice/', views.TripInvoiceView.as_view(), name='trip_invoice'),
     path('trip/<int:id>/client-accept/', views.TripClientAcceptView.as_view(), name='accept_trip_client'),
     path('trip/<int:id>/pickup/', views.TripPickupView.as_view(), name='start_trip'),
+    path('trip/<int:id>/driver-location/', views.TripDriverLocationView.as_view(), name='trip_driver_location'),
+    path('driver/location/', views.DriverLocationView.as_view(), name='driver_location'),
     path('route/', views.RouteGeometryView.as_view(), name='route_geometry'),
     path('payments/stripe/webhook/', views.StripeWebhookView.as_view(), name='stripe_webhook'),
 

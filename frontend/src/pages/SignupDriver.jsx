@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { PSelect, PInputDate, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 import PFPSelector from '../components/PFPSelector';
+import { getLicenseNumberValidationMessage, getPasswordValidationMessage } from '../utils/validation';
 
 
 const ROLE_ROUTES = {
@@ -32,6 +33,17 @@ export default function SignupDriver() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const passwordValidationMessage = getPasswordValidationMessage(password);
+    if (passwordValidationMessage) {
+      return;
+    }
+
+    const licenseNumberValidationMessage = getLicenseNumberValidationMessage(license_number);
+    if (licenseNumberValidationMessage) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -64,6 +76,9 @@ export default function SignupDriver() {
       setLoading(false);
     }
   };
+
+  const passwordWarning = password ? getPasswordValidationMessage(password) : '';
+  const licenseNumberWarning = license_number ? getLicenseNumberValidationMessage(license_number) : '';
 
   return (
     <div className="login-page-user">
@@ -158,13 +173,26 @@ export default function SignupDriver() {
               required={true}
             />
 
-            <PInputNumber 
+            {passwordWarning && (
+              <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
+                {passwordWarning}
+              </div>
+            )}
+
+            <PInputText 
             label="Número da Carta de Condução" 
             className="session-input"
             name="some-name" 
             onChange={(e) => setLicenseNumber(e.target.value)}
+            maxLength={12}
             required
             />
+
+            {licenseNumberWarning && (
+              <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
+                {licenseNumberWarning}
+              </div>
+            )}
 
             {error && (
               <motion.div
@@ -192,4 +220,3 @@ export default function SignupDriver() {
     
   );
 }
-
