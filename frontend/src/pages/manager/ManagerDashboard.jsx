@@ -30,6 +30,14 @@ const sidebarItems = [
   { key: 'reports', label: 'Relatórios', icon: BarChart3 },
 ];
 
+const monthAgoDateInput = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 1);
+
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 export default function ManagerDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +106,24 @@ export default function ManagerDashboard() {
     }
   }, [activeSection]); // eslint-disable-line
 
+  useEffect(() => {
+    if (activeSection !== 'reports') return;
+
+    setFormData((fd) => ({
+      ...fd,
+      reports_start: fd.reports_start || monthAgoDateInput(),
+      reports_end: fd.reports_end || todayDateInput(),
+      reports_driver_id: fd.reports_driver_id || '',
+      reports_comfort_level: fd.reports_comfort_level || '',
+    }));
+
+    if (data.drivers.length === 0) {
+      listDrivers()
+        .then(res => setData(d => ({ ...d, drivers: res.data })))
+        .catch(() => { });
+    }
+  }, [activeSection]); // eslint-disable-line
+
   const handleLogout = () => {
     logout();
     navigate('/login-manager');
@@ -122,8 +148,10 @@ export default function ManagerDashboard() {
       });
     } else if (activeSection === 'reports') {
       setFormData({
-        reports_start: todayDateInput(),
+        reports_start: monthAgoDateInput(),
         reports_end: todayDateInput(),
+        reports_driver_id: '',
+        reports_comfort_level: '',
       });
     } else {
       setFormData({});
@@ -170,7 +198,7 @@ export default function ManagerDashboard() {
       const payload = { ...formData };
       request = updateTaxi(originalId, payload);
     } else if (formMode === 'edit-shift') {
-      const payload = { 
+      const payload = {
         driver_id: parseInt(formData.driver_id, 10),
         taxi_license_plate: formData.taxi_license_plate,
         start_time: formData.start_time,
@@ -353,13 +381,13 @@ export default function ManagerDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div className="auth-field">
             <label className="auth-label">Matrícula</label>
-            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required readOnly={formMode === 'edit-taxi'} style={formMode === 'edit-taxi' ? { background: '#f5f5f5', color: '#888' } : {}} onChange={handleInputChange} value={formData.license_plate || ''} />
+            <input className="auth-input" name="license_plate" placeholder="XX-XX-XX" required pattern="^([A-Za-z]{2}-\d{2}-\d{2}|\d{2}-\d{2}-[A-Za-z]{2}|\d{2}-[A-Za-z]{2}-\d{2}|[A-Za-z]{2}-\d{2}-[A-Za-z]{2})$" readOnly={formMode === 'edit-taxi'} style={{ textTransform: 'uppercase', ...(formMode === 'edit-taxi' ? { background: '#f5f5f5', color: '#888' } : {}) }} onChange={(e) => { e.target.value = e.target.value.toUpperCase(); handleInputChange(e); e.target.setCustomValidity(''); }} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.patternMismatch ? 'Formato inválido (ex: AA-00-00, 00-00-AA, 00-AA-00, AA-00-AA)' : 'Campo obrigatório')} value={formData.license_plate || ''} />
           </div>
-          <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="1900" max="2026" required onChange={handleInputChange} value={formData.purchase_year || ''} /></div>
-          <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" required onChange={handleInputChange} value={formData.mileage || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Marca</label><input className="auth-input" name="brand" required onChange={handleInputChange} value={formData.brand || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Modelo</label><input className="auth-input" name="model" required onChange={handleInputChange} value={formData.model || ''} /></div>
-          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="4" required onChange={handleInputChange} value={formData.num_passengers || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Ano Compra</label><input className="auth-input" name="purchase_year" type="number" min="2011" max="2026" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeUnderflow ? 'O ano de compra deve ser superior a 2010' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido'))} onInput={(e) => e.target.setCustomValidity('')} value={formData.purchase_year || ''} /></div>
+          <div className="auth-field"><label className="auth-label">KM</label><input className="auth-input" name="mileage" type="number" min="0" max="350000" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeOverflow ? 'A quilometragem não pode exceder 350.000 km' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido'))} onInput={(e) => e.target.setCustomValidity('')} value={formData.mileage || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Marca</label><input className="auth-input" name="brand" required pattern=".*[A-Za-zÀ-ÿ].*" onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.patternMismatch ? 'A marca deve conter letras e não pode ser apenas números' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido'))} onInput={(e) => e.target.setCustomValidity('')} value={formData.brand || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Modelo</label><input className="auth-input" name="model" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido')} onInput={(e) => e.target.setCustomValidity('')} value={formData.model || ''} /></div>
+          <div className="auth-field"><label className="auth-label">Nº Passageiros</label><input className="auth-input" name="num_passengers" type="number" min="1" max="6" required onChange={handleInputChange} onInvalid={(e) => e.target.setCustomValidity(e.target.validity.rangeOverflow ? 'O máximo permitido são 6 passageiros' : (e.target.validity.rangeUnderflow ? 'Deve ter pelo menos 1 passageiro' : (e.target.validity.valueMissing ? 'Campo obrigatório' : 'Valor inválido')))} onInput={(e) => e.target.setCustomValidity('')} value={formData.num_passengers || ''} /></div>
           <div className="auth-field">
             <label className="auth-label">Conforto</label>
             <select className="auth-input" name="comfort_level" required onChange={handleInputChange} value={formData.comfort_level || ''}>
@@ -569,8 +597,8 @@ export default function ManagerDashboard() {
             ) : activeSection === 'shifts' ? (
               <div className="data-table-container">
                 <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
-                  <select 
-                    className="auth-input" 
+                  <select
+                    className="auth-input"
                     style={{ width: 'auto', padding: '8px 12px' }}
                     value={shiftStatusFilter}
                     onChange={(e) => setShiftStatusFilter(e.target.value)}
@@ -588,7 +616,7 @@ export default function ManagerDashboard() {
                     {data.shifts
                       .filter(s => {
                         if (!shiftStatusFilter) return true;
-                        
+
                         let status = 'SCHEDULED';
                         if (s.real_interval?.start_time && s.real_interval?.end_time) {
                           status = 'COMPLETED';
@@ -607,37 +635,37 @@ export default function ManagerDashboard() {
                         return timeB - timeA;
                       })
                       .map((s, i) => (
-                      <tr key={i}>
-                        <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
-                        <td>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '0.9rem',
-                            }}
-                          >
-                            <CalendarClock size={14} color="#999" />
-                            {formatDateTimePT(s.scheduled_interval?.start_time)}
-                            {' → '}
-                            {formatDateTimePT(s.scheduled_interval?.end_time)}
-                          </div>
-                        </td>
-                        <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
-                          <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
-                        </div></td>
-                      </tr>
-                    ))}
+                        <tr key={i}>
+                          <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
+                          <td>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '0.9rem',
+                              }}
+                            >
+                              <CalendarClock size={14} color="#999" />
+                              {formatDateTimePT(s.scheduled_interval?.start_time)}
+                              {' → '}
+                              {formatDateTimePT(s.scheduled_interval?.end_time)}
+                            </div>
+                          </td>
+                          <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                            <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
+                          </div></td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'trips' ? (
               <div className="data-table-container">
                 <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
-                  <select 
-                    className="auth-input" 
+                  <select
+                    className="auth-input"
                     style={{ width: 'auto', padding: '8px 12px' }}
                     value={tripStatusFilter}
                     onChange={(e) => setTripStatusFilter(e.target.value)}
@@ -664,30 +692,30 @@ export default function ManagerDashboard() {
                         return timeB - timeA;
                       })
                       .map((t, i) => {
-                      let durationStr = '-';
-                      if (t.interval?.start_time && t.interval?.end_time) {
-                        const start = new Date(t.interval.start_time);
-                        const end = new Date(t.interval.end_time);
-                        const diffMs = end - start;
-                        if (diffMs > 0) {
-                          const mins = Math.floor(diffMs / 60000);
-                          const hours = Math.floor(mins / 60);
-                          const remMins = mins % 60;
-                          durationStr = hours > 0 ? `${hours}h ${remMins}m` : `${mins}m`;
+                        let durationStr = '-';
+                        if (t.interval?.start_time && t.interval?.end_time) {
+                          const start = new Date(t.interval.start_time);
+                          const end = new Date(t.interval.end_time);
+                          const diffMs = end - start;
+                          if (diffMs > 0) {
+                            const mins = Math.floor(diffMs / 60000);
+                            const hours = Math.floor(mins / 60);
+                            const remMins = mins % 60;
+                            durationStr = hours > 0 ? `${hours}h ${remMins}m` : `${mins}m`;
+                          }
                         }
-                      }
-                      
-                      return (
-                        <tr key={i}>
-                          <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
-                          <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
-                          <td><div style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
-                          <td><div style={{ fontSize: '0.85rem', color: '#555' }}>{t.interval?.start_time ? new Date(t.interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
-                          <td style={{ fontWeight: 500, color: '#666' }}>{durationStr}</td>
-                          <td style={{ fontWeight: 700 }}>€{t.price}</td>
-                        </tr>
-                      );
-                    })}
+
+                        return (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
+                            <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
+                            <td><div style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
+                            <td><div style={{ fontSize: '0.85rem', color: '#555' }}>{t.interval?.start_time ? new Date(t.interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
+                            <td style={{ fontWeight: 500, color: '#666' }}>{durationStr}</td>
+                            <td style={{ fontWeight: 700 }}>€{t.price}</td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -721,6 +749,43 @@ export default function ManagerDashboard() {
                       }
                     />
                   </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Motorista</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_driver_id || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_driver_id: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os motoristas</option>
+                      {data.drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Tipo de carro</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_comfort_level || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_comfort_level: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os tipos</option>
+                      <option value="basic">Básico</option>
+                      <option value="luxury">Luxo</option>
+                    </select>
+                  </div>
                   <button onClick={() => {
                     const s = formData.reports_start; const e = formData.reports_end;
                     if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
@@ -729,7 +794,7 @@ export default function ManagerDashboard() {
                       return;
                     }
                     setReportsLoading(true); setReportsError('');
-                    getReports(s, e).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
+                    getReports(s, e, formData.reports_driver_id, formData.reports_comfort_level).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
                   }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>
                   {reportsError && <div style={{ color: 'red', fontSize: '13px', marginLeft: '10px' }}>{reportsError}</div>}
                 </div>

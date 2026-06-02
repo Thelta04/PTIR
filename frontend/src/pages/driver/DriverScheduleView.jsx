@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
-import { ArrowLeft, Check, Car, X } from 'lucide-react';
+import { ArrowLeft, Check, Car, X, Wand2, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EuropeanDateInput } from '../../components/EuropeanDateInput';
 import { formatDatePT, formatTimePT, todayDateInput } from '../../utils/dateFormat';
@@ -16,7 +16,7 @@ const DAYS = [
   { label: 'Domingo', val: 0 },
 ];
 
-export default function DriverScheduleView() {
+export default function DriverScheduleView({ onNavigate }) {
   const { user } = useAuth();
 
   const getTimeStr = (plusHours = 0) => {
@@ -40,6 +40,7 @@ export default function DriverScheduleView() {
   const [allTaxis, setAllTaxis] = useState([]);
   const [allSystemShifts, setAllSystemShifts] = useState([]);
   const [preferredTaxiPlate, setPreferredTaxiPlate] = useState('');
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Delete State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -104,6 +105,12 @@ export default function DriverScheduleView() {
           const endDt = new Date(d);
           endDt.setHours(parseInt(eh, 10), parseInt(em, 10), 0, 0);
 
+          if (stDt < new Date()) {
+            setError('Não é possível agendar um turno para uma data/hora no passado.');
+            setLoading(false);
+            return;
+          }
+
           if (endDt <= stDt) {
             endDt.setDate(endDt.getDate() + 1);
           }
@@ -117,6 +124,7 @@ export default function DriverScheduleView() {
           // Check if driver is already busy with an existing shift
           const overlapShift = shiftsRes.data.find(shift => {
             if (shift.driver_id !== user.id) return false;
+            if (shift.real_interval && shift.real_interval.end_time) return false;
             const shiftStart = new Date(shift.scheduled_interval.start_time);
             const shiftEnd = new Date(shift.scheduled_interval.end_time);
             return shiftStart < endDt && shiftEnd > stDt;
@@ -172,6 +180,7 @@ export default function DriverScheduleView() {
       // Check if taxi has any overlapping shift
       const hasOverlap = allSystemShifts.some(shift => {
         if (shift.taxi_plate !== taxi.license_plate) return false;
+        if (shift.real_interval && shift.real_interval.end_time) return false;
 
         const shiftStart = new Date(shift.scheduled_interval.start_time);
         const shiftEnd = new Date(shift.scheduled_interval.end_time);
@@ -241,10 +250,11 @@ export default function DriverScheduleView() {
       }
     }
 
-    setMsg(`Turnos agendados com sucesso! (${createdCount} turnos)`);
+    sessionStorage.setItem('shiftSuccessMsg', `Turnos agendados com sucesso! (${createdCount} turnos)`);
     setGeneratedShifts([]);
     setStep(1); // Go back to start on success
     setLoading(false);
+    if (onNavigate) onNavigate('shifts');
   };
 
   const formatShortDate = (dateObj) => {
@@ -257,9 +267,27 @@ export default function DriverScheduleView() {
 
   return (
     <div className="driver-schedule-view" style={{ padding: '2rem', background: '#fff', minHeight: '100%' }}>
-      <h1 className="dash-title" style={{ marginBottom: '1.5rem', fontSize: '1.8rem' }}>
-        {step === 1 ? 'Registar turnos' : 'Selecionar Carro'}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+        <button
+          type="button"
+          onClick={() => onNavigate && onNavigate('shifts')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#374151'
+          }}
+          title="Voltar para Gerir turnos"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="dash-title" style={{ margin: 0, fontSize: '1.8rem' }}>
+          {step === 1 ? 'Registar turnos' : 'Selecionar Carro'}
+        </h1>
+      </div>
 
       {msg && <p className="dash-toast" style={{ color: 'green', marginBottom: '1rem' }}>{msg}</p>}
       {error && <p className="dash-error" style={{ marginBottom: '1rem' }}>{error}</p>}
@@ -295,13 +323,6 @@ export default function DriverScheduleView() {
                   className="schedule-input"
                   value={startDate}
                   onChange={setStartDate}
-                  required
-                />
-
-                <EuropeanDateInput
-                  className="schedule-input"
-                  value={endDate}
-                  onChange={setEndDate}
                   required
                 />
               </div>
@@ -347,23 +368,31 @@ export default function DriverScheduleView() {
       {step === 2 && (
         <div className="schedule-step2">
           {/* Preferred Car Banner */}
-          <div className="schedule-preferred-banner">
-            <div className="schedule-preferred-row">
-              <span style={{ fontWeight: '600' }}>Carro preferido:</span>
+          <div className="schedule-preferred-banner" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '1.2rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#b45309', marginBottom: '1rem', fontWeight: 'bold', fontSize: '1.3rem' }}>
+              <Wand2 size={24} />
+              <span>Atribuição Rápida</span>
+              <button 
+                type="button" 
+                onClick={() => setShowInfoModal(true)}
+                style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', display: 'flex', padding: '0.2rem', marginLeft: '0.2rem' }}
+                title="Saber mais"
+              >
+                <Info size={22} />
+              </button>
+            </div>
+            <div className="schedule-preferred-row" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
               <select className="schedule-input" style={{ flex: 1, minWidth: '120px' }} value={preferredTaxiPlate} onChange={e => setPreferredTaxiPlate(e.target.value)}>
                 {allTaxis.map(t => (
                   <option key={t.license_plate} value={t.license_plate}>
-                    {t.brand} {t.model} ({t.license_plate})
+                    {t.brand} {t.model} ({t.license_plate}) - {t.comfort_level === 'luxury' ? 'Luxo' : 'Básico'}
                   </option>
                 ))}
               </select>
-              <button type="button" className="btn btn--warning" onClick={handleApplyPreferred} style={{ whiteSpace: 'nowrap' }}>
-                Aplicar
+              <button type="button" className="btn btn--warning" onClick={handleApplyPreferred} style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
+                <Check size={16} /> Aplicar
               </button>
             </div>
-            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
-              Aplica este carro a todos os turnos onde o mesmo se encontre disponível.
-            </p>
           </div>
 
           {/* Shifts List */}
@@ -386,7 +415,7 @@ export default function DriverScheduleView() {
                       <option value="" disabled>Selecione um carro...</option>
                       {availableTaxis.map(t => (
                         <option key={t.license_plate} value={t.license_plate}>
-                          {t.brand} {t.model} ({t.license_plate})
+                          {t.brand} {t.model} ({t.license_plate}) - {t.comfort_level === 'luxury' ? 'Luxo' : 'Básico'}
                         </option>
                       ))}
                     </select>
@@ -486,6 +515,44 @@ export default function DriverScheduleView() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Info Modal */}
+      <AnimatePresence>
+        {showInfoModal && (
+          <div className="modal-portal">
+            <motion.div 
+              className="modal-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowInfoModal(false)}
+            />
+            <motion.div 
+              className="modal-content"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              style={{ maxWidth: '400px', zIndex: 10001, position: 'relative' }}
+            >
+              <h3 className="modal-title">Como funciona a Atribuição Rápida?</h3>
+              <div className="modal-message" style={{ textAlign: 'left', lineHeight: '1.5' }}>
+                <p style={{ marginBottom: '1rem' }}>
+                  A <strong>Atribuição Rápida</strong> permite-lhe escolher um carro e tentar atribuí-lo automaticamente a todos os turnos que selecionou.
+                </p>
+                <p>
+                  <strong>Nota:</strong> Esta ação verifica a disponibilidade do veículo. Se o carro já estiver ocupado para o mesmo horário num determinado turno, ele <strong>não</strong> será atribuído a esse turno, mas continuará a ser testado e atribuído aos restantes.
+                </p>
+              </div>
+              <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                <button type="button" className="modal-btn modal-btn--confirm" onClick={() => setShowInfoModal(false)}>
+                  Entendi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

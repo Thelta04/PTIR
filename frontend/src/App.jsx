@@ -8,6 +8,7 @@ import DriverMain from './pages/driver/DriverMain';
 import DecisionDriver from './pages/driver/DecisionDriver';
 import ClientMain from './pages/client/ClientMain';
 import ClientTrip from './pages/client/ClientTrip';
+import ClientHistory from './pages/client/ClientHistory';
 import Signup from './pages/Signup';
 import SignupDriver from './pages/SignupDriver';
 import './App.css';
@@ -22,8 +23,8 @@ const ROLE_ROUTES = {
 function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login-client" replace />;
-  return <Navigate to={ROLE_ROUTES[user.type] || '/login-client'} replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={ROLE_ROUTES[user.type] || '/login'} replace />;
 }
 
 function App() {
@@ -31,13 +32,13 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login-client" element={<LoginUser />} />
+          <Route path="/login" element={<LoginUser />} />
           <Route path="/login-manager" element={<LoginManager />} />
           <Route path="/register" element={<Signup />} />
           <Route path="/signup-driver" element={<SignupDriver />} />
 
           <Route path="/manager" element={
-            <ProtectedRoute allowedRoles={['MANAGER']}>
+            <ProtectedRoute allowedRoles={['MANAGER']} redirectTo="/login-manager">
               <ManagerDashboard />
             </ProtectedRoute>
           } />
@@ -61,8 +62,14 @@ function App() {
           } />
 
           <Route path="/client/trip" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientTrip />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/client/history" element={
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
+              <ClientHistory />
             </ProtectedRoute>
           } />
 

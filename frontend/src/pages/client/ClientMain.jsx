@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry, listRatings } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
+import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus, Check, X } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -40,6 +40,7 @@ export default function ClientMain() {
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [driverRating, setDriverRating] = useState('N/A');
@@ -54,7 +55,7 @@ export default function ClientMain() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -74,10 +75,10 @@ export default function ClientMain() {
   const simplifyAddress = (addr) => {
     if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
     const parts = addr.split(',').map(p => p.trim());
-    
+
     // Portuguese street prefixes to identify the main street part
     const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
-    
+
     let streetIdx = -1;
     // Look for the street name in the first 3 parts (skipping POI name if present)
     for (let i = 0; i < Math.min(parts.length, 3); i++) {
@@ -91,7 +92,7 @@ export default function ClientMain() {
     if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
       streetIdx = 2;
     }
-    
+
     // Final fallback to part 0
     if (streetIdx === -1) streetIdx = 0;
 
@@ -109,22 +110,33 @@ export default function ClientMain() {
   };
 
   const handleUseCurrentLocation = () => {
-    // MOCKED LOCATIONS for testing
-    const originCoords = { lat: 38.7111, lon: -9.1368 };
-    const destCoords = { lat: 38.7369, lon: -9.1427 };
-
-    // Set Origin
-    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
-      setOrigem(originCoords);
-      setOriginAddress(address);
-    });
-
-    // Set Destination automatically for easier testing
-    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
-      setDestino(destCoords);
-      setDestinationAddress(address);
-      setSearchValue(address);
-    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const originCoords = { 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          };
+          
+          getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+            setOrigem(originCoords);
+            setOriginAddress(address);
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          // Fallback if denied
+          const defaultCoords = { lat: 38.7111, lon: -9.1368 };
+          getAddressFromCoords(defaultCoords.lat, defaultCoords.lon).then(address => {
+            setOrigem(defaultCoords);
+            setOriginAddress(address);
+          });
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert("Geolocalização não é suportada por este navegador.");
+    }
   };
 
 
@@ -194,11 +206,11 @@ export default function ClientMain() {
       const ponto = { lat: coords.lat, lon: coords.lon };
       if (type === 'origin') {
         setOrigem(ponto);
-        setOriginAddress(coords.display_name);
+        setOriginAddress(simplifyAddress(coords.display_name));
       } else {
         setDestino(ponto);
-        setDestinationAddress(coords.display_name);
-        setSearchValue(coords.display_name);
+        setDestinationAddress(simplifyAddress(coords.display_name));
+        setSearchValue(simplifyAddress(coords.display_name));
       }
     } else {
       alert('Endereço não encontrado');
@@ -207,7 +219,7 @@ export default function ClientMain() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login-client');
+    navigate('/login');
   };
 
   const handleMenuClick = (path) => {
@@ -221,18 +233,18 @@ export default function ClientMain() {
     if (selectingFor) {
       if (selectingFor === 'origin') {
         setOrigem(ponto);
-        setOriginAddress(address);
+        setOriginAddress(simplifyAddress(address));
       } else if (selectingFor === 'destination') {
         setDestino(ponto);
-        setDestinationAddress(address);
-        setSearchValue(address);
+        setDestinationAddress(simplifyAddress(address));
+        setSearchValue(simplifyAddress(address));
       }
       setSelectingFor(null);
-    } else if (!showMoreOptions && currentView === 'initial') {
+    } else if (currentView === 'initial') {
       // Main view behavior: clicking map sets destination automatically
       setDestino(ponto);
-      setDestinationAddress(address);
-      setSearchValue(address);
+      setDestinationAddress(simplifyAddress(address));
+      setSearchValue(simplifyAddress(address));
     }
   }
 
@@ -279,11 +291,11 @@ export default function ClientMain() {
         const originStr = `${finalOrigem.lat},${finalOrigem.lon}`;
         const destStr = `${finalDestino.lat},${finalDestino.lon}`;
         const { data } = await getRouteGeometry(originStr, destStr);
-        
+
         if (data.duration) {
           const minutes = data.duration / 60;
           setEstimatedDuration(Math.round(minutes));
-          
+
           if (pricingConfig) {
             const price = calculateEstimatedPrice(minutes, comfort_level, pricingConfig);
             setEstimatedPrice(price);
@@ -294,7 +306,6 @@ export default function ClientMain() {
       }
     }
 
-    setShowMoreOptions(false);
     setCurrentView('selection');
   };
 
@@ -310,14 +321,14 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      
+
       // Navigate to the trip tracking page
-      navigate('/client/trip', { 
-        state: { 
-          tripId: data.id, 
-          origem, 
-          destino 
-        } 
+      navigate('/client/trip', {
+        state: {
+          tripId: data.id,
+          origem,
+          destino
+        }
       });
     } catch (error) {
       const errorData = error.response?.data;
@@ -439,10 +450,10 @@ export default function ClientMain() {
               <h2 className="view-title">Quando deseja partir?</h2>
             </div>
 
-            <div className="trip-summary-mini" style={{ 
-              background: '#fff', 
-              padding: '16px', 
-              borderRadius: '10px', 
+            <div className="trip-summary-mini" style={{
+              background: '#fff',
+              padding: '16px',
+              borderRadius: '10px',
               border: '1.5px solid #f1cf58',
               marginBottom: '16px',
               fontSize: '1.05rem',
@@ -459,37 +470,55 @@ export default function ClientMain() {
               )}
             </div>
 
-            <div className="form-group" style={{ width: '100%', marginBottom: '20px' }}>
-              <EuropeanDateTimeInput
-                className="timestamp-input"
-                value={dateTime}
-                onChange={setDateTime}
-              />
-            </div>
-
-            <div className="selection-options" style={{ marginTop: '10px' }}>
-              <button
-                className="search-btn search-btn--primary"
-                onClick={() => {
-                  if (!dateTime) {
-                    alert('Por favor, selecione uma data e hora para a sua viagem agendada.');
-                    return;
-                  }
-                  setCurrentView('confirmation');
-                }}
-              >
-                Agendar
-              </button>
-              <button
-                className="search-btn search-btn--primary"
-                onClick={() => {
-                  setDateTime('');
-                  setCurrentView('confirmation');
-                }}
-              >
-                Partir Agora
-              </button>
-            </div>
+            {!isScheduling ? (
+              <div className="selection-options" style={{ display: 'flex', flexDirection: 'row', gap: '12px', marginTop: '10px' }}>
+                <button
+                  className="search-btn"
+                  style={{ flex: 1, height: '52px', fontSize: '1.05rem', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}
+                  onClick={() => setIsScheduling(true)}
+                >
+                  Agendar
+                </button>
+                <button
+                  className="search-btn search-btn--primary"
+                  style={{ flex: 1, height: '52px', fontSize: '1.05rem' }}
+                  onClick={() => {
+                    setDateTime('');
+                    setCurrentView('confirmation');
+                  }}
+                >
+                  Partir Agora
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+                <EuropeanDateTimeInput
+                  className="timestamp-input"
+                  value={dateTime}
+                  onChange={setDateTime}
+                />
+                <button
+                  className="search-btn search-btn--primary"
+                  style={{ flex: 'none', width: '48px', height: '48px', padding: 0 }}
+                  onClick={() => {
+                    if (!dateTime) {
+                      alert('Por favor, selecione uma data e hora para a sua viagem agendada.');
+                      return;
+                    }
+                    setCurrentView('confirmation');
+                  }}
+                >
+                  <Check size={24} />
+                </button>
+                <button
+                  className="search-btn"
+                  style={{ flex: 'none', width: '48px', height: '48px', padding: 0, backgroundColor: '#fee2e2', color: '#ef4444' }}
+                  onClick={() => setIsScheduling(false)}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            )}
           </div>
         );
 
@@ -502,7 +531,7 @@ export default function ClientMain() {
             minHeight: '320px',
             justifyContent: 'space-between'
           }}>
-            <div className="view-header" style={{ marginBottom: '5px' }}>
+            <div className="view-header">
               <button
                 className="back-btn"
                 onClick={() => setCurrentView('selection')}
@@ -582,77 +611,7 @@ export default function ClientMain() {
         );
 
       default:
-        return !showMoreOptions ? (
-          <>
-            <div className="search-input-wrapper">
-              <div style={{ position: 'relative', flex: 1 }}>
-                <button
-                  className="input-search-btn"
-                  onClick={() => handleSearchAddress('main')}
-                  title="Pesquisar endereço"
-                >
-                  <Search size={18} />
-                </button>
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="Para onde deseja ir?"
-                  value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('main')}
-                />
-              </div>
-            </div>
-
-            <div className="trip-settings-row">
-              <div className="setting-item">
-                <label>Conforto</label>
-                <select
-                  className="setting-input"
-                  value={comfort_level}
-                  onChange={(e) => setComfort((e.target.value))}
-                >
-                  <option value="basic">Básico</option>
-                  <option value="luxury">Luxo</option>
-                </select>
-              </div>
-              <div className="setting-item">
-                <label>Passageiros</label>
-                <div className="number-control">
-                  <button
-                    className="number-btn"
-                    onClick={() => setPassengers(Math.max(1, num_passengers - 1))}
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="number-value">{num_passengers}</span>
-                  <button
-                    className="number-btn"
-                    onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="search-actions">
-              <button
-                className="search-btn search-btn--secondary"
-                onClick={() => setShowMoreOptions(true)}
-              >
-                Mais Opções
-              </button>
-
-              <button
-                className="search-btn search-btn--primary"
-                onClick={handleProceedToSelection}
-              >
-                Ver Rotas
-              </button>
-            </div>
-          </>
-        ) : (
+        return (
           <div className="more-options-form">
             <div className="form-group">
               <label>Introduza a origem:</label>
@@ -738,7 +697,7 @@ export default function ClientMain() {
                   <span className="number-value">{num_passengers}</span>
                   <button
                     className="number-btn"
-                    onClick={() => setPassengers(Math.min(4, num_passengers + 1))}
+                    onClick={() => setPassengers(Math.min(6, num_passengers + 1))}
                   >
                     <Plus size={16} />
                   </button>
@@ -748,15 +707,9 @@ export default function ClientMain() {
 
             <div className="search-actions">
               <button
-                className="search-btn search-btn--cancel"
-                onClick={() => setShowMoreOptions(false)}
-              >
-                Cancelar
-              </button>
-
-              <button
                 className="search-btn search-btn--primary"
                 onClick={handleProceedToSelection}
+                style={{ width: '100%' }}
               >
                 Pedir Tuxy
               </button>
@@ -773,19 +726,20 @@ export default function ClientMain() {
           <Menu size={24} color="#000" />
         </button>
 
-        <div className="client-brand">
+        <div className="client-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <div 
-          className="user-name-container" 
+        <div
+          className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
           <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img 
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
-            alt="Profile" 
+          <img
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+            alt="Profile"
             className="user-pfp-small"
           />
         </div>
@@ -804,13 +758,6 @@ export default function ClientMain() {
           {renderSearchPanel()}
         </section>
 
-        <button
-          className="gps-btn"
-          onClick={handleUseCurrentLocation}
-          title="Use current location"
-        >
-          <Target size={24} color="#000" />
-        </button>
       </main>
 
       <AnimatePresence>
@@ -844,10 +791,7 @@ export default function ClientMain() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Pedir Viagem
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservas
-                </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
               </nav>
@@ -862,7 +806,7 @@ export default function ClientMain() {
         )}
       </AnimatePresence>
 
-      <ConfirmationModal 
+      <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
         message={modalConfig.message}
@@ -870,11 +814,11 @@ export default function ClientMain() {
         onCancel={closeModal}
       />
 
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         forcedType="CLIENT"
       />
-      </div>
-      );
-      }
+    </div>
+  );
+}

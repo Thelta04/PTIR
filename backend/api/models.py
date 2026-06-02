@@ -91,11 +91,11 @@ class Shift(models.Model):
 
 class Refueling(models.Model):
     cost = models.DecimalField(max_digits=10, decimal_places=2)
-    kwh = models.IntegerField(null=True, blank=True)
-    liters = models.IntegerField(null=True, blank=True)
-    initial_mileage = models.IntegerField()
+    kwh = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    liters = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    initial_mileage = models.IntegerField(null=True, blank=True)
     shift = models.ForeignKey(Shift, on_delete=models.CASCADE, db_column='id_shift')
-    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval')
+    interval = models.ForeignKey(TimeInterval, on_delete=models.CASCADE, db_column='id_interval', null=True, blank=True)
 
     class Meta:
         db_table = 'refueling'

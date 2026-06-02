@@ -8,7 +8,7 @@ const ROLE_ROUTES = {
 };
 
 export default function LoginManager() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -23,7 +23,12 @@ export default function LoginManager() {
 
     try {
       const user = await login(email, password);
-      navigate(ROLE_ROUTES[user.type] || '/login-manager');
+      if (user.type !== 'MANAGER') {
+        logout();
+        setError('Esta conta não tem permissões de gestor.');
+        return;
+      }
+      navigate(ROLE_ROUTES[user.type] || '/manager');
     } catch (err) {
       const msg =
         err.response?.data?.error || 'Connection failed. Please try again.';
@@ -36,7 +41,7 @@ export default function LoginManager() {
   return (
     <div className="login-page">
       <motion.div
-      className="login-card"
+        className="login-card"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}

@@ -982,7 +982,6 @@ class TripListView(views.APIView):
         if comfort_filter:
             trips = trips.filter(comfort_level=comfort_filter)
             
-        # Determine maximum allowed passengers
         max_passengers = None
         if driver_id:
             # Look for an active shift (clocked in, no end time)
@@ -994,23 +993,26 @@ class TripListView(views.APIView):
             
             if active_shift:
                 max_passengers = active_shift.taxi.num_passengers
-                comfort_filter = active_shift.taxi.comfort_level
+                taxi_comfort = active_shift.taxi.comfort_level
+                
+                # A basic taxi can only see basic trips
+                # A luxury taxi can see both luxury and basic trips
+                if taxi_comfort == 'basic':
+                    trips = trips.filter(comfort_level='basic')
+                # If taxi is luxury, we don't filter out basic trips.
+                
+        else:
+            # If no driver_id, use the explicit query parameters
+            if passengers_filter:
+                try:
+                    max_passengers = int(passengers_filter)
+                except ValueError:
+                    pass
+            if comfort_filter:
+                trips = trips.filter(comfort_level=comfort_filter)
 
-        # Fallback to the explicit query parameter if max_passengers wasn't resolved via driver_id
-        if max_passengers is None and passengers_filter:
-            try:
-                max_passengers = int(passengers_filter)
-            except ValueError:
-                pass
-        if comfort_filter is None and comfort_filter:
-            try:
-                comfort_filter = comfort_filter
-            except ValueError:
-                pass
         if max_passengers is not None:
             trips = trips.filter(num_passengers__lte=max_passengers)
-        if comfort_filter is not None:
-            trips = trips.filter(comfort_level=comfort_filter)
         
         trips_list = list(trips)
 
@@ -1140,6 +1142,21 @@ def normalize_checkout_url(url: str) -> str:
         return url
     return f"http://{url}"
 
+def get_or_create_client_for_trip(user_id):
+    try:
+        return Client.objects.get(user__id=user_id)
+    except Client.DoesNotExist:
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+        if not Driver.objects.filter(user=user).exists():
+            return None
+
+        client, _ = Client.objects.get_or_create(user=user)
+        return client
+
 class TripCreateView(views.APIView):
     @extend_schema(
         summary="Create a new trip (Client)",
@@ -1154,9 +1171,8 @@ class TripCreateView(views.APIView):
         
         data = serializer.validated_data
         
-        try:
-            client = Client.objects.get(user__id=data['client_id'])
-        except Client.DoesNotExist:
+        client = get_or_create_client_for_trip(data['client_id'])
+        if client is None:
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
         active_statuses = ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID']
@@ -1219,6 +1235,8 @@ class ReportsView(views.APIView):
     def get(self, request):
         start = request.query_params.get('start_date')
         end = request.query_params.get('end_date')
+        driver_id = request.query_params.get('driver_id')
+        comfort_level = request.query_params.get('comfort_level')
         if not start or not end:
             return Response({'error': 'start_date and end_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1229,11 +1247,28 @@ class ReportsView(views.APIView):
         except Exception:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if comfort_level and comfort_level not in ['basic', 'luxury']:
+            return Response({'error': 'comfort_level must be basic or luxury.'}, status=status.HTTP_400_BAD_REQUEST)
+
         trips = Trip.objects.select_related('interval', 'shift__driver__user', 'shift__taxi').filter(
             status='COMPLETED',
             interval__start_time__date__gte=start_date,
             interval__start_time__date__lte=end_date
         )
+
+        if comfort_level:
+            trips = trips.filter(comfort_level=comfort_level)
+
+        if driver_id:
+            try:
+                driver_id = int(driver_id)
+            except ValueError:
+                return Response({'error': 'driver_id must be a valid integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not Driver.objects.filter(user__id=driver_id).exists():
+                return Response({'error': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            trips = trips.filter(shift__driver__user_id=driver_id)
 
         total_trips = trips.count()
         total_kilometers = 0.0
@@ -2056,7 +2091,10 @@ class RefuelListCreateView(views.APIView):
     def post(self, request):
         serializer = RefuelSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            from django.utils import timezone
+            # A refuel is instantaneous, so start and end time are the current moment
+            interval = TimeInterval.objects.create(start_time=timezone.now(), end_time=timezone.now())
+            serializer.save(interval=interval)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

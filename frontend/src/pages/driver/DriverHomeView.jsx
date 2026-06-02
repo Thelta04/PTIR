@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { motion } from 'framer-motion';
-import { MapPin, Navigation, CheckCircle, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { 
@@ -14,7 +14,9 @@ import {
   completeTrip, 
   getRouteGeometry,
   getPricing,
-  emitInvoice
+  emitInvoice,
+  endShift,
+  cancelTrip
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -87,7 +89,30 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-export default function DriverHomeView() {
+const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (activeTrip && (activeTrip.status === 'CLIENT_ACCEPTED' || activeTrip.status === 'IN_PROGRESS')) {
+      if (routeCoords && routeCoords.length > 0) {
+        try {
+          const bounds = L.latLngBounds(routeCoords);
+          map.fitBounds(bounds, { padding: [50, 50], animate: true });
+        } catch (e) {
+          console.error("Error fitting bounds", e);
+        }
+      }
+    } else if (!activeTrip && driverLoc) {
+      try {
+        map.setView([driverLoc.lat, driverLoc.lon], 14, { animate: true });
+      } catch (e) {}
+    }
+  }, [activeTrip?.status, routeCoords, map]);
+
+  return null;
+};
+
+export default function DriverHomeView({ onNavigate }) {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [activeShift, setActiveShift] = useState(null);
@@ -95,13 +120,74 @@ export default function DriverHomeView() {
   const activeTripRef = useRef(null);
   const lastFetchedRouteKey = useRef('');
   const [eta, setEta] = useState(null);
+  const driverLocRef = useRef(null);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
   }, [activeTrip]);
   const [routeCoords, setRouteCoords] = useState([]);
-  const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
+  const [driverLoc, setDriverLoc] = useState(null);
+  
+  useEffect(() => {
+    driverLocRef.current = driverLoc;
+  }, [driverLoc]);
+
+  // Driver Accepted Timeout Logic
+  const [driverAcceptCountdown, setDriverAcceptCountdown] = useState(60);
+
+  const handleAutoCancel = async () => {
+    if (!activeTripRef.current) return;
+    try {
+      await cancelTrip(activeTripRef.current.id);
+      showToast('A viagem foi cancelada automaticamente (tempo de espera esgotado).');
+      fetchData();
+    } catch (err) {
+      console.error('Error auto-canceling trip:', err);
+    }
+  };
+
+  useEffect(() => {
+    let timer;
+    if (activeTrip && activeTrip.status === 'DRIVER_ACCEPTED') {
+      timer = setInterval(() => {
+        setDriverAcceptCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleAutoCancel();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setDriverAcceptCountdown(60);
+    }
+    return () => clearInterval(timer);
+  }, [activeTrip?.status, activeTrip?.id]);
+  
+  useEffect(() => {
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLoc({ 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          });
+        },
+        (error) => {
+          console.error("Error getting driver location:", error);
+          // Fallback if denied or error
+          setDriverLoc(prev => prev || { lat: 38.7115, lon: -9.1360 });
+        },
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    } else {
+      setDriverLoc({ lat: 38.7115, lon: -9.1360 });
+    }
+  }, []);
   const [shiftDuration, setShiftDuration] = useState('');
+  const [isShiftEnded, setIsShiftEnded] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
 
   // Calculate target for active trip display
@@ -128,6 +214,12 @@ export default function DriverHomeView() {
     message: '',
     onConfirm: () => {},
   });
+
+  const [toastMsg, setToastMsg] = useState('');
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 4000);
+  };
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
@@ -193,7 +285,8 @@ export default function DriverHomeView() {
         setActiveTrip(null);
         setRouteCoords([]);
         setEta(null);
-        const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
+        const loc = driverLocRef.current || { lat: 38.7115, lon: -9.1360 };
+        const { data: pending } = await listPendingTrips(user.id, loc.lat, loc.lon);
         setTrips(pending);
       }
     } catch (err) {
@@ -203,7 +296,7 @@ export default function DriverHomeView() {
 
   const handleAccept = async (trip) => {
     if (!activeShift) {
-      alert('Você precisa estar em um turno ativo para aceitar viagens.');
+      showToast('Você precisa estar em um turno ativo para aceitar viagens.');
       return;
     }
 
@@ -287,7 +380,7 @@ export default function DriverHomeView() {
           fetchData();
         } catch (err) {
           console.error('Error accepting trip:', err);
-          alert('Erro ao aceitar viagem.');
+          showToast('Erro ao aceitar viagem.');
         }
       }
     );
@@ -305,7 +398,7 @@ export default function DriverHomeView() {
           fetchData();
         } catch (err) {
           console.error('Error picking up client:', err);
-          alert('Erro ao iniciar viagem.');
+          showToast('Erro ao iniciar viagem.');
         }
       }
     );
@@ -323,7 +416,7 @@ export default function DriverHomeView() {
           fetchData();
         } catch (err) {
           console.error('Error completing trip:', err);
-          alert('Erro ao concluir viagem.');
+          showToast('Erro ao concluir viagem.');
         }
       }
     );
@@ -336,8 +429,26 @@ export default function DriverHomeView() {
       fetchData();
     } catch (err) {
       console.error('Error emitting invoice:', err);
-      alert('Erro ao emitir fatura.');
+      showToast('Erro ao emitir fatura.');
     }
+  };
+
+  const handleEndShift = () => {
+    if (!activeShift) return;
+    showConfirm(
+      'Terminar Turno',
+      'Deseja terminar o seu turno atual?',
+      async () => {
+        try {
+          await endShift(activeShift.id);
+          fetchData();
+          if (onNavigate) onNavigate('shifts');
+        } catch (err) {
+          console.error('Error ending shift:', err);
+          showToast('Erro ao terminar turno.');
+        }
+      }
+    );
   };
 
   useEffect(() => {
@@ -360,6 +471,10 @@ export default function DriverHomeView() {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         setShiftDuration(`${hours}h ${minutes}m`);
+
+        if (activeShift.scheduled_interval?.end_time) {
+          setIsShiftEnded(now >= new Date(activeShift.scheduled_interval.end_time));
+        }
       };
       updateTimer();
       timer = setInterval(updateTimer, 60000);
@@ -422,21 +537,87 @@ export default function DriverHomeView() {
     open: { y: '15%' }, 
   };
 
+  if (!driverLoc) {
+    return (
+      <div className="driver-home-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
+        <h2 style={{ color: '#555' }}>A obter localização...</h2>
+        <div className="pulse-loader"><div className="pulse-ring"></div></div>
+      </div>
+    );
+  }
+
   return (
     <div className="driver-home-container">
-      {activeShift && (
-        <div className="shift-status-bar">
-          <Clock size={18} />
-          <span>Turno em curso: {shiftDuration} decorridos</span>
+      {activeShift ? (
+        <div className="shift-status-bar" style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          backgroundColor: isShiftEnded ? '#10b981' : undefined,
+          color: isShiftEnded ? 'white' : undefined
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isShiftEnded ? <CheckCircle size={18} /> : <Clock size={18} />}
+            <span>
+              {isShiftEnded ? 'O turno terminou!' : `Turno em curso: ${shiftDuration} decorridos`}
+            </span>
+          </div>
+          <button 
+            onClick={handleEndShift}
+            style={{
+              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#ef4444',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {isShiftEnded ? <CheckCircle size={14} /> : <Square size={14} />}
+            {isShiftEnded ? 'Concluir' : 'Terminar'}
+          </button>
+        </div>
+      ) : (
+        <div className="shift-status-bar" style={{ backgroundColor: '#ef4444', justifyContent: 'space-between', display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Clock size={18} />
+            <span>Não está num turno</span>
+          </div>
+          <button 
+            onClick={() => onNavigate && onNavigate('shifts')}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Consultar Turnos
+          </button>
         </div>
       )}
       
       <div className="map-full">
         <MapContainer center={[driverLoc.lat, driverLoc.lon]} zoom={14} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+          {/* BACKUP: OSM HOT (Humanitarian) - Good contrast but has electrical lines
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap'
+            url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France'
+            maxZoom={19}
           />
+          */}
+          <TileLayer
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            attribution="&copy; Google Maps"
+            maxZoom={20}
+          />
+
+          <MapController activeTrip={activeTrip} routeCoords={routeCoords} driverLoc={driverLoc} />
 
           <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
             <Popup>Você está aqui</Popup>
@@ -461,7 +642,7 @@ export default function DriverHomeView() {
                 <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.7} />
               )}
             </>
-          ) : (
+          ) : activeShift ? (
             trips.map((trip, index) => {
               if (!trip.originCoords) return null;
               const [tLat, tLon] = trip.originCoords.split(',').map(Number);
@@ -472,7 +653,7 @@ export default function DriverHomeView() {
                 </Marker>
               );
             })
-          )}
+          ) : null}
         </MapContainer>
       </div>
 
@@ -503,7 +684,9 @@ export default function DriverHomeView() {
                   Viagem Cancelada - Continuar
                 </button>
               ) : activeTrip.status === 'DRIVER_ACCEPTED' ? (
-                <div className="waiting-msg">Aguardando cliente...</div>
+                <div className="waiting-msg">
+                  Aguardando cliente... ({driverAcceptCountdown}s)
+                </div>
               ) : activeTrip.status === 'WAITING_PAYMENT' ? (
                 <div className="waiting-msg" style={{ background: '#fdf2b3', color: '#856404' }}>
                   Aguardando Pagamento...
@@ -524,7 +707,7 @@ export default function DriverHomeView() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeShift ? (
         <motion.div
           className="bottom-sheet draggable-sheet"
           initial="closed"
@@ -581,7 +764,7 @@ export default function DriverHomeView() {
             )}
           </div>
         </motion.div>
-      )}
+      ) : null}
 
       <ConfirmationModal 
         isOpen={modalConfig.isOpen}
@@ -590,6 +773,40 @@ export default function DriverHomeView() {
         onConfirm={modalConfig.onConfirm}
         onCancel={closeModal}
       />
+
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            className="dash-toast"
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              bottom: '10px',
+              left: '50%',
+              background: '#fef2f2',
+              color: '#991b1b',
+              padding: '1rem 2rem',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              zIndex: 9999,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              fontWeight: '500',
+              textAlign: 'center',
+              width: 'max-content',
+              maxWidth: '90%',
+              maxHeight: '5%',
+              wordWrap: 'break-word',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {toastMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -7,21 +7,21 @@ import { LogOut, MapPin, ArrowRight } from 'lucide-react';
 import ProfileModal from '../../components/ProfileModal';
 
 const STATUS_STYLES = {
-  PENDING:         'trip-badge--pending',
+  PENDING: 'trip-badge--pending',
   DRIVER_ACCEPTED: 'trip-badge--accepted',
   CLIENT_ACCEPTED: 'trip-badge--accepted',
-  IN_PROGRESS:     'trip-badge--active',
-  COMPLETED:       'trip-badge--done',
-  CANCELED:        'trip-badge--canceled',
+  IN_PROGRESS: 'trip-badge--active',
+  COMPLETED: 'trip-badge--done',
+  CANCELED: 'trip-badge--canceled',
 };
 
 const STATUS_LABELS = {
-  PENDING:         'Pendente',
+  PENDING: 'Pendente',
   DRIVER_ACCEPTED: 'Motorista Aceitou',
   CLIENT_ACCEPTED: 'Confirmada',
-  IN_PROGRESS:     'Em Curso',
-  COMPLETED:       'Concluída',
-  CANCELED:        'Cancelada',
+  IN_PROGRESS: 'Em Curso',
+  COMPLETED: 'Concluída',
+  CANCELED: 'Cancelada',
 };
 
 export default function ClientDashboard() {
@@ -48,7 +48,7 @@ export default function ClientDashboard() {
     })();
   }, [user.id]);
 
-  const handleLogout = () => { logout(); navigate('/login-client'); };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
     <div className="dashboard">
@@ -60,15 +60,15 @@ export default function ClientDashboard() {
           </div>
         </div>
         <div className="dash-header-right">
-          <div 
-            className="user-name-container" 
+          <div
+            className="user-name-container"
             onClick={() => setIsProfileModalOpen(true)}
             style={{ cursor: 'pointer' }}
           >
             <span className="dash-greeting">Olá, {user?.name?.split(' ')[0]}</span>
-            <img 
-              src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
-              alt="Profile" 
+            <img
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+              alt="Profile"
               className="user-pfp-small"
             />
           </div>
