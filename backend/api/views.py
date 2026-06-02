@@ -14,21 +14,20 @@ try:
     import stripe
 except ImportError:
     stripe = None
-from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling
-from .serializers import *
-from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
-# pyrefly: ignore [missing-import]
-from drf_spectacular.utils import extend_schema, inline_serializer
-
-from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Rating, Invoice
-from .authentication import JWTAuthentication, IsManager, generate_tokens, decode_token
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling, Rating, Invoice
 from .serializers import (
     CreateClientSerializer, UserSerializer, CreateDriverSerializer,
     DriverSerializer, CreateManagerSerializer, CreateTaxiSerializer,
     TaxiDetailSerializer, ShiftCreateSerializer, ShiftDetailSerializer,
     TripListSerializer, TripCreateSerializer, RatingListSerializer,
-    RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer
+    RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer,
+    ClientUpdateSerializer, DriverUpdateSerializer, TaxiUpdateSerializer,
+    ShiftUpdateSerializer, RefuelSerializer, InvoiceSerializer
 )
+from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
+# pyrefly: ignore [missing-import]
+from drf_spectacular.utils import extend_schema, inline_serializer
+
 from django.db import IntegrityError
 
 
@@ -415,6 +414,8 @@ class TaxiUpdateMileageView(views.APIView):
         return Response(TaxiDetailSerializer(taxi).data, status=status.HTTP_200_OK)
 
 class TaxiDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
     @extend_schema(
         summary="Get Taxi details",
         description="Returns the detailed information of a specific taxi based on the license plate.",
@@ -425,6 +426,94 @@ class TaxiDetailView(views.APIView):
         except Taxi.DoesNotExist:
             return Response({"error": "Taxi not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(TaxiDetailSerializer(taxi).data)
+
+    @extend_schema(
+        summary="Update Taxi (Manager only)",
+        description="Updates a taxi's data. Requires a valid Manager JWT token.",
+        request=TaxiUpdateSerializer,
+        responses={
+            200: TaxiDetailSerializer,
+            403: inline_serializer(name="TaxiUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="TaxiUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, license_plate):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            taxi = Taxi.objects.get(license_plate=license_plate)
+        except Taxi.DoesNotExist:
+            return Response({"error": "Taxi not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = TaxiUpdateSerializer(taxi, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.save()
+        return Response(TaxiDetailSerializer(taxi).data, status=status.HTTP_200_OK)
+
+class ShiftDetailView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+
+    @extend_schema(
+        summary="Get Shift details",
+        description="Returns detailed information of a specific shift.",
+        responses={200: ShiftDetailSerializer}
+    )
+    def get(self, request, id):
+        try:
+            shift = Shift.objects.get(pk=id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ShiftDetailSerializer(shift).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Update Shift (Manager only)",
+        description="Updates a shift's data. Requires a valid Manager JWT token.",
+        request=ShiftUpdateSerializer,
+        responses={
+            200: ShiftDetailSerializer,
+            403: inline_serializer(name="ShiftUpdateForbidden", fields={'error': serializers.CharField()}),
+            404: inline_serializer(name="ShiftUpdateNotFound", fields={'error': serializers.CharField()}),
+        }
+    )
+    def patch(self, request, id):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden. Only Managers can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            shift = Shift.objects.get(pk=id)
+        except Shift.DoesNotExist:
+            return Response({"error": "Shift not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if shift.real_interval is not None:
+             return Response({"error": "Cannot update a shift that has already started."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ShiftUpdateSerializer(data=request.data, partial=True, context={'shift': shift})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        
+        if 'driver_id' in data:
+            shift.driver = Driver.objects.get(pk=data['driver_id'])
+        if 'taxi_license_plate' in data:
+            shift.taxi = Taxi.objects.get(license_plate=data['taxi_license_plate'])
+        
+        if 'start_time' in data:
+            shift.scheduled_interval.start_time = data['start_time']
+        if 'end_time' in data:
+            shift.scheduled_interval.end_time = data['end_time']
+        
+        shift.scheduled_interval.save()
+        shift.save()
+
+        return Response(ShiftDetailSerializer(shift).data, status=status.HTTP_200_OK)
 
 class TaxiListView(views.APIView):
     @extend_schema(

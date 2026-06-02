@@ -151,6 +151,16 @@ export function nowDateTimeInput() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+export function dateTimeInput(value) {
+  const date = parseLocalDate(value);
+
+  if (!date || Number.isNaN(date.getTime())) return '';
+
+  const pad = (part) => String(part).padStart(2, '0');
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function plusHoursDateTimeInput(hours) {
   const date = new Date();
   date.setHours(date.getHours() + hours);

@@ -1,13 +1,10 @@
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice
+from .models import Taxi, TimeInterval, Driver, Client, Trip, Rating, Shift, User, Invoice, Refueling
 from django.utils import timezone as tz
-from .models import Refueling
 
-
-
-#Validators that are commomn to multiple serializers
+# Validators that are common to multiple serializers
 def validate_password(value):
     if len(value) < 6:
         raise serializers.ValidationError("Password must be at least 6 characters long.")
@@ -26,13 +23,13 @@ class TaxiSerializer(serializers.ModelSerializer):
     class Meta:
         model = Taxi
         fields = '__all__'
+
 class TimeIntervalSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeInterval
         fields = ['start_time', 'end_time']
 
-
-#PUT / POST (Should include validations to fail quickly and have informative error messages)
+# PUT / POST (Should include validations to fail quickly and have informative error messages)
 class CreateDriverSerializer(serializers.Serializer):
     nif = serializers.CharField(max_length=12, validators=[validate_nif])
     name = serializers.CharField(max_length=60)
@@ -55,13 +52,11 @@ class CreateDriverSerializer(serializers.Serializer):
         return value
 
     def validate_nif(self, value):
-        # ensure nif not already taken
-        from .models import User
         if User.objects.filter(nif=value).exists():
             raise serializers.ValidationError("NIF already registered.")
         return value
+
     def validate_email(self, value):
-        from .models import User
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered.")
         return value
@@ -102,40 +97,60 @@ class DriverUpdateSerializer(serializers.Serializer):
 
         return data
 
-class DriverUpdateSerializer(serializers.Serializer):
-    nif = serializers.CharField(max_length=12, validators=[validate_nif], required=False)
-    name = serializers.CharField(max_length=60, required=False)
-    email = serializers.EmailField(max_length=60, required=False)
-    gender = serializers.ChoiceField(choices=['Male', 'Female', 'Other'], required=False)
-    password = serializers.CharField(max_length=40, validators=[validate_password], required=False)
-    license_number = serializers.CharField(max_length=12, required=False)
-    birth_year = serializers.CharField(max_length=4, required=False)
+class TaxiUpdateSerializer(serializers.ModelSerializer):
+    purchase_year = serializers.CharField(max_length=4, required=False)
+    mileage = serializers.IntegerField(min_value=0, required=False)
+    brand = serializers.CharField(max_length=40, required=False)
+    model = serializers.CharField(max_length=40, required=False)
+    comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'], required=False)
+    engine_type = serializers.ChoiceField(choices=['combustion', 'electric'], required=False)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=4, required=False)
 
-    def validate_birth_year(self, value):
-        try:
-            year = int(value)
-            current_year = date.today().year
-            if year < 1900:
-                raise serializers.ValidationError("Birth year must be >= 1900.")
-            if current_year - year < 18:
-                raise serializers.ValidationError("Driver must be at least 18 years old.")
-        except ValueError:
-            raise serializers.ValidationError("Invalid year format.")
-        return value
+    class Meta:
+        model = Taxi
+        fields = ['purchase_year', 'mileage', 'brand', 'model', 'comfort_level', 'engine_type', 'num_passengers']
+
+class ShiftUpdateSerializer(serializers.Serializer):
+    driver_id          = serializers.IntegerField(required=False)
+    taxi_license_plate = serializers.CharField(max_length=10, required=False)
+    start_time         = serializers.DateTimeField(required=False)
+    end_time           = serializers.DateTimeField(required=False)
 
     def validate(self, data):
-        driver = self.context.get('driver')
-        user = driver.user if driver else None
+        shift = self.context.get('shift')
+        start = data.get('start_time', shift.scheduled_interval.start_time if shift else None)
+        end = data.get('end_time', shift.scheduled_interval.end_time if shift else None)
+        
+        if start and end:
+            if tz.is_naive(start): start = tz.make_aware(start)
+            if tz.is_naive(end): end = tz.make_aware(end)
+            if start >= end:
+                raise serializers.ValidationError("start_time must be before end_time.")
+            delta = end - start
+            if delta.total_seconds() / 3600 > 8:
+                raise serializers.ValidationError("A scheduled shift cannot last more than 8 hours.")
+        
+        driver_id = data.get('driver_id', shift.driver_id if shift else None)
+        taxi_plate = data.get('taxi_license_plate', shift.taxi.license_plate if shift else None)
 
-        if 'nif' in data and User.objects.filter(nif=data['nif']).exclude(id=user.id).exists():
-            raise serializers.ValidationError({"nif": "A user with this NIF already exists."})
+        if start and end and driver_id:
+            driver_overlap = Shift.objects.filter(
+                driver_id=driver_id,
+                scheduled_interval__start_time__lt=end,
+                scheduled_interval__end_time__gt=start
+            ).exclude(id=shift.id if shift else None).exists()
+            if driver_overlap:
+                raise serializers.ValidationError("Driver already has a shift in this time period.")
 
-        if 'email' in data and User.objects.filter(email=data['email']).exclude(id=user.id).exists():
-            raise serializers.ValidationError({"email": "A user with this email already exists."})
-
-        if 'license_number' in data and Driver.objects.filter(license_number=data['license_number']).exclude(user=user).exists():
-            raise serializers.ValidationError({"license_number": "A driver with this license number already exists."})
-
+        if start and end and taxi_plate:
+            taxi_overlap = Shift.objects.filter(
+                taxi__license_plate=taxi_plate,
+                scheduled_interval__start_time__lt=end,
+                scheduled_interval__end_time__gt=start
+            ).exclude(id=shift.id if shift else None).exists()
+            if taxi_overlap:
+                raise serializers.ValidationError("Taxi is already assigned to a shift in this time period.")
+            
         return data
 
 class CreateClientSerializer(serializers.Serializer):
@@ -165,13 +180,11 @@ class ClientUpdateSerializer(serializers.Serializer):
         return data
 
     def validate_nif(self, value):
-        from .models import User
         if User.objects.filter(nif=value).exists():
             raise serializers.ValidationError("NIF already registered.")
         return value
 
     def validate_email(self, value):
-        from .models import User
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered.")
         return value
@@ -184,13 +197,11 @@ class CreateManagerSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=40, validators=[validate_password])
 
     def validate_nif(self, value):
-        from .models import User
         if User.objects.filter(nif=value).exists():
             raise serializers.ValidationError("NIF already registered.")
         return value
 
     def validate_email(self, value):
-        from .models import User
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered.")
         return value
@@ -223,7 +234,6 @@ class TripCreateSerializer(serializers.Serializer):
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=4)
     scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
-
 
     def validate(self, data):
         origin = data.get('originAddress')
@@ -303,12 +313,12 @@ class RatingCreateSerializer(serializers.Serializer):
         if Rating.objects.filter(trip=trip).exists():
             raise serializers.ValidationError("A client can only rate a trip once.")
 
-        # RIA: A client can only rate a trip when its status is COMPLETED.
         if trip.status != 'COMPLETED':
             raise serializers.ValidationError("A client can only rate a trip when its status is COMPLETED.")
 
         return data
-#GETS
+
+# GETS
 class UserSerializer(serializers.ModelSerializer):
     id    = serializers.IntegerField(source='user_id', read_only=True)
     nif   = serializers.CharField(source='user.nif',   read_only=True)
@@ -321,13 +331,6 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = ['id', 'nif', 'name', 'email', 'gender', "is_banned", 'profile_pic']
-
-    def get_profile_pic(self, obj):
-        try:
-            return getattr(obj.user, 'profile_pic', None)
-        except Exception:
-            return None
-
 
 class DriverSerializer(serializers.ModelSerializer):
     id    = serializers.IntegerField(source='user_id', read_only=True)
@@ -353,7 +356,6 @@ class DriverSerializer(serializers.ModelSerializer):
             return None
 
     def get_avg_rating(self, obj):
-        # Ratings are on Trips, Trips are on Shifts
         ratings = Rating.objects.filter(trip__shift__driver=obj)
         if not ratings.exists():
             return None
@@ -419,7 +421,7 @@ class RatingListSerializer(serializers.ModelSerializer):
         model = Rating
         fields = ['trip_id', 'score']
 
-#PATCH 
+# PATCH 
 class TripAcceptSerializer(serializers.Serializer):
     shift_id  = serializers.IntegerField(required=False)
 
@@ -434,7 +436,6 @@ class TripAcceptSerializer(serializers.Serializer):
         return value
 
 class TripCancelSerializer(serializers.Serializer):
-    # Sem body obrigatório - apenas valida que a viagem pode ser cancelada (feito na view)
     reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 class TripCompleteSerializer(serializers.ModelSerializer):
