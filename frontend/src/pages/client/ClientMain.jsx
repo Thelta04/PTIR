@@ -109,22 +109,33 @@ export default function ClientMain() {
   };
 
   const handleUseCurrentLocation = () => {
-    // MOCKED LOCATIONS for testing
-    const originCoords = { lat: 38.7111, lon: -9.1368 };
-    const destCoords = { lat: 38.7369, lon: -9.1427 };
-
-    // Set Origin
-    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
-      setOrigem(originCoords);
-      setOriginAddress(address);
-    });
-
-    // Set Destination automatically for easier testing
-    getAddressFromCoords(destCoords.lat, destCoords.lon).then(address => {
-      setDestino(destCoords);
-      setDestinationAddress(address);
-      setSearchValue(address);
-    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const originCoords = { 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          };
+          
+          getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+            setOrigem(originCoords);
+            setOriginAddress(address);
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          // Fallback if denied
+          const defaultCoords = { lat: 38.7111, lon: -9.1368 };
+          getAddressFromCoords(defaultCoords.lat, defaultCoords.lon).then(address => {
+            setOrigem(defaultCoords);
+            setOriginAddress(address);
+          });
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert("Geolocalização não é suportada por este navegador.");
+    }
   };
 
 

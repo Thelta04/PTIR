@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
-import { MapPin, Navigation, CheckCircle, Clock } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { 
@@ -14,7 +14,8 @@ import {
   completeTrip, 
   getRouteGeometry,
   getPricing,
-  emitInvoice
+  emitInvoice,
+  endShift
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -87,7 +88,7 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-export default function DriverHomeView() {
+export default function DriverHomeView({ onNavigate }) {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [activeShift, setActiveShift] = useState(null);
@@ -100,7 +101,29 @@ export default function DriverHomeView() {
     activeTripRef.current = activeTrip;
   }, [activeTrip]);
   const [routeCoords, setRouteCoords] = useState([]);
-  const [driverLoc] = useState({ lat: 38.7115, lon: -9.1360 }); // Mocked near client origin
+  const [driverLoc, setDriverLoc] = useState(null);
+  
+  useEffect(() => {
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLoc({ 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          });
+        },
+        (error) => {
+          console.error("Error getting driver location:", error);
+          // Fallback if denied or error
+          setDriverLoc(prev => prev || { lat: 38.7115, lon: -9.1360 });
+        },
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    } else {
+      setDriverLoc({ lat: 38.7115, lon: -9.1360 });
+    }
+  }, []);
   const [shiftDuration, setShiftDuration] = useState('');
   const [pricingConfig, setPricingConfig] = useState(null);
 
@@ -340,6 +363,24 @@ export default function DriverHomeView() {
     }
   };
 
+  const handleEndShift = () => {
+    if (!activeShift) return;
+    showConfirm(
+      'Terminar Turno',
+      'Deseja terminar o seu turno atual?',
+      async () => {
+        try {
+          await endShift(activeShift.id);
+          fetchData();
+          if (onNavigate) onNavigate('shifts');
+        } catch (err) {
+          console.error('Error ending shift:', err);
+          alert('Erro ao terminar turno.');
+        }
+      }
+    );
+  };
+
   useEffect(() => {
     if (user?.id) {
       fetchData();
@@ -422,20 +463,78 @@ export default function DriverHomeView() {
     open: { y: '15%' }, 
   };
 
+  if (!driverLoc) {
+    return (
+      <div className="driver-home-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
+        <h2 style={{ color: '#555' }}>A obter localização...</h2>
+        <div className="pulse-loader"><div className="pulse-ring"></div></div>
+      </div>
+    );
+  }
+
   return (
     <div className="driver-home-container">
-      {activeShift && (
-        <div className="shift-status-bar">
-          <Clock size={18} />
-          <span>Turno em curso: {shiftDuration} decorridos</span>
+      {activeShift ? (
+        <div className="shift-status-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Clock size={18} />
+            <span>Turno em curso: {shiftDuration} decorridos</span>
+          </div>
+          <button 
+            onClick={handleEndShift}
+            style={{
+              background: '#ef4444',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Square size={14} />
+            Terminar
+          </button>
+        </div>
+      ) : (
+        <div className="shift-status-bar" style={{ backgroundColor: '#ef4444', justifyContent: 'space-between', display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Clock size={18} />
+            <span>Não está num turno</span>
+          </div>
+          <button 
+            onClick={() => onNavigate && onNavigate('shifts')}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Consultar Turnos
+          </button>
         </div>
       )}
       
       <div className="map-full">
         <MapContainer center={[driverLoc.lat, driverLoc.lon]} zoom={14} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+          {/* BACKUP: OSM HOT (Humanitarian) - Good contrast but has electrical lines
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap'
+            url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France'
+            maxZoom={19}
+          />
+          */}
+          <TileLayer
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            attribution="&copy; Google Maps"
+            maxZoom={20}
           />
 
           <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
@@ -461,7 +560,7 @@ export default function DriverHomeView() {
                 <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.7} />
               )}
             </>
-          ) : (
+          ) : activeShift ? (
             trips.map((trip, index) => {
               if (!trip.originCoords) return null;
               const [tLat, tLon] = trip.originCoords.split(',').map(Number);
@@ -472,7 +571,7 @@ export default function DriverHomeView() {
                 </Marker>
               );
             })
-          )}
+          ) : null}
         </MapContainer>
       </div>
 
@@ -524,7 +623,7 @@ export default function DriverHomeView() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeShift ? (
         <motion.div
           className="bottom-sheet draggable-sheet"
           initial="closed"
@@ -581,7 +680,7 @@ export default function DriverHomeView() {
             )}
           </div>
         </motion.div>
-      )}
+      ) : null}
 
       <ConfirmationModal 
         isOpen={modalConfig.isOpen}
