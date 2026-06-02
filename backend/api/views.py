@@ -84,7 +84,8 @@ class ClientCreateView(views.APIView):
             try:
                 user = User.objects.create(
                     nif=data['nif'], name=data['name'], email=data['email'],
-                    gender=data['gender'], password=data['password']
+                    gender=data['gender'], password=data['password'],
+                    profile_pic=data['profile_pic']
                 )
                 Client.objects.create(user=user)
                 return Response({"message": "Client created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
@@ -207,7 +208,8 @@ class DriverCreateView(views.APIView):
                 with transaction.atomic():
                     user = User.objects.create(
                         nif=data['nif'], name=data['name'], email=data['email'],
-                        gender=data['gender'], password=data['password']
+                        gender=data['gender'], password=data['password'],
+                        profile_pic=data['profile_pic']
                     )
                     Driver.objects.create(
                         user=user,
@@ -340,7 +342,8 @@ class ManagerCreateView(views.APIView):
             try:
                 user = User.objects.create(
                     nif=data['nif'], name=data['name'], email=data['email'],
-                    gender=data['gender'], password=data['password']
+                    gender=data['gender'], password=data['password'],
+                    profile_pic=data['profile_pic']
                 )
                 Manager.objects.create(user=user)
                 return Response({"message": "Manager created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
@@ -802,7 +805,7 @@ class UserProfilePicUpdateView(views.APIView):
         description="Updates the predefined profile picture id for a user. Valid values are 0 to 5. Users can update themselves; managers can update anyone.",
         request=inline_serializer(
             name='UserProfilePicUpdateRequest',
-            fields={'profile_pic': serializers.IntegerField(min_value=0, max_value=5)}
+            fields={'profile_pic': serializers.IntegerField(min_value=1, max_value=12)}
         ),
         responses={
             200: inline_serializer(
@@ -832,10 +835,10 @@ class UserProfilePicUpdateView(views.APIView):
         try:
             profile_pic = int(profile_pic)
         except (TypeError, ValueError):
-            return Response({"error": "profile_pic must be an integer between 0 and 5."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "profile_pic must be an integer between 1 and 12."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if profile_pic < 0 or profile_pic > 5:
-            return Response({"error": "profile_pic must be between 0 and 5."}, status=status.HTTP_400_BAD_REQUEST)
+        if profile_pic < 1 or profile_pic > 12:
+            return Response({"error": "profile_pic must be between 1 and 12."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(id=id)
