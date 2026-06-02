@@ -127,11 +127,12 @@ export const listTrips = (status) => {
   return api.get('trip/', { params });
 };
 
-export const getReports = (start_date, end_date, driver_id) => {
+export const getReports = (start_date, end_date, driver_id, comfort_level) => {
   const params = {};
   if (start_date) params.start_date = start_date;
   if (end_date) params.end_date = end_date;
   if (driver_id) params.driver_id = driver_id;
+  if (comfort_level) params.comfort_level = comfort_level;
   return api.get('reports/', { params });
 };
 

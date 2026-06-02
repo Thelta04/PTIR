@@ -1234,6 +1234,7 @@ class ReportsView(views.APIView):
         start = request.query_params.get('start_date')
         end = request.query_params.get('end_date')
         driver_id = request.query_params.get('driver_id')
+        comfort_level = request.query_params.get('comfort_level')
         if not start or not end:
             return Response({'error': 'start_date and end_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1244,11 +1245,17 @@ class ReportsView(views.APIView):
         except Exception:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if comfort_level and comfort_level not in ['basic', 'luxury']:
+            return Response({'error': 'comfort_level must be basic or luxury.'}, status=status.HTTP_400_BAD_REQUEST)
+
         trips = Trip.objects.select_related('interval', 'shift__driver__user', 'shift__taxi').filter(
             status='COMPLETED',
             interval__start_time__date__gte=start_date,
             interval__start_time__date__lte=end_date
         )
+
+        if comfort_level:
+            trips = trips.filter(comfort_level=comfort_level)
 
         if driver_id:
             try:

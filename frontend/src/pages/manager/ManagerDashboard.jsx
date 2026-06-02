@@ -114,6 +114,7 @@ export default function ManagerDashboard() {
       reports_start: fd.reports_start || monthAgoDateInput(),
       reports_end: fd.reports_end || todayDateInput(),
       reports_driver_id: fd.reports_driver_id || '',
+      reports_comfort_level: fd.reports_comfort_level || '',
     }));
 
     if (data.drivers.length === 0) {
@@ -150,6 +151,7 @@ export default function ManagerDashboard() {
         reports_start: monthAgoDateInput(),
         reports_end: todayDateInput(),
         reports_driver_id: '',
+        reports_comfort_level: '',
       });
     } else {
       setFormData({});
@@ -767,6 +769,23 @@ export default function ManagerDashboard() {
                       ))}
                     </select>
                   </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Tipo de carro</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_comfort_level || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_comfort_level: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os tipos</option>
+                      <option value="basic">Básico</option>
+                      <option value="luxury">Luxo</option>
+                    </select>
+                  </div>
                   <button onClick={() => {
                     const s = formData.reports_start; const e = formData.reports_end;
                     if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
@@ -775,7 +794,7 @@ export default function ManagerDashboard() {
                       return;
                     }
                     setReportsLoading(true); setReportsError('');
-                    getReports(s, e, formData.reports_driver_id).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
+                    getReports(s, e, formData.reports_driver_id, formData.reports_comfort_level).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
                   }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>
                   {reportsError && <div style={{ color: 'red', fontSize: '13px', marginLeft: '10px' }}>{reportsError}</div>}
                 </div>
