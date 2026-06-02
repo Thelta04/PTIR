@@ -6,6 +6,7 @@ import { Menu, Bell, ChevronLeft, X } from 'lucide-react';
 import DriverHomeView from './DriverHomeView';
 import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
+import DriverHistory from './DriverHistory';
 import ProfileModal from '../../components/ProfileModal';
 import './driver.css';
 import '../client/client.css';
@@ -40,6 +41,8 @@ export default function DriverMain() {
         return <DriverShiftsView onNavigate={handleNav} />;
       case 'refuels':
         return <Refuels />;
+      case 'history':
+        return <DriverHistory />;
       default:
         return <DriverHomeView />;
 
@@ -120,8 +123,8 @@ export default function DriverMain() {
                   Gerir Turnos
                 </button>
                 <button
-                  className="drawer-link"
-                  onClick={() => setIsMenuOpen(false)}
+                  className={`drawer-link ${activeTab === 'history' ? 'active' : ''}`}
+                  onClick={() => handleNav('history')}
                 >
                   Ver Histórico de Viagens
                 </button>
@@ -146,4 +149,3 @@ export default function DriverMain() {
     </div>
   );
 }
-
