@@ -371,7 +371,13 @@ class TaxiCreateView(views.APIView):
         serializer = CreateTaxiSerializer(data=request.data)
         
         if serializer.is_valid():
-            serializer.save()
+            try:
+                serializer.save()
+            except IntegrityError:
+                return Response(
+                    {"license_plate": ["License plate already registered."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             return Response({
                 "message": "Taxi createed successfully in the fleet",

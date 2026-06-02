@@ -206,6 +206,12 @@ class CreateTaxiSerializer(serializers.ModelSerializer):
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'])
     num_passengers = serializers.IntegerField(min_value=1, max_value=6)
 
+    def validate_license_plate(self, value):
+        plate = value.upper()
+        if Taxi.objects.filter(license_plate=plate).exists():
+            raise serializers.ValidationError("License plate already registered.")
+        return plate
+
     def validate(self, data):
         if not data.get('brand') or not data.get('model'):
             raise serializers.ValidationError("Brand and model cannot be empty.")

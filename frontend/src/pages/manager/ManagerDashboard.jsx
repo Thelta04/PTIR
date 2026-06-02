@@ -184,8 +184,19 @@ export default function ManagerDashboard() {
     if (!err) return '';
     if (typeof err === 'string') return err;
     if (typeof err === 'object') {
+      const fieldLabels = {
+        license_plate: 'Matrícula',
+        purchase_year: 'Ano compra',
+        mileage: 'KM',
+        brand: 'Marca',
+        model: 'Modelo',
+        comfort_level: 'Conforto',
+        engine_type: 'Motor',
+        num_passengers: 'Nº Passageiros',
+      };
+
       return Object.entries(err).map(([key, value]) => {
-        const field = key === 'non_field_errors' ? 'Erro' : (key.charAt(0).toUpperCase() + key.slice(1));
+        const field = key === 'non_field_errors' ? 'Erro' : (fieldLabels[key] || (key.charAt(0).toUpperCase() + key.slice(1)));
         const msg = Array.isArray(value) ? value.join(' ') : value;
         return `${field}: ${msg}`;
       }).join('\n');
@@ -199,6 +210,7 @@ export default function ManagerDashboard() {
     setSubmitError('');
 
     let request;
+    let createdTaxi = null;
     if (formMode === 'edit-driver') {
       const payload = { ...formData };
       delete payload.id;
@@ -225,7 +237,8 @@ export default function ManagerDashboard() {
     } else if (activeSection === 'drivers') {
       request = createDriver(formData);
     } else if (activeSection === 'taxis') {
-      request = createTaxi(formData);
+      createdTaxi = { ...formData };
+      request = createTaxi(createdTaxi);
     } else if (activeSection === 'shifts') {
       const payload = { ...formData, driver_id: parseInt(formData.driver_id, 10) };
       request = createShift(payload);
@@ -238,7 +251,17 @@ export default function ManagerDashboard() {
           setFormData({});
           setSubmitError('');
           setFormMode('create');
-          fetchData();
+          if (createdTaxi) {
+            setData(d => ({
+              ...d,
+              taxis: [
+                createdTaxi,
+                ...d.taxis.filter(t => t.license_plate !== createdTaxi.license_plate),
+              ],
+            }));
+          } else {
+            fetchData();
+          }
           setApiStatus(formMode.startsWith('edit') ? 'Registo atualizado com sucesso' : 'Registo criado com sucesso');
           setTimeout(() => setApiStatus(''), 4000);
         })
