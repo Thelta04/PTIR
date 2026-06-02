@@ -30,7 +30,7 @@ export default function LoginUser() {
       if (user.type === 'DRIVER') {
         navigate('/decision-driver');
       } else {
-        navigate(ROLE_ROUTES[user.type] || '/login-client');
+        navigate(ROLE_ROUTES[user.type] || '/login');
       }
     } catch (err) {
       const msg =
@@ -43,70 +43,70 @@ export default function LoginUser() {
 
   return (
     <div className="login-page-user">
-      
-        {/* Brand */}
-          <div className="tuxy-header-div">
-          <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Utilizador</span>
-        </div>
-        <div className="login-form-container">
-          <p className="login-welcome">Bem-vindo de volta!</p>
-          <p className="login-subtitle">Inicie sessão para aceder à aplicação</p>
+
+      {/* Brand */}
+      <div className="tuxy-header-div">
+        <span className="tuxy-header-title">TUXY</span>
+        <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Utilizador</span>
+      </div>
+      <div className="login-form-container">
+        <p className="login-welcome">Bem-vindo de volta!</p>
+        <p className="login-subtitle">Inicie sessão para aceder à aplicação</p>
 
 
-          <form onSubmit={handleSubmit} className="login-form">
-            
-            <PInputEmail
-              id="login-email"
-              label="Email" 
-              type="email"
-              className="session-input"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-            />
+        <form onSubmit={handleSubmit} className="login-form">
 
-            
-            <PInputPassword 
+          <PInputEmail
             id="login-email"
-              className="session-input" 
-              label="Palavra-passe" 
-              name="password" 
-              toggle={true}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={true}
-            />
+            label="Email"
+            type="email"
+            className="session-input"
+            placeholder="seu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
+          />
 
-            {error && (
-              <motion.div
-                className="login-error"
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {error}
-              </motion.div>
-            )}
 
-            <button
-              type="submit"
-              className="login-btn"
-              disabled={loading}
+          <PInputPassword
+            id="login-email"
+            className="session-input"
+            label="Palavra-passe"
+            name="password"
+            toggle={true}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required={true}
+          />
+
+          {error && (
+            <motion.div
+              className="login-error"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
             >
-              {loading ? 'A iniciar sessão…' : 'Entrar'}
+              {error}
+            </motion.div>
+          )}
 
-            
-            </button>
-            <p className="login-subtitle">Ainda não tem conta? <a href="/register">Registe-se</a></p>
-            <hr></hr>
-            <p className="login-subtitle">Deseja registar-se como motorista? <a href="/signup-driver">Registe-se aqui!</a></p>
-          
-          </form>
-        </div>
+          <button
+            type="submit"
+            className="login-btn"
+            disabled={loading}
+          >
+            {loading ? 'A iniciar sessão…' : 'Entrar'}
+
+
+          </button>
+          <p className="login-subtitle">Ainda não tem conta? <a href="/register">Registe-se</a></p>
+          <hr></hr>
+          <p className="login-subtitle">Deseja registar-se como motorista? <a href="/signup-driver">Registe-se aqui!</a></p>
+
+        </form>
+      </div>
     </div>
-    
+
   );
 }
 

@@ -16,7 +16,7 @@ export default function DriverShiftsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
-  const [filter, setFilter] = useState('active'); // 'active' (Scheduled + In Progress) or 'completed'
+  const [filter, setFilter] = useState('pending'); // 'pending' (Por realizar), 'completed' (Concluído), 'missed' (Não realizado)
 
   // Modal State for Start/Delete
   const [modalConfig, setModalConfig] = useState({
@@ -113,14 +113,19 @@ export default function DriverShiftsView() {
   const filteredShifts = shifts.filter(s => {
     const started = s.real_interval !== null;
     const ended = started && s.real_interval?.end_time !== null;
+    const now = new Date();
+    const isMissed = !started && new Date(s.scheduled_interval?.end_time) < now;
     
-    if (filter === 'active') {
-      return !ended; // Scheduled + In Progress
-    } else {
-      return ended; // Completed
+    if (filter === 'pending') {
+      return (!started && !isMissed) || (started && !ended);
+    } else if (filter === 'completed') {
+      return ended;
+    } else if (filter === 'missed') {
+      return isMissed;
     }
+    return true;
   }).sort((a, b) => {
-    if (filter === 'active') {
+    if (filter === 'pending') {
       const isAActive = a.real_interval !== null && a.real_interval.end_time === null;
       const isBActive = b.real_interval !== null && b.real_interval.end_time === null;
       if (isAActive && !isBActive) return -1;
@@ -137,29 +142,27 @@ export default function DriverShiftsView() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 className="dash-title" style={{ margin: 0 }}>Consultar turnos</h1>
         
-        <div className="filter-group" style={{ display: 'flex', background: '#f3f4f6', padding: '4px', borderRadius: '8px' }}>
-          <button 
-            onClick={() => setFilter('active')}
-            style={{ 
-              padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-              background: filter === 'active' ? '#fff' : 'transparent',
-              fontWeight: filter === 'active' ? '700' : '500',
-              boxShadow: filter === 'active' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+        <div className="filter-group">
+          <select 
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              background: '#fff',
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#374151',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}
           >
-            Ativos
-          </button>
-          <button 
-            onClick={() => setFilter('completed')}
-            style={{ 
-              padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-              background: filter === 'completed' ? '#fff' : 'transparent',
-              fontWeight: filter === 'completed' ? '700' : '500',
-              boxShadow: filter === 'completed' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
-            }}
-          >
-            Concluídos
-          </button>
+            <option value="pending">Por realizar</option>
+            <option value="completed">Concluído</option>
+            <option value="missed">Não realizado</option>
+          </select>
         </div>
       </header>
 
@@ -180,7 +183,9 @@ export default function DriverShiftsView() {
       {!loading && filteredShifts.length === 0 && (
         <div className="dash-placeholder-card" style={{ textAlign: 'center', padding: '3rem', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #e5e7eb' }}>
           <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            {filter === 'active' ? 'Não tem turnos agendados ou em curso.' : 'Não tem turnos concluídos.'}
+            {filter === 'pending' ? 'Não tem turnos por realizar ou em curso.' : 
+             filter === 'completed' ? 'Não tem turnos concluídos.' : 
+             'Não tem turnos não realizados.'}
           </p>
         </div>
       )}
@@ -189,6 +194,8 @@ export default function DriverShiftsView() {
         {filteredShifts.map((s) => {
           const started = s.real_interval !== null;
           const ended = started && s.real_interval?.end_time !== null;
+          const now = new Date();
+          const isMissed = !started && new Date(s.scheduled_interval?.end_time) < now;
 
           return (
             <motion.div
@@ -201,8 +208,9 @@ export default function DriverShiftsView() {
               <div className="shift-card-header">
                 <Clock size={16} />
                 <span className="shift-card-id">Turno #{s.id}</span>
-                <span className={`shift-badge ${ended ? 'shift-badge--done' : started ? 'shift-badge--active' : 'shift-badge--pending'}`}>
-                  {ended ? 'Concluído' : started ? 'Em Curso' : 'Agendado'}
+                <span className={`shift-badge ${isMissed ? 'shift-badge--missed' : ended ? 'shift-badge--done' : started ? 'shift-badge--active' : 'shift-badge--pending'}`}
+                      style={isMissed ? { background: '#fee2e2', color: '#991b1b' } : {}}>
+                  {isMissed ? 'Não Realizado' : ended ? 'Concluído' : started ? 'Em Curso' : 'Agendado'}
                 </span>
               </div>
 
@@ -217,9 +225,11 @@ export default function DriverShiftsView() {
               <div className="shift-card-actions">
                 {!started && (
                   <>
-                    <button className="btn btn--primary" onClick={() => handleStart(s.id)}>
-                      <Play size={14} /> Iniciar
-                    </button>
+                    {!isMissed && (
+                      <button className="btn btn--primary" onClick={() => handleStart(s.id)}>
+                        <Play size={14} /> Iniciar
+                      </button>
+                    )}
                     <button 
                       className="btn btn--danger-outline" 
                       onClick={() => handleDelete(s.id)}

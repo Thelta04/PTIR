@@ -22,8 +22,8 @@ const ROLE_ROUTES = {
 function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login-client" replace />;
-  return <Navigate to={ROLE_ROUTES[user.type] || '/login-client'} replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={ROLE_ROUTES[user.type] || '/login'} replace />;
 }
 
 function App() {
@@ -31,8 +31,8 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login-client" element={<LoginUser />} />
-          <Route path="/login-manager" element={<LoginManager />} />
+          <Route path="/login" element={<LoginUser />} />
+          <Route path="/manager" element={<LoginManager />} />
           <Route path="/register" element={<Signup />} />
           <Route path="/signup-driver" element={<SignupDriver />} />
 

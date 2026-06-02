@@ -15,10 +15,10 @@ export default function ClientTrip() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  
+
   const queryParams = new URLSearchParams(location.search);
   const tripIdFromUrl = queryParams.get('trip_id');
-  
+
   const [tripId, setTripId] = useState(location.state?.tripId || (tripIdFromUrl ? parseInt(tripIdFromUrl, 10) : null));
   const origem = location.state?.origem;
   const destino = location.state?.destino;
@@ -67,7 +67,7 @@ export default function ClientTrip() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -90,8 +90,8 @@ export default function ClientTrip() {
       const recoverTrip = async () => {
         try {
           const { data } = await listTrips();
-          const mine = data.filter(t => 
-            t.client_id === user.id && 
+          const mine = data.filter(t =>
+            t.client_id === user.id &&
             ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS', 'WAITING_PAYMENT', 'PAID'].includes(t.status)
           );
           if (mine.length > 0) {
@@ -151,7 +151,7 @@ export default function ClientTrip() {
     try {
       const successUrl = `${window.location.origin}/client/trip?trip_id=${tripId}&payment_success=true&session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${window.location.origin}/client/trip?trip_id=${tripId}&payment_cancel=true`;
-      
+
       const { data } = await startTripPayment(tripId, successUrl, cancelUrl);
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
@@ -305,7 +305,7 @@ export default function ClientTrip() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login-client');
+    navigate('/login');
   };
 
   useEffect(() => {
@@ -359,7 +359,7 @@ export default function ClientTrip() {
                 </div>
               </div>
             </div>
-            
+
             <div className="car-details">
               <div className="car-text">
                 <strong>{activeTrip?.taxi_brand || 'Tesla'} {activeTrip?.taxi_model || 'Model 3'}</strong>
@@ -383,7 +383,7 @@ export default function ClientTrip() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Motor</span>
-                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>{activeTrip?.taxi_engine === "combustion" ? "Combustão": 'Elétrico'}</span>
+                <span style={{ fontSize: '1.1rem', color: '#000', fontWeight: '700' }}>{activeTrip?.taxi_engine === "combustion" ? "Combustão" : 'Elétrico'}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>Lugares</span>
@@ -412,12 +412,12 @@ export default function ClientTrip() {
               </div>
             </div>
 
-            <div className="price-display-banner" style={{ 
-              background: '#fdf2b3', 
-              padding: '12px', 
-              borderRadius: '12px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div className="price-display-banner" style={{
+              background: '#fdf2b3',
+              padding: '12px',
+              borderRadius: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '15px'
             }}>
@@ -440,14 +440,14 @@ export default function ClientTrip() {
         return (
           <div className="status-panel waiting-pickup">
             <h2 className="panel-title" style={{ textAlign: 'center', width: '100%' }}>O motorista está a caminho</h2>
-            
+
             {eta !== null && (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px', 
-                fontWeight: '700', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontWeight: '700',
                 fontSize: '1.2rem',
                 margin: '10px 0'
               }}>
@@ -457,38 +457,38 @@ export default function ClientTrip() {
             )}
 
             <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
-              <motion.div 
-                animate={{ 
+              <motion.div
+                animate={{
                   opacity: [0.3, 1, 0.3],
                 }}
-                transition={{ 
-                  repeat: Infinity, 
-                  duration: 3, 
-                  ease: "easeInOut" 
+                transition={{
+                  repeat: Infinity,
+                  duration: 3,
+                  ease: "easeInOut"
                 }}
-                style={{ 
-                  height: '8px', 
-                  width: '100%', 
-                  background: '#f1cf58', 
+                style={{
+                  height: '8px',
+                  width: '100%',
+                  background: '#f1cf58',
                   borderRadius: '4px',
                   boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
                 }}
               />
             </div>
 
-            <div className="driver-mini-card" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'auto 1fr', 
-              gridTemplateRows: 'auto auto', 
-              gap: '4px 12px', 
+            <div className="driver-mini-card" style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gridTemplateRows: 'auto auto',
+              gap: '4px 12px',
               alignItems: 'center',
               padding: '12px 16px'
             }}>
-              <img 
-                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
-                alt="Driver" 
-                className="user-pfp-small" 
-                style={{ width: '44px', height: '44px', gridRow: 'span 2' }} 
+              <img
+                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`}
+                alt="Driver"
+                className="user-pfp-small"
+                style={{ width: '44px', height: '44px', gridRow: 'span 2' }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
                 <strong style={{ fontSize: '0.95rem' }}>{activeTrip?.driver_name}</strong>
@@ -509,15 +509,15 @@ export default function ClientTrip() {
         return (
           <div className="status-panel in-progress">
             <h2 className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Viagem em curso</h2>
-            
+
             {eta !== null && (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px', 
-                color: '#000', 
-                fontWeight: '700', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                color: '#000',
+                fontWeight: '700',
                 fontSize: '1.2rem',
                 margin: '10px 0'
               }}>
@@ -527,19 +527,19 @@ export default function ClientTrip() {
             )}
 
             <div className="trip-progress-pulse" style={{ margin: '20px 0', padding: '0 5px' }}>
-              <motion.div 
-                animate={{ 
+              <motion.div
+                animate={{
                   opacity: [0.3, 1, 0.3],
                 }}
-                transition={{ 
-                  repeat: Infinity, 
-                  duration: 3, 
-                  ease: "easeInOut" 
+                transition={{
+                  repeat: Infinity,
+                  duration: 3,
+                  ease: "easeInOut"
                 }}
-                style={{ 
-                  height: '8px', 
-                  width: '100%', 
-                  background: '#f1cf58', 
+                style={{
+                  height: '8px',
+                  width: '100%',
+                  background: '#f1cf58',
                   borderRadius: '4px',
                   boxShadow: '0 0 10px rgba(241, 207, 88, 0.2)'
                 }}
@@ -547,20 +547,20 @@ export default function ClientTrip() {
             </div>
 
             <p style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>A caminho do seu destino...</p>
-            
-            <div className="driver-mini-card" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'auto 1fr', 
-              gridTemplateRows: 'auto auto', 
-              gap: '4px 12px', 
+
+            <div className="driver-mini-card" style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gridTemplateRows: 'auto auto',
+              gap: '4px 12px',
               alignItems: 'center',
               padding: '12px 16px'
             }}>
-              <img 
-                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} 
-                alt="Driver" 
-                className="user-pfp-small" 
-                style={{ width: '48px', height: '48px', gridRow: 'span 2' }} 
+              <img
+                src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`}
+                alt="Driver"
+                className="user-pfp-small"
+                style={{ width: '48px', height: '48px', gridRow: 'span 2' }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '2' }}>
                 <strong style={{ fontSize: '1rem' }}>{activeTrip?.driver_name}</strong>
@@ -592,11 +592,11 @@ export default function ClientTrip() {
           <div className="status-panel waiting-payment" style={{ textAlign: 'center' }}>
             <h2 className="panel-title">Viagem Concluída</h2>
             <p style={{ color: '#666', marginBottom: '15px' }}>Obrigado por viajar com a TUXY!</p>
-            
-            <div className="payment-summary" style={{ 
-              background: '#f9f9f9', 
-              padding: '20px', 
-              borderRadius: '16px', 
+
+            <div className="payment-summary" style={{
+              background: '#f9f9f9',
+              padding: '20px',
+              borderRadius: '16px',
               border: '2px solid #f1cf58',
               marginBottom: '20px',
               textAlign: 'left'
@@ -612,8 +612,8 @@ export default function ClientTrip() {
             </div>
 
             <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button 
-                className="panel-btn panel-btn--accept" 
+              <button
+                className="panel-btn panel-btn--accept"
                 onClick={handleStripePayment}
                 style={{ width: '100%', height: 'auto', padding: '18px 0', fontSize: '1.1rem' }}
               >
@@ -649,15 +649,15 @@ export default function ClientTrip() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <div 
-          className="user-name-container" 
+        <div
+          className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
           <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img 
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
-            alt="Profile" 
+          <img
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+            alt="Profile"
             className="user-pfp-small"
           />
         </div>
@@ -668,7 +668,7 @@ export default function ClientTrip() {
           <MapaPedido
             origem={origem}
             destino={destino}
-            onEscolherPonto={() => {}} 
+            onEscolherPonto={() => { }}
             routeCoords={routeCoords}
             carPos={driverPos}
             isInProgress={status === 'in_progress'}
@@ -734,7 +734,7 @@ export default function ClientTrip() {
         )}
       </AnimatePresence>
 
-      <ConfirmationModal 
+      <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
         message={modalConfig.message}
