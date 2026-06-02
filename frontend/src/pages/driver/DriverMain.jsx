@@ -22,7 +22,7 @@ export default function DriverMain() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login-manager');
+    navigate('/manager');
   };
 
   const handleNav = (tab) => {
@@ -33,7 +33,7 @@ export default function DriverMain() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <DriverHomeView />;
+        return <DriverHomeView onNavigate={handleNav} />;
       case 'schedule':
         return <DriverScheduleView />;
       case 'shifts':
@@ -42,7 +42,7 @@ export default function DriverMain() {
         return <Refuels />;
       default:
         return <DriverHomeView />;
-      
+
     }
   };
 
@@ -56,15 +56,15 @@ export default function DriverMain() {
         <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
           <span className="client-brand-name">TUXY</span>
         </div>
-        <div 
-          className="header-actions" 
+        <div
+          className="header-actions"
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
           <span className="user-name-display">{user?.name?.split(' ')[0]}</span>
-          <img 
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
-            alt="Profile" 
+          <img
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+            alt="Profile"
             className="user-pfp-small"
           />
         </div>
@@ -101,31 +101,31 @@ export default function DriverMain() {
               </div>
 
               <nav className="drawer-nav">
-                <button 
+                <button
                   className={`drawer-link ${activeTab === 'home' ? 'active' : ''}`}
                   onClick={() => handleNav('home')}
                 >
                   Página Inicial
                 </button>
-                <button 
+                <button
                   className={`drawer-link ${activeTab === 'schedule' ? 'active' : ''}`}
                   onClick={() => handleNav('schedule')}
                 >
                   Registar Turno
                 </button>
-                <button 
+                <button
                   className={`drawer-link ${activeTab === 'refuels' ? 'active' : ''}`}
                   onClick={() => handleNav('refuels')}
                 >
                   Registar Reabastecimento
                 </button>
-                <button 
+                <button
                   className={`drawer-link ${activeTab === 'shifts' ? 'active' : ''}`}
                   onClick={() => handleNav('shifts')}
                 >
                   Consultar Turnos
                 </button>
-                <button 
+                <button
                   className="drawer-link"
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -138,18 +138,18 @@ export default function DriverMain() {
                   Terminar Sessão
                 </button>
               </div>
-              </motion.div>
-              </>
-              )}
-              </AnimatePresence>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
-              <ProfileModal
-              isOpen={isProfileModalOpen}
-              onClose={() => setIsProfileModalOpen(false)}
-              forcedType="DRIVER"
-              />
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        forcedType="DRIVER"
+      />
 
-              </div>
-              );
-              }
+    </div>
+  );
+}
 

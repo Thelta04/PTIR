@@ -100,7 +100,7 @@ export default function ManagerDashboard() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login-manager');
+    navigate('/manager');
   };
 
   const openCreateModal = () => {
@@ -170,7 +170,7 @@ export default function ManagerDashboard() {
       const payload = { ...formData };
       request = updateTaxi(originalId, payload);
     } else if (formMode === 'edit-shift') {
-      const payload = { 
+      const payload = {
         driver_id: parseInt(formData.driver_id, 10),
         taxi_license_plate: formData.taxi_license_plate,
         start_time: formData.start_time,
@@ -569,8 +569,8 @@ export default function ManagerDashboard() {
             ) : activeSection === 'shifts' ? (
               <div className="data-table-container">
                 <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
-                  <select 
-                    className="auth-input" 
+                  <select
+                    className="auth-input"
                     style={{ width: 'auto', padding: '8px 12px' }}
                     value={shiftStatusFilter}
                     onChange={(e) => setShiftStatusFilter(e.target.value)}
@@ -588,7 +588,7 @@ export default function ManagerDashboard() {
                     {data.shifts
                       .filter(s => {
                         if (!shiftStatusFilter) return true;
-                        
+
                         let status = 'SCHEDULED';
                         if (s.real_interval?.start_time && s.real_interval?.end_time) {
                           status = 'COMPLETED';
@@ -607,37 +607,37 @@ export default function ManagerDashboard() {
                         return timeB - timeA;
                       })
                       .map((s, i) => (
-                      <tr key={i}>
-                        <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
-                        <td>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '0.9rem',
-                            }}
-                          >
-                            <CalendarClock size={14} color="#999" />
-                            {formatDateTimePT(s.scheduled_interval?.start_time)}
-                            {' → '}
-                            {formatDateTimePT(s.scheduled_interval?.end_time)}
-                          </div>
-                        </td>
-                        <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
-                          <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
-                        </div></td>
-                      </tr>
-                    ))}
+                        <tr key={i}>
+                          <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
+                          <td>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '0.9rem',
+                              }}
+                            >
+                              <CalendarClock size={14} color="#999" />
+                              {formatDateTimePT(s.scheduled_interval?.start_time)}
+                              {' → '}
+                              {formatDateTimePT(s.scheduled_interval?.end_time)}
+                            </div>
+                          </td>
+                          <td><div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => openEditShift(s)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                            <button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0' }}><Trash2 size={16} /></button>
+                          </div></td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
             ) : activeSection === 'trips' ? (
               <div className="data-table-container">
                 <div style={{ padding: '16px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
-                  <select 
-                    className="auth-input" 
+                  <select
+                    className="auth-input"
                     style={{ width: 'auto', padding: '8px 12px' }}
                     value={tripStatusFilter}
                     onChange={(e) => setTripStatusFilter(e.target.value)}
@@ -664,30 +664,30 @@ export default function ManagerDashboard() {
                         return timeB - timeA;
                       })
                       .map((t, i) => {
-                      let durationStr = '-';
-                      if (t.interval?.start_time && t.interval?.end_time) {
-                        const start = new Date(t.interval.start_time);
-                        const end = new Date(t.interval.end_time);
-                        const diffMs = end - start;
-                        if (diffMs > 0) {
-                          const mins = Math.floor(diffMs / 60000);
-                          const hours = Math.floor(mins / 60);
-                          const remMins = mins % 60;
-                          durationStr = hours > 0 ? `${hours}h ${remMins}m` : `${mins}m`;
+                        let durationStr = '-';
+                        if (t.interval?.start_time && t.interval?.end_time) {
+                          const start = new Date(t.interval.start_time);
+                          const end = new Date(t.interval.end_time);
+                          const diffMs = end - start;
+                          if (diffMs > 0) {
+                            const mins = Math.floor(diffMs / 60000);
+                            const hours = Math.floor(mins / 60);
+                            const remMins = mins % 60;
+                            durationStr = hours > 0 ? `${hours}h ${remMins}m` : `${mins}m`;
+                          }
                         }
-                      }
-                      
-                      return (
-                        <tr key={i}>
-                          <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
-                          <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
-                          <td><div style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
-                          <td><div style={{ fontSize: '0.85rem', color: '#555' }}>{t.interval?.start_time ? new Date(t.interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
-                          <td style={{ fontWeight: 500, color: '#666' }}>{durationStr}</td>
-                          <td style={{ fontWeight: 700 }}>€{t.price}</td>
-                        </tr>
-                      );
-                    })}
+
+                        return (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 700, color: '#999' }}>#{t.id}</td><td><span className={`trip-badge trip-badge--${t.status.toLowerCase()}`}>{t.status}</span></td>
+                            <td style={{ fontWeight: 600 }}>{t.client_name}</td><td>{t.driver_name || '-'}</td>
+                            <td><div style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.originAddress} -> ${t.destAddress}`}>{t.originAddress.split(',')[0]} → {t.destAddress.split(',')[0]}</div></td>
+                            <td><div style={{ fontSize: '0.85rem', color: '#555' }}>{t.interval?.start_time ? new Date(t.interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
+                            <td style={{ fontWeight: 500, color: '#666' }}>{durationStr}</td>
+                            <td style={{ fontWeight: 700 }}>€{t.price}</td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

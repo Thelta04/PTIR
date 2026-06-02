@@ -59,10 +59,17 @@ export default function MapaPedido({ origem, destino, onEscolherPonto, routeCoor
   return (
     <div style={{ height: '100%', width: '100%', minHeight: '100%' }}>
       <MapContainer center={center} zoom={15} style={{ height: '100%', width: '100%', minHeight: '100%' }}>
+        {/* BACKUP: OSM HOT (Humanitarian) - Good contrast but has electrical lines
         <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
+          url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+          attribution='&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France'
           maxZoom={19}
+        />
+        */}
+        <TileLayer
+          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+          attribution="&copy; Google Maps"
+          maxZoom={20}
         />
 
         <MapRefresher center={center} />

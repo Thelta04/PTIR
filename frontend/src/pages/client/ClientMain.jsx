@@ -55,7 +55,7 @@ export default function ClientMain() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -75,10 +75,10 @@ export default function ClientMain() {
   const simplifyAddress = (addr) => {
     if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
     const parts = addr.split(',').map(p => p.trim());
-    
+
     // Portuguese street prefixes to identify the main street part
     const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
-    
+
     let streetIdx = -1;
     // Look for the street name in the first 3 parts (skipping POI name if present)
     for (let i = 0; i < Math.min(parts.length, 3); i++) {
@@ -92,7 +92,7 @@ export default function ClientMain() {
     if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
       streetIdx = 2;
     }
-    
+
     // Final fallback to part 0
     if (streetIdx === -1) streetIdx = 0;
 
@@ -110,14 +110,33 @@ export default function ClientMain() {
   };
 
   const handleUseCurrentLocation = () => {
-    // MOCKED LOCATIONS for testing
-    const originCoords = { lat: 38.7111, lon: -9.1368 };
-
-    // Set Origin
-    getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
-      setOrigem(originCoords);
-      setOriginAddress(simplifyAddress(address));
-    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const originCoords = { 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          };
+          
+          getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
+            setOrigem(originCoords);
+            setOriginAddress(address);
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          // Fallback if denied
+          const defaultCoords = { lat: 38.7111, lon: -9.1368 };
+          getAddressFromCoords(defaultCoords.lat, defaultCoords.lon).then(address => {
+            setOrigem(defaultCoords);
+            setOriginAddress(address);
+          });
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert("Geolocalização não é suportada por este navegador.");
+    }
   };
 
 
@@ -200,7 +219,7 @@ export default function ClientMain() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login-client');
+    navigate('/login');
   };
 
   const handleMenuClick = (path) => {
@@ -272,11 +291,11 @@ export default function ClientMain() {
         const originStr = `${finalOrigem.lat},${finalOrigem.lon}`;
         const destStr = `${finalDestino.lat},${finalDestino.lon}`;
         const { data } = await getRouteGeometry(originStr, destStr);
-        
+
         if (data.duration) {
           const minutes = data.duration / 60;
           setEstimatedDuration(Math.round(minutes));
-          
+
           if (pricingConfig) {
             const price = calculateEstimatedPrice(minutes, comfort_level, pricingConfig);
             setEstimatedPrice(price);
@@ -302,14 +321,14 @@ export default function ClientMain() {
         num_passengers,
         scheduled_time: dateTime ? new Date(dateTime).toISOString() : null,
       });
-      
+
       // Navigate to the trip tracking page
-      navigate('/client/trip', { 
-        state: { 
-          tripId: data.id, 
-          origem, 
-          destino 
-        } 
+      navigate('/client/trip', {
+        state: {
+          tripId: data.id,
+          origem,
+          destino
+        }
       });
     } catch (error) {
       const errorData = error.response?.data;
@@ -431,10 +450,10 @@ export default function ClientMain() {
               <h2 className="view-title">Quando deseja partir?</h2>
             </div>
 
-            <div className="trip-summary-mini" style={{ 
-              background: '#fff', 
-              padding: '16px', 
-              borderRadius: '10px', 
+            <div className="trip-summary-mini" style={{
+              background: '#fff',
+              padding: '16px',
+              borderRadius: '10px',
               border: '1.5px solid #f1cf58',
               marginBottom: '16px',
               fontSize: '1.05rem',
@@ -711,15 +730,15 @@ export default function ClientMain() {
           <span className="client-brand-name">TUXY</span>
         </div>
 
-        <div 
-          className="user-name-container" 
+        <div
+          className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
           style={{ cursor: 'pointer' }}
         >
           <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img 
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`} 
-            alt="Profile" 
+          <img
+            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+            alt="Profile"
             className="user-pfp-small"
           />
         </div>
@@ -738,13 +757,6 @@ export default function ClientMain() {
           {renderSearchPanel()}
         </section>
 
-        <button
-          className="gps-btn"
-          onClick={handleUseCurrentLocation}
-          title="Use current location"
-        >
-          <Target size={24} color="#000" />
-        </button>
       </main>
 
       <AnimatePresence>
@@ -778,10 +790,7 @@ export default function ClientMain() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Pedir Viagem
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservas
-                </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
               </nav>
@@ -796,7 +805,7 @@ export default function ClientMain() {
         )}
       </AnimatePresence>
 
-      <ConfirmationModal 
+      <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
         message={modalConfig.message}
@@ -804,11 +813,11 @@ export default function ClientMain() {
         onCancel={closeModal}
       />
 
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         forcedType="CLIENT"
       />
-      </div>
-      );
-      }
+    </div>
+  );
+}
