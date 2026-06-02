@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
 import { MapPin, Navigation, CheckCircle, Clock, Square } from 'lucide-react';
@@ -15,7 +15,8 @@ import {
   getRouteGeometry,
   getPricing,
   emitInvoice,
-  endShift
+  endShift,
+  cancelTrip
 } from '../../api/client';
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
@@ -88,6 +89,29 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (activeTrip && (activeTrip.status === 'CLIENT_ACCEPTED' || activeTrip.status === 'IN_PROGRESS')) {
+      if (routeCoords && routeCoords.length > 0) {
+        try {
+          const bounds = L.latLngBounds(routeCoords);
+          map.fitBounds(bounds, { padding: [50, 50], animate: true });
+        } catch (e) {
+          console.error("Error fitting bounds", e);
+        }
+      }
+    } else if (!activeTrip && driverLoc) {
+      try {
+        map.setView([driverLoc.lat, driverLoc.lon], 14, { animate: true });
+      } catch (e) {}
+    }
+  }, [activeTrip?.status, routeCoords, map]);
+
+  return null;
+};
+
 export default function DriverHomeView({ onNavigate }) {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
@@ -107,6 +131,39 @@ export default function DriverHomeView({ onNavigate }) {
   useEffect(() => {
     driverLocRef.current = driverLoc;
   }, [driverLoc]);
+
+  // Driver Accepted Timeout Logic
+  const [driverAcceptCountdown, setDriverAcceptCountdown] = useState(60);
+
+  const handleAutoCancel = async () => {
+    if (!activeTripRef.current) return;
+    try {
+      await cancelTrip(activeTripRef.current.id);
+      alert('A viagem foi cancelada automaticamente (tempo de espera esgotado).');
+      fetchData();
+    } catch (err) {
+      console.error('Error auto-canceling trip:', err);
+    }
+  };
+
+  useEffect(() => {
+    let timer;
+    if (activeTrip && activeTrip.status === 'DRIVER_ACCEPTED') {
+      timer = setInterval(() => {
+        setDriverAcceptCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleAutoCancel();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setDriverAcceptCountdown(60);
+    }
+    return () => clearInterval(timer);
+  }, [activeTrip?.status, activeTrip?.id]);
   
   useEffect(() => {
     if (navigator.geolocation) {
@@ -554,6 +611,8 @@ export default function DriverHomeView({ onNavigate }) {
             maxZoom={20}
           />
 
+          <MapController activeTrip={activeTrip} routeCoords={routeCoords} driverLoc={driverLoc} />
+
           <Marker position={[driverLoc.lat, driverLoc.lon]} icon={carIcon}>
             <Popup>Você está aqui</Popup>
           </Marker>
@@ -619,7 +678,9 @@ export default function DriverHomeView({ onNavigate }) {
                   Viagem Cancelada - Continuar
                 </button>
               ) : activeTrip.status === 'DRIVER_ACCEPTED' ? (
-                <div className="waiting-msg">Aguardando cliente...</div>
+                <div className="waiting-msg">
+                  Aguardando cliente... ({driverAcceptCountdown}s)
+                </div>
               ) : activeTrip.status === 'WAITING_PAYMENT' ? (
                 <div className="waiting-msg" style={{ background: '#fdf2b3', color: '#856404' }}>
                   Aguardando Pagamento...
