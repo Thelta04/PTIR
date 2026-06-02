@@ -17,14 +17,14 @@ const carIcon = new L.DivIcon({
 });
 
 const originIcon = new L.DivIcon({
-  html: `<div style="color: #ef4444;"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg></div>`,
-  className: 'custom-pin',
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
+  html: `<div style="color: #3b82f6;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="3"><circle cx="12" cy="12" r="10"/></svg></div>`,
+  className: 'custom-circle',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
 });
 
 const destIcon = new L.DivIcon({
-  html: `<div style="color: #10b981;"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg></div>`,
+  html: `<div style="color: #f63b3b;"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg></div>`,
   className: 'custom-pin',
   iconSize: [32, 32],
   iconAnchor: [16, 32],
