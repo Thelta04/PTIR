@@ -96,12 +96,17 @@ export default function DriverHomeView({ onNavigate }) {
   const activeTripRef = useRef(null);
   const lastFetchedRouteKey = useRef('');
   const [eta, setEta] = useState(null);
+  const driverLocRef = useRef(null);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
   }, [activeTrip]);
   const [routeCoords, setRouteCoords] = useState([]);
   const [driverLoc, setDriverLoc] = useState(null);
+  
+  useEffect(() => {
+    driverLocRef.current = driverLoc;
+  }, [driverLoc]);
   
   useEffect(() => {
     if (navigator.geolocation) {
@@ -125,6 +130,7 @@ export default function DriverHomeView({ onNavigate }) {
     }
   }, []);
   const [shiftDuration, setShiftDuration] = useState('');
+  const [isShiftEnded, setIsShiftEnded] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
 
   // Calculate target for active trip display
@@ -216,7 +222,8 @@ export default function DriverHomeView({ onNavigate }) {
         setActiveTrip(null);
         setRouteCoords([]);
         setEta(null);
-        const { data: pending } = await listPendingTrips(user.id, driverLoc.lat, driverLoc.lon);
+        const loc = driverLocRef.current || { lat: 38.7115, lon: -9.1360 };
+        const { data: pending } = await listPendingTrips(user.id, loc.lat, loc.lon);
         setTrips(pending);
       }
     } catch (err) {
@@ -401,6 +408,10 @@ export default function DriverHomeView({ onNavigate }) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         setShiftDuration(`${hours}h ${minutes}m`);
+
+        if (activeShift.scheduled_interval?.end_time) {
+          setIsShiftEnded(now >= new Date(activeShift.scheduled_interval.end_time));
+        }
       };
       updateTimer();
       timer = setInterval(updateTimer, 60000);
@@ -475,15 +486,21 @@ export default function DriverHomeView({ onNavigate }) {
   return (
     <div className="driver-home-container">
       {activeShift ? (
-        <div className="shift-status-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="shift-status-bar" style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          backgroundColor: isShiftEnded ? '#10b981' : undefined,
+          color: isShiftEnded ? 'white' : undefined
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Clock size={18} />
-            <span>Turno em curso: {shiftDuration} decorridos</span>
+            {isShiftEnded ? <CheckCircle size={18} /> : <Clock size={18} />}
+            <span>
+              {isShiftEnded ? 'O turno terminou!' : `Turno em curso: ${shiftDuration} decorridos`}
+            </span>
           </div>
           <button 
             onClick={handleEndShift}
             style={{
-              background: '#ef4444',
+              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#ef4444',
               border: 'none',
               padding: '4px 12px',
               borderRadius: '4px',
@@ -495,8 +512,8 @@ export default function DriverHomeView({ onNavigate }) {
               gap: '6px'
             }}
           >
-            <Square size={14} />
-            Terminar
+            {isShiftEnded ? <CheckCircle size={14} /> : <Square size={14} />}
+            {isShiftEnded ? 'Concluir' : 'Terminar'}
           </button>
         </div>
       ) : (

@@ -982,7 +982,6 @@ class TripListView(views.APIView):
         if comfort_filter:
             trips = trips.filter(comfort_level=comfort_filter)
             
-        # Determine maximum allowed passengers
         max_passengers = None
         if driver_id:
             # Look for an active shift (clocked in, no end time)
@@ -994,23 +993,26 @@ class TripListView(views.APIView):
             
             if active_shift:
                 max_passengers = active_shift.taxi.num_passengers
-                comfort_filter = active_shift.taxi.comfort_level
+                taxi_comfort = active_shift.taxi.comfort_level
+                
+                # A basic taxi can only see basic trips
+                # A luxury taxi can see both luxury and basic trips
+                if taxi_comfort == 'basic':
+                    trips = trips.filter(comfort_level='basic')
+                # If taxi is luxury, we don't filter out basic trips.
+                
+        else:
+            # If no driver_id, use the explicit query parameters
+            if passengers_filter:
+                try:
+                    max_passengers = int(passengers_filter)
+                except ValueError:
+                    pass
+            if comfort_filter:
+                trips = trips.filter(comfort_level=comfort_filter)
 
-        # Fallback to the explicit query parameter if max_passengers wasn't resolved via driver_id
-        if max_passengers is None and passengers_filter:
-            try:
-                max_passengers = int(passengers_filter)
-            except ValueError:
-                pass
-        if comfort_filter is None and comfort_filter:
-            try:
-                comfort_filter = comfort_filter
-            except ValueError:
-                pass
         if max_passengers is not None:
             trips = trips.filter(num_passengers__lte=max_passengers)
-        if comfort_filter is not None:
-            trips = trips.filter(comfort_level=comfort_filter)
         
         trips_list = list(trips)
 
@@ -2070,7 +2072,10 @@ class RefuelListCreateView(views.APIView):
     def post(self, request):
         serializer = RefuelSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            from django.utils import timezone
+            # A refuel is instantaneous, so start and end time are the current moment
+            interval = TimeInterval.objects.create(start_time=timezone.now(), end_time=timezone.now())
+            serializer.save(interval=interval)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

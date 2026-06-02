@@ -53,7 +53,8 @@ export default function DriverMain() {
         <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
           <Menu size={24} />
         </button>
-        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
+        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
           <span className="client-brand-name">TUXY</span>
         </div>
         <div
