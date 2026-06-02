@@ -157,6 +157,8 @@ export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 export const rateTrip = (tripId, score) => api.post('rating/create/', { trip_id: tripId, score });
 export const listRatings = (driverId) => api.get(`rating/${driverId}/`);
 export const getPricing = () => api.get('pricing/');
+export const updatePricing = (data) => api.patch('pricing/', data);
+export const simulatePricing = (data) => api.post('pricing/simulate/', data);
 export const updateProfilePic = (id, profile_pic) => api.patch(`user/${id}/profile-pic/`, { profile_pic });
 export const createRefuel = (data) => api.post('refuels/', data);
 

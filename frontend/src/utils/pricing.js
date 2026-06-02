@@ -8,13 +8,14 @@ export function calculateEstimatedPrice(minutes, comfortLevel, pricingConfig) {
   const perMin = comfortLevel === 'luxury' 
     ? pricingConfig.price_per_min_luxury 
     : pricingConfig.price_per_min_basic;
-  
-  let price = pricingConfig.base_fare + (minutes * perMin);
-  
-  // Apply night multiplier if between 22:00 and 07:00 (matching backend is_night_period)
+
+  let price = minutes * perMin;
+
+  // Quick estimate: apply the configured night surcharge when the trip starts at night.
+  // The backend splits exact day/night minutes when it has start and end times.
   const hour = new Date().getHours();
-  if (hour >= 22 || hour < 7) {
-    price *= 1.25; // NIGHT_MULTIPLIER from backend
+  if (hour >= 21 || hour < 6) {
+    price *= 1 + ((Number(pricingConfig.night_surcharge_percent) || 0) / 100);
   }
   
   return Number(price.toFixed(2));

@@ -2,6 +2,7 @@ import math
 import os
 import socket
 import requests
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlparse
 
@@ -14,7 +15,7 @@ try:
     import stripe
 except ImportError:
     stripe = None
-from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling, Rating, Invoice
+from .models import Taxi, User, Client, Driver, Manager, Shift, TimeInterval, Trip, Refueling, Rating, Invoice, PricingConfig
 from .serializers import (
     CreateClientSerializer, UserSerializer, CreateDriverSerializer,
     DriverSerializer, CreateManagerSerializer, CreateTaxiSerializer,
@@ -22,23 +23,14 @@ from .serializers import (
     TripListSerializer, TripCreateSerializer, RatingListSerializer,
     RatingCreateSerializer, TripCancelSerializer, TripCompleteSerializer,
     ClientUpdateSerializer, DriverUpdateSerializer, TaxiUpdateSerializer,
-    ShiftUpdateSerializer, RefuelSerializer, InvoiceSerializer
+    ShiftUpdateSerializer, RefuelSerializer, InvoiceSerializer,
+    PricingConfigSerializer, PricingSimulationSerializer
 )
 from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 # pyrefly: ignore [missing-import]
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from django.db import IntegrityError
-
-
- 
- 
-PRICING_CONFIG = {
-    'BASE_FARE': 2.50,
-    'PRICE_PER_MIN_BASIC': 0.25,
-    'PRICE_PER_MIN_LUXURY': 0.50,
-    'NIGHT_MULTIPLIER': 1.25,
-}
 
 STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'eur')
 # --- Views with Business Logic ---
@@ -195,9 +187,12 @@ class ClientListView(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DriverCreateView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsManager]
+
     @extend_schema(
         summary="Create a new Driver",
-        description="Creates the base user, client profile, and associates the license number and birth year to the Driver profile.",
+        description="Creates the base user and associates the license number and birth year to the Driver profile.",
         request=CreateDriverSerializer,
         responses={201: inline_serializer(
             name='DriverCreateResponse',
@@ -210,16 +205,16 @@ class DriverCreateView(views.APIView):
             data = serializer.validated_data
             
             try:
-                user = User.objects.create(
-                    nif=data['nif'], name=data['name'], email=data['email'],
-                    gender=data['gender'], password=data['password']
-                )
-                Client.objects.create(user=user)
-                Driver.objects.create(
-                    user=user, 
-                    license_number=data['license_number'], 
-                    birth_year=data['birth_year']
-                )
+                with transaction.atomic():
+                    user = User.objects.create(
+                        nif=data['nif'], name=data['name'], email=data['email'],
+                        gender=data['gender'], password=data['password']
+                    )
+                    Driver.objects.create(
+                        user=user,
+                        license_number=data['license_number'],
+                        birth_year=data['birth_year']
+                    )
                 return Response({"message": "Driver created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
             except IntegrityError:
                 return Response({"error": "A user with the same NIF or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
@@ -321,7 +316,7 @@ class DriverListView(views.APIView):
         responses=DriverSerializer(many=True)
     )
     def get(self, request):
-        drivers = Driver.objects.all()
+        drivers = Driver.objects.all().order_by('-user_id')
         serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1128,16 +1123,62 @@ def calculate_distance(origin_coords: str, dest_coords: str) -> float:
     distance_km, _ = calculate_route_summary(origin_coords, dest_coords)
     return distance_km
 
+def get_pricing_config() -> PricingConfig:
+    config, _ = PricingConfig.objects.get_or_create(
+        id=1,
+        defaults={
+            'price_per_min_basic': Decimal('0.25'),
+            'price_per_min_luxury': Decimal('0.50'),
+            'night_surcharge_percent': Decimal('25.00'),
+        }
+    )
+    return config
+
 def is_night_period(dt) -> bool:
     local_time = timezone.localtime(dt).time()
-    return local_time.hour >= 22 or local_time.hour < 7
+    return local_time.hour >= 21 or local_time.hour < 6
+
+def split_day_night_minutes(start_time, end_time) -> tuple[Decimal, Decimal]:
+    start = timezone.localtime(start_time)
+    end = timezone.localtime(end_time)
+    current = start
+    day_minutes = Decimal('0')
+    night_minutes = Decimal('0')
+
+    while current < end:
+        current_is_night = is_night_period(current)
+        if current_is_night:
+            if current.hour < 6:
+                boundary = current.replace(hour=6, minute=0, second=0, microsecond=0)
+            else:
+                boundary = (current + timedelta(days=1)).replace(hour=6, minute=0, second=0, microsecond=0)
+        else:
+            boundary = current.replace(hour=21, minute=0, second=0, microsecond=0)
+
+        segment_end = min(boundary, end)
+        minutes = Decimal(str((segment_end - current).total_seconds())) / Decimal('60')
+        if current_is_night:
+            night_minutes += minutes
+        else:
+            day_minutes += minutes
+        current = segment_end
+
+    return day_minutes, night_minutes
+
+def calculate_price_for_interval(start_time, end_time, comfort_level: str, config=None) -> Decimal:
+    config = config or get_pricing_config()
+    price_per_min = config.price_per_min_luxury if comfort_level == 'luxury' else config.price_per_min_basic
+    day_minutes, night_minutes = split_day_night_minutes(start_time, end_time)
+    night_multiplier = Decimal('1') + (config.night_surcharge_percent / Decimal('100'))
+    price = (day_minutes * price_per_min) + (night_minutes * price_per_min * night_multiplier)
+    return price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 def calculate_price(minutes: float, comfort_level: str, trip_time=None) -> float:
-    price_per_min = PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] if comfort_level == 'luxury' else PRICING_CONFIG['PRICE_PER_MIN_BASIC']
-    price = PRICING_CONFIG['BASE_FARE'] + (minutes * price_per_min)
-    if trip_time and is_night_period(trip_time):
-        price *= PRICING_CONFIG['NIGHT_MULTIPLIER']
-    return round(price, 2)
+    start_time = trip_time or timezone.now()
+    if timezone.is_naive(start_time):
+        start_time = timezone.make_aware(start_time)
+    end_time = start_time + timedelta(minutes=float(minutes or 0))
+    return float(calculate_price_for_interval(start_time, end_time, comfort_level))
 
 def amount_to_cents(amount) -> int:
     return int((Decimal(amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) * 100).to_integral_value())
@@ -2146,52 +2187,68 @@ class PricingConfigView(views.APIView):
         responses={200: inline_serializer(
             name='PricingConfigResponse',
             fields={
-                'base_fare': serializers.FloatField(),
-                'price_per_min_basic': serializers.FloatField(),
-                'price_per_min_luxury': serializers.FloatField(),
+                'price_per_min_basic': serializers.DecimalField(max_digits=6, decimal_places=2),
+                'price_per_min_luxury': serializers.DecimalField(max_digits=6, decimal_places=2),
+                'night_surcharge_percent': serializers.DecimalField(max_digits=5, decimal_places=2),
             }
         )}
     )
     def get(self, request):
-        return Response({
-            'base_fare': PRICING_CONFIG['BASE_FARE'],
-            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
-            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
-        }, status=status.HTTP_200_OK)
+        return Response(PricingConfigSerializer(get_pricing_config()).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Update pricing config (Manager only)",
         description="Updates the current pricing configuration. All fields are optional.",
-        request=inline_serializer(
-            name='PricingConfigUpdateRequest',
-            fields={
-                'base_fare': serializers.FloatField(required=False),
-                'price_per_min_basic': serializers.FloatField(required=False),
-                'price_per_min_luxury': serializers.FloatField(required=False),
-            }
-        ),
-        responses={200: inline_serializer(
-            name='PricingConfigUpdateResponse',
-            fields={
-                'base_fare': serializers.FloatField(),
-                'price_per_min_basic': serializers.FloatField(),
-                'price_per_min_luxury': serializers.FloatField(),
-            }
-        )}
+        request=PricingConfigSerializer,
+        responses={200: PricingConfigSerializer}
     )
     def patch(self, request):
         if not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "Only managers can update pricing."}, status=status.HTTP_403_FORBIDDEN)
 
-        if 'base_fare' in request.data:
-            PRICING_CONFIG['BASE_FARE'] = float(request.data['base_fare'])
-        if 'price_per_min_basic' in request.data:
-            PRICING_CONFIG['PRICE_PER_MIN_BASIC'] = float(request.data['price_per_min_basic'])
-        if 'price_per_min_luxury' in request.data:
-            PRICING_CONFIG['PRICE_PER_MIN_LUXURY'] = float(request.data['price_per_min_luxury'])
+        config = get_pricing_config()
+        serializer = PricingConfigSerializer(config, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class PricingSimulationView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Simulate trip price",
+        description="Calculates the cost of a fictitious trip using the configured prices.",
+        request=PricingSimulationSerializer,
+        responses={200: inline_serializer(
+            name='PricingSimulationResponse',
+            fields={
+                'comfort_level': serializers.CharField(),
+                'start_time': serializers.DateTimeField(),
+                'end_time': serializers.DateTimeField(),
+                'day_minutes': serializers.FloatField(),
+                'night_minutes': serializers.FloatField(),
+                'total_minutes': serializers.FloatField(),
+                'price': serializers.DecimalField(max_digits=10, decimal_places=2),
+            }
+        )}
+    )
+    def post(self, request):
+        serializer = PricingSimulationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        day_minutes, night_minutes = split_day_night_minutes(data['start_time'], data['end_time'])
+        price = calculate_price_for_interval(data['start_time'], data['end_time'], data['comfort_level'])
 
         return Response({
-            'base_fare': PRICING_CONFIG['BASE_FARE'],
-            'price_per_min_basic': PRICING_CONFIG['PRICE_PER_MIN_BASIC'],
-            'price_per_min_luxury': PRICING_CONFIG['PRICE_PER_MIN_LUXURY'],
+            'comfort_level': data['comfort_level'],
+            'start_time': data['start_time'],
+            'end_time': data['end_time'],
+            'day_minutes': float(day_minutes),
+            'night_minutes': float(night_minutes),
+            'total_minutes': float(day_minutes + night_minutes),
+            'price': price,
         }, status=status.HTTP_200_OK)

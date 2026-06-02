@@ -83,4 +83,5 @@ urlpatterns = [
     # Health Check
     path('check/', views.CheckHealthView.as_view(), name='check_health'),
     path('pricing/', views.PricingConfigView.as_view(), name= 'pricing'),
+    path('pricing/simulate/', views.PricingSimulationView.as_view(), name='pricing_simulate'),
 ]

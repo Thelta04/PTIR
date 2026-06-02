@@ -2,13 +2,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Menu, Search, Bell, LogOut, Users, Car, CalendarClock, BarChart3, X, User, MapPin, Trash2, ShieldCheck, ShieldAlert, Edit2, Plus, Info, Star
+  Menu, Search, Bell, LogOut, Users, Car, CalendarClock, BarChart3, X, User, MapPin, Trash2, ShieldCheck, ShieldAlert, Edit2, Plus, Info, Star, Settings
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import {
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift,
   listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
-  deleteTaxi, updateDriver, getReports, updateClient, updateTaxi, updateShift
+  deleteTaxi, updateDriver, getReports, updateClient, updateTaxi, updateShift,
+  getPricing, updatePricing, simulatePricing
 } from '../../api/client';
 import './manager.css';
 import { EuropeanDateInput, EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
@@ -28,6 +29,7 @@ const sidebarItems = [
   { key: 'shifts', label: 'Turnos', icon: CalendarClock },
   { key: 'trips', label: 'Viagens', icon: MapPin },
   { key: 'reports', label: 'Relatórios', icon: BarChart3 },
+  { key: 'settings', label: 'Configurações', icon: Settings },
 ];
 
 const taxiModelsByBrand = {
@@ -72,6 +74,9 @@ export default function ManagerDashboard() {
   const [deleteError, setDeleteError] = useState('');
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [simulationResult, setSimulationResult] = useState(null);
 
   // Delete State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -88,13 +93,25 @@ export default function ManagerDashboard() {
       drivers: listDrivers,
       taxis: listTaxis,
       shifts: listAllShifts,
-      trips: listTrips
+      trips: listTrips,
+      settings: getPricing
     };
 
     if (handlers[activeSection]) {
       handlers[activeSection]()
         .then(res => {
           setData(d => ({ ...d, [activeSection]: res.data }));
+          if (activeSection === 'settings') {
+            setFormData(fd => ({
+              ...fd,
+              price_per_min_basic: res.data.price_per_min_basic,
+              price_per_min_luxury: res.data.price_per_min_luxury,
+              night_surcharge_percent: res.data.night_surcharge_percent,
+              simulation_comfort_level: fd.simulation_comfort_level || 'basic',
+              simulation_start_time: fd.simulation_start_time || nowDateTimeInput(),
+              simulation_end_time: fd.simulation_end_time || plusHoursDateTimeInput(1),
+            }));
+          }
           setApiStatus(`Dados de ${activeSection} atualizados`);
           setTimeout(() => setApiStatus(''), 4000);
         })
@@ -193,6 +210,11 @@ export default function ManagerDashboard() {
         comfort_level: 'Conforto',
         engine_type: 'Motor',
         num_passengers: 'Nº Passageiros',
+        price_per_min_basic: 'Preço/min básico',
+        price_per_min_luxury: 'Preço/min luxo',
+        night_surcharge_percent: 'Acréscimo noturno',
+        start_time: 'Início',
+        end_time: 'Fim',
       };
 
       return Object.entries(err).map(([key, value]) => {
@@ -202,6 +224,46 @@ export default function ManagerDashboard() {
       }).join('\n');
     }
     return 'Erro inesperado';
+  };
+
+  const handleSavePricing = (e) => {
+    e.preventDefault();
+    setSettingsLoading(true);
+    setSettingsError('');
+
+    const payload = {
+      price_per_min_basic: formData.price_per_min_basic,
+      price_per_min_luxury: formData.price_per_min_luxury,
+      night_surcharge_percent: formData.night_surcharge_percent,
+    };
+
+    updatePricing(payload)
+      .then(res => {
+        setData(d => ({ ...d, settings: res.data }));
+        setFormData(fd => ({ ...fd, ...res.data }));
+        setApiStatus('Configurações atualizadas com sucesso');
+        setTimeout(() => setApiStatus(''), 4000);
+      })
+      .catch(err => setSettingsError(formatError(err.response?.data) || err.message))
+      .finally(() => setSettingsLoading(false));
+  };
+
+  const handleSimulatePricing = (e) => {
+    e.preventDefault();
+    setSettingsLoading(true);
+    setSettingsError('');
+    setSimulationResult(null);
+
+    const payload = {
+      comfort_level: formData.simulation_comfort_level,
+      start_time: formData.simulation_start_time,
+      end_time: formData.simulation_end_time,
+    };
+
+    simulatePricing(payload)
+      .then(res => setSimulationResult(res.data))
+      .catch(err => setSettingsError(formatError(err.response?.data) || err.message))
+      .finally(() => setSettingsLoading(false));
   };
 
   const handleSubmit = (e) => {
@@ -774,6 +836,76 @@ export default function ManagerDashboard() {
                       })}
                   </tbody>
                 </table>
+              </div>
+            ) : activeSection === 'settings' ? (
+              <div className="reports-container">
+                <div className="data-table-container">
+                  <div style={{ padding: '20px 24px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Settings size={20} color="var(--gold-600)" />
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Preços do Serviço</h3>
+                  </div>
+                  <form onSubmit={handleSavePricing} style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'end' }}>
+                    <div className="auth-field">
+                      <label className="auth-label">Preço/min básico (€)</label>
+                      <input className="auth-input" name="price_per_min_basic" type="number" step="0.01" min="0.01" required value={formData.price_per_min_basic || ''} onChange={handleInputChange} />
+                    </div>
+                    <div className="auth-field">
+                      <label className="auth-label">Preço/min luxo (€)</label>
+                      <input className="auth-input" name="price_per_min_luxury" type="number" step="0.01" min="0.01" required value={formData.price_per_min_luxury || ''} onChange={handleInputChange} />
+                    </div>
+                    <div className="auth-field">
+                      <label className="auth-label">Acréscimo noturno (%)</label>
+                      <input className="auth-input" name="night_surcharge_percent" type="number" step="0.01" min="0" required value={formData.night_surcharge_percent || ''} onChange={handleInputChange} />
+                    </div>
+                    <button type="submit" className="fetch-btn" disabled={settingsLoading}>{settingsLoading ? 'A guardar...' : 'Guardar Configurações'}</button>
+                  </form>
+                </div>
+
+                <div className="data-table-container">
+                  <div style={{ padding: '20px 24px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Info size={20} color="var(--gold-600)" />
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Simular Viagem</h3>
+                  </div>
+                  <form onSubmit={handleSimulatePricing} style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'end' }}>
+                    <div className="auth-field">
+                      <label className="auth-label">Nível de conforto</label>
+                      <select className="auth-input" name="simulation_comfort_level" required value={formData.simulation_comfort_level || 'basic'} onChange={handleInputChange}>
+                        <option value="basic">Básico</option>
+                        <option value="luxury">Luxo</option>
+                      </select>
+                    </div>
+                    <div className="auth-field">
+                      <label className="auth-label">Início</label>
+                      <EuropeanDateTimeInput
+                        className="auth-input"
+                        value={formData.simulation_start_time || ''}
+                        onChange={(value) => setFormData(fd => ({ ...fd, simulation_start_time: value }))}
+                      />
+                    </div>
+                    <div className="auth-field">
+                      <label className="auth-label">Fim</label>
+                      <EuropeanDateTimeInput
+                        className="auth-input"
+                        value={formData.simulation_end_time || ''}
+                        onChange={(value) => setFormData(fd => ({ ...fd, simulation_end_time: value }))}
+                      />
+                    </div>
+                    <button type="submit" className="fetch-btn" disabled={settingsLoading}>{settingsLoading ? 'A calcular...' : 'Calcular Custo'}</button>
+                  </form>
+                  {(settingsError || simulationResult) && (
+                    <div style={{ padding: '0 24px 24px' }}>
+                      {settingsError && <div style={{ color: 'red', fontSize: '14px', background: '#fee2e2', padding: '10px', borderRadius: '8px', whiteSpace: 'pre-line' }}>{settingsError}</div>}
+                      {simulationResult && (
+                        <div className="reports-grid" style={{ marginBottom: 0 }}>
+                          <div className="stat-card"><div className="stat-label">Minutos Diurnos</div><div className="stat-value">{simulationResult.day_minutes}</div></div>
+                          <div className="stat-card"><div className="stat-label">Minutos Noturnos</div><div className="stat-value">{simulationResult.night_minutes}</div></div>
+                          <div className="stat-card"><div className="stat-label">Total</div><div className="stat-value">{simulationResult.total_minutes} min</div></div>
+                          <div className="stat-card"><div className="stat-label">Custo</div><div className="stat-value">€{Number(simulationResult.price).toFixed(2)}</div></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="reports-container">
