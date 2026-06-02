@@ -125,7 +125,7 @@ ALTER TABLE taxi
     ADD CONSTRAINT chk_taxi_brand_model_not_empty CHECK (brand <> '' AND model <> ''),
     ADD CONSTRAINT chk_taxi_mileage CHECK (mileage >= 0),
     ADD CONSTRAINT chk_taxi_comfort_level CHECK (comfort_level IN ('basic', 'luxury')), -- RIA 16
-    ADD CONSTRAINT chk_taxi_num_passengers CHECK (num_passengers BETWEEN 1 AND 4); -- RIA 18
+    ADD CONSTRAINT chk_taxi_num_passengers CHECK (num_passengers BETWEEN 1 AND 6); -- RIA 18
 
 ALTER TABLE time_interval
     ADD CONSTRAINT chk_interval_time CHECK (start_time < end_time); -- RIA 1

@@ -104,7 +104,7 @@ class TaxiUpdateSerializer(serializers.ModelSerializer):
     model = serializers.CharField(max_length=40, required=False)
     comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'], required=False)
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'], required=False)
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4, required=False)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6, required=False)
 
     class Meta:
         model = Taxi
@@ -214,7 +214,7 @@ class CreateTaxiSerializer(serializers.ModelSerializer):
     model = serializers.CharField(max_length=40)
     comfort_level = serializers.ChoiceField(choices=['basic', 'luxury'])
     engine_type = serializers.ChoiceField(choices=['combustion', 'electric'])
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6)
 
     def validate(self, data):
         if not data.get('brand') or not data.get('model'):
@@ -232,7 +232,7 @@ class TripCreateSerializer(serializers.Serializer):
     originCoords   = serializers.CharField(max_length=255, required=False, allow_blank=True)
     destCoords     = serializers.CharField(max_length=255, required=False, allow_blank=True)
     comfort_level  = serializers.ChoiceField(choices=['basic', 'luxury'])
-    num_passengers = serializers.IntegerField(min_value=1, max_value=4)
+    num_passengers = serializers.IntegerField(min_value=1, max_value=6)
     scheduled_time = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate(self, data):
