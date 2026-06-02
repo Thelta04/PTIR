@@ -11,6 +11,14 @@ import {
   deleteTaxi, updateTaxiMileage, updateDriver, getReports
 } from '../../api/client';
 import './manager.css';
+import { EuropeanDateInput, EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
+import {
+  formatDateTimePT,
+  dateInputToLocalDate,
+  todayDateInput,
+  nowDateTimeInput,
+  plusHoursDateTimeInput,
+} from '../../utils/dateFormat';
 
 const sidebarItems = [
   { key: 'clients', label: 'Clientes', icon: User },
@@ -94,6 +102,35 @@ export default function ManagerDashboard() {
   const handleLogout = () => {
     logout();
     navigate('/login-manager');
+  };
+
+  const openCreateModal = () => {
+    setFormMode('create');
+    setSubmitError('');
+
+    if (activeSection === 'clients') {
+      setFormData({
+        nif: '',
+        name: '',
+        email: '',
+        gender: '',
+        password: '',
+      });
+    } else if (activeSection === 'shifts') {
+      setFormData({
+        start_time: nowDateTimeInput(),
+        end_time: plusHoursDateTimeInput(8),
+      });
+    } else if (activeSection === 'reports') {
+      setFormData({
+        reports_start: todayDateInput(),
+        reports_end: todayDateInput(),
+      });
+    } else {
+      setFormData({});
+    }
+
+    setIsModalOpen(true);
   };
 
   const handleInputChange = (e) => {
@@ -308,8 +345,27 @@ export default function ManagerDashboard() {
               {data.taxis.map(t => <option key={t.license_plate} value={t.license_plate}>{t.brand} {t.model} ({t.license_plate})</option>)}
             </select>
           </div>
-          <div className="auth-field"><label className="auth-label">Início</label><input className="auth-input" type="datetime-local" name="start_time" required onChange={handleInputChange} value={formData.start_time || ""} /></div>
-          <div className="auth-field"><label className="auth-label">Fim</label><input className="auth-input" type="datetime-local" name="end_time" required onChange={handleInputChange} value={formData.end_time || ""} /></div>
+          <div className="auth-field">
+            <label className="auth-label">Início</label>
+            <EuropeanDateTimeInput
+              className="auth-input"
+              name="start_time"
+              required
+              onChange={(value) => setFormData(prev => ({ ...prev, start_time: value }))}
+              value={formData.start_time || ''}
+            />
+          </div>
+
+          <div className="auth-field">
+            <label className="auth-label">Fim</label>
+            <EuropeanDateTimeInput
+              className="auth-input"
+              name="end_time"
+              required
+              onChange={(value) => setFormData(prev => ({ ...prev, end_time: value }))}
+              value={formData.end_time || ''}
+            />
+          </div>
         </div>
       );
     }
@@ -395,7 +451,7 @@ export default function ManagerDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <h1 className="section-title">{sidebarItems.find(i => i.key === activeSection)?.label}</h1>
                 {['clients', 'drivers', 'taxis', 'shifts'].includes(activeSection) && (
-                  <button onClick={() => { setFormMode('create'); setFormData(activeSection === 'clients' ? { nif: '', name: '', email: '', gender: '', password: '' } : {}); setSubmitError(''); setIsModalOpen(true); }} className="fetch-btn" style={{ height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                  <button onClick={openCreateModal} className="fetch-btn" style={{ height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
                     <Plus size={16} /> Novo Registo
                   </button>
                 )}
@@ -485,7 +541,21 @@ export default function ManagerDashboard() {
                     {data.shifts.map((s, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 700, color: '#999' }}>#{s.id}</td><td style={{ fontWeight: 600 }}>{s.driver_name}</td><td>{s.taxi_plate}</td>
-                        <td><div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}><CalendarClock size={14} color="#999" />{s.scheduled_interval?.start_time ? new Date(s.scheduled_interval.start_time).toLocaleString('pt-PT') : '-'}</div></td>
+                        <td>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '0.9rem',
+                            }}
+                          >
+                            <CalendarClock size={14} color="#999" />
+                            {formatDateTimePT(s.scheduled_interval?.start_time)}
+                            {' → '}
+                            {formatDateTimePT(s.scheduled_interval?.end_time)}
+                          </div>
+                        </td>
                         <td><button onClick={() => { setItemToDelete({ id: s.id, type: 'shift' }); setIsDeleteModalOpen(true); }} className="action-btn action-btn--delete" style={{ margin: '0 auto' }}><Trash2 size={16} /></button></td>
                       </tr>
                     ))}
@@ -511,12 +581,40 @@ export default function ManagerDashboard() {
             ) : (
               <div className="reports-container">
                 <div className="reports-filter-card">
-                  <div className="filter-group"><label className="filter-label">Data Início</label><input type="date" className="filter-input" value={formData.reports_start || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_start: e.target.value }))} /></div>
-                  <div className="filter-group"><label className="filter-label">Data Fim</label><input type="date" className="filter-input" value={formData.reports_end || ''} onChange={(e) => setFormData(fd => ({ ...fd, reports_end: e.target.value }))} /></div>
+                  <div className="filter-group">
+                    <label className="filter-label">Data Início</label>
+                    <EuropeanDateInput
+                      className="filter-input"
+                      value={formData.reports_start || ''}
+                      onChange={(value) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_start: value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label className="filter-label">Data Fim</label>
+                    <EuropeanDateInput
+                      className="filter-input"
+                      value={formData.reports_end || ''}
+                      onChange={(value) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_end: value,
+                        }))
+                      }
+                    />
+                  </div>
                   <button onClick={() => {
                     const s = formData.reports_start; const e = formData.reports_end;
                     if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
-                    if (new Date(s) > new Date(e)) { setReportsError('Data início deve ser anterior ao fim.'); return; }
+                    if (dateInputToLocalDate(s) > dateInputToLocalDate(e)) {
+                      setReportsError('Data início deve ser anterior ao fim.');
+                      return;
+                    }
                     setReportsLoading(true); setReportsError('');
                     getReports(s, e).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
                   }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>

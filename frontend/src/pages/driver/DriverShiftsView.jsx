@@ -4,14 +4,7 @@ import { listShifts, startShift, endShift, deleteShift } from '../../api/client'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Clock, Trash2, Filter } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
-
-function formatDt(iso) {
-  if (!iso) return '-';
-  return new Date(iso).toLocaleString('pt-PT', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+import { formatDateTimePT } from '../../utils/dateFormat';
 
 export default function DriverShiftsView() {
   const { user } = useAuth();
@@ -211,9 +204,9 @@ export default function DriverShiftsView() {
 
               <div className="shift-card-body">
                 <p><strong>Táxi:</strong> {s.taxi_plate}</p>
-                <p><strong>Agendado:</strong> {formatDt(s.scheduled_interval?.start_time)} → {formatDt(s.scheduled_interval?.end_time)}</p>
+                <p><strong>Agendado:</strong> {formatDateTimePT(s.scheduled_interval?.start_time)} → {formatDateTimePT(s.scheduled_interval?.end_time)}</p>
                 {started && (
-                  <p><strong>Real:</strong> {formatDt(s.real_interval?.start_time)} → {formatDt(s.real_interval?.end_time)}</p>
+                  <p><strong>Real:</strong> {formatDateTimePT(s.real_interval?.start_time)} → {formatDateTimePT(s.real_interval?.end_time)}</p>
                 )}
               </div>
 
@@ -265,4 +258,3 @@ export default function DriverShiftsView() {
     </div>
   );
 }
-
