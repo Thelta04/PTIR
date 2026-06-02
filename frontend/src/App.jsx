@@ -67,25 +67,25 @@ function App() {
           } />
 
           <Route path="/client" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientMain />
             </ProtectedRoute>
           } />
 
           <Route path="/client/trip" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientTrip />
             </ProtectedRoute>
           } />
 
           <Route path="/client/history" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientHistory />
             </ProtectedRoute>
           } />
 
           <Route path="/client/scheduled" element={
-            <ProtectedRoute allowedRoles={['CLIENT']}>
+            <ProtectedRoute allowedRoles={['CLIENT', 'DRIVER']}>
               <ClientScheduled />
             </ProtectedRoute>
           } />
