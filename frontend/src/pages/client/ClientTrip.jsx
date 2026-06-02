@@ -680,9 +680,6 @@ export default function ClientTrip() {
           {renderStatusPanel()}
         </section>
 
-        <button className="gps-btn" title="Use current location">
-          <Target size={24} color="#000" />
-        </button>
       </main>
 
       <AnimatePresence>
@@ -716,10 +713,7 @@ export default function ClientTrip() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Pedir Viagem
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservas
-                </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
               </nav>
@@ -756,4 +750,3 @@ export default function ClientTrip() {
     </div>
   );
 }
-

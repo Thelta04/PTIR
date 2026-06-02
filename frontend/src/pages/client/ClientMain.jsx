@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { createTrip, listTrips, clientAcceptTrip, cancelTrip, getPricing, getRouteGeometry, listRatings } from '../../api/client';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, Bell, Search, MapPin, ChevronLeft, Target, Plus, Minus } from 'lucide-react';
+import { Menu, Bell, Search, MapPin, ChevronLeft, Plus, Minus } from 'lucide-react';
 import MapaPedido from '../../components/MapaPedido';
 import { getAddressFromCoords, getCoordsFromAddress } from '../../components/geocoding';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -804,13 +804,6 @@ export default function ClientMain() {
           {renderSearchPanel()}
         </section>
 
-        <button
-          className="gps-btn"
-          onClick={handleUseCurrentLocation}
-          title="Use current location"
-        >
-          <Target size={24} color="#000" />
-        </button>
       </main>
 
       <AnimatePresence>
@@ -844,10 +837,7 @@ export default function ClientMain() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Pedir Viagem
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Reservas
-                </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
               </nav>
