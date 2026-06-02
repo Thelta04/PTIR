@@ -2221,9 +2221,20 @@ class RefuelListCreateView(views.APIView):
         serializer = RefuelSerializer(data=request.data)
         if serializer.is_valid():
             from django.utils import timezone
-            # A refuel is instantaneous, so start and end time are the current moment
-            interval = TimeInterval.objects.create(start_time=timezone.now(), end_time=timezone.now())
-            serializer.save(interval=interval)
+            from datetime import timedelta
+            
+            duration = serializer.validated_data.pop('duration', 0)
+            end_time = timezone.now()
+            start_time = end_time - timedelta(minutes=duration) if duration else end_time
+            interval = TimeInterval.objects.create(start_time=start_time, end_time=end_time)
+            
+            refuel = serializer.save(interval=interval)
+            
+            taxi = refuel.shift.taxi
+            if refuel.initial_mileage and refuel.initial_mileage > taxi.mileage:
+                taxi.mileage = refuel.initial_mileage
+                taxi.save()
+                
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

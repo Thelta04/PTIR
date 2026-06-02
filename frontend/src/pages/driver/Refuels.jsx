@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
-import { createRefuel, listShifts } from '../../api/client';
+import { createRefuel, listShifts, getTaxi } from '../../api/client';
 import './refuels.css';
 
 export default function Refuels() {
@@ -8,8 +8,10 @@ export default function Refuels() {
   const [price, setPrice] = useState('');
   const [mileage, setMileage] = useState('');
   const [unit, setUnit] = useState('L');
+  const [duration, setDuration] = useState('');
   const [showPopup, setShowPopup] = useState(false);
   const [activeShift, setActiveShift] = useState(null);
+  const [taxiInfo, setTaxiInfo] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -20,9 +22,15 @@ export default function Refuels() {
         try {
           const { data: shifts } = await listShifts(user.id);
           const active = shifts.find(s => s.real_interval && !s.real_interval.end_time);
-          if (active) setActiveShift(active);
+          if (active) {
+            setActiveShift(active);
+            const { data: taxi } = await getTaxi(active.taxi_plate);
+            setTaxiInfo(taxi);
+            setMileage(taxi.mileage.toString());
+            setUnit(taxi.engine_type === 'electric' ? 'kWh' : 'L');
+          }
         } catch (err) {
-          console.error("Failed to fetch shift", err);
+          console.error("Failed to fetch shift/taxi", err);
         }
       }
     };
@@ -33,6 +41,7 @@ export default function Refuels() {
     const amountNumber = Number(amount);
     const priceNumber = Number(price);
     const mileageNumber = Number(mileage);
+    const durationNumber = Number(duration);
 
     if (!amount || !price || !mileage) {
       alert('Preenche a quantidade, o valor pago e a quilometragem atual.');
@@ -43,7 +52,17 @@ export default function Refuels() {
       alert('A quantidade, o valor pago e a quilometragem têm de ser válidos.');
       return;
     }
-    
+
+    if (taxiInfo && mileageNumber < taxiInfo.mileage) {
+      alert(`A quilometragem não pode ser inferior à atual (${taxiInfo.mileage} km).`);
+      return;
+    }
+
+    if (taxiInfo && taxiInfo.engine_type === 'electric' && (!duration || durationNumber <= 0)) {
+      alert('Preenche a duração do carregamento (minutos).');
+      return;
+    }
+
     if (!activeShift) {
       alert('Tens de estar num turno ativo para registar um reabastecimento.');
       return;
@@ -59,10 +78,24 @@ export default function Refuels() {
         shift: activeShift.id
       };
       
+      if (taxiInfo && taxiInfo.engine_type === 'electric') {
+        payload.duration = durationNumber;
+      }
+
       await createRefuel(payload);
       setShowPopup(true);
+      // Update local taxiInfo mileage to avoid repeated validation errors
+      setTaxiInfo({ ...taxiInfo, mileage: mileageNumber });
     } catch (err) {
       console.error("Refuel error:", err);
+      // Handle possible backend validation errors nicely
+      if (err.response && err.response.data) {
+        const errorMsg = Object.values(err.response.data).flat()[0];
+        if (typeof errorMsg === 'string') {
+          alert(`Erro: ${errorMsg}`);
+          return;
+        }
+      }
       alert('Ocorreu um erro ao registar o reabastecimento.');
     } finally {
       setLoading(false);
@@ -71,14 +104,17 @@ export default function Refuels() {
 
   return (
     <div className="refuel-page">
-      <main className="refuel-main">
-        <h1>Registar Reabastecimento ⛽</h1>
+      <div className="refuel-main">
+        <h1>Registar {taxiInfo?.engine_type === 'electric' ? 'Carregamento' : 'Reabastecimento'}</h1>
 
         <section className="refuel-card">
           <div className="refuel-inputs">
-            
+
             <div className="refuel-input-row">
-              <label>Quilometragem atual (km)</label>
+              <label>
+                Quilometragem atual (km)
+                {taxiInfo && <span className="refuel-current-kms"> (Atual: {taxiInfo.mileage} km)</span>}
+              </label>
               <div className="refuel-field-group">
                 <input
                   className="refuel-field"
@@ -97,7 +133,7 @@ export default function Refuels() {
             </div>
 
             <div className="refuel-input-row">
-              <label>Quantidade de combustível</label>
+              <label>Quantidade de {taxiInfo?.engine_type === 'electric' ? 'energia' : 'combustível'}</label>
               <div className="refuel-field-group">
                 <input
                   className="refuel-field"
@@ -111,14 +147,7 @@ export default function Refuels() {
                     if (value === '' || Number(value) >= 0) setAmount(value);
                   }}
                 />
-                <select
-                  className="refuel-unit"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                >
-                  <option value="L">L</option>
-                  <option value="kWh">kWh</option>
-                </select>
+                <span className="refuel-unit">{unit}</span>
               </div>
             </div>
 
@@ -140,6 +169,28 @@ export default function Refuels() {
                 <span className="refuel-currency">€</span>
               </div>
             </div>
+
+            {taxiInfo && taxiInfo.engine_type === 'electric' && (
+              <div className="refuel-input-row">
+                <label>Duração do carregamento</label>
+                <div className="refuel-field-group">
+                  <input
+                    className="refuel-field"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Ex: 30"
+                    value={duration}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || Number(value) >= 0) setDuration(value);
+                    }}
+                  />
+                  <span className="refuel-unit">min</span>
+                </div>
+              </div>
+            )}
+
           </div>
         </section>
 
@@ -149,8 +200,8 @@ export default function Refuels() {
             onClick={() => {
               setAmount('');
               setPrice('');
-              setMileage('');
-              setUnit('L');
+              setMileage(taxiInfo ? taxiInfo.mileage.toString() : '');
+              setDuration('');
             }}
             disabled={loading}
           >
@@ -161,7 +212,7 @@ export default function Refuels() {
             {loading ? 'A registar...' : 'Confirmar'}
           </button>
         </div>
-      </main>
+      </div>
 
       {showPopup && (
         <div className="refuel-popup-overlay">
@@ -174,10 +225,10 @@ export default function Refuels() {
               <Check size={42} />
             </div>
 
-            <h2>Refuel Successful</h2>
+            <h2>Registado com sucesso</h2>
 
             <p className="popup-text">
-              O reabastecimento foi registado com sucesso.
+              O registo foi efetuado com sucesso.
             </p>
 
             <div className="popup-info">
@@ -194,6 +245,16 @@ export default function Refuels() {
               </strong>
             </div>
 
+            {taxiInfo && taxiInfo.engine_type === 'electric' && (
+              <>
+                <div className="popup-divider" />
+                <div className="popup-info">
+                  <span>Duração</span>
+                  <strong>{duration} min</strong>
+                </div>
+              </>
+            )}
+
             <div className="popup-divider" />
 
             <div className="popup-info">
@@ -207,8 +268,8 @@ export default function Refuels() {
                 setShowPopup(false);
                 setAmount('');
                 setPrice('');
-                setMileage('');
-                setUnit('L');
+                setMileage(taxiInfo ? taxiInfo.mileage.toString() : '');
+                setDuration('');
               }}
             >
               Fechar

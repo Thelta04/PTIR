@@ -93,7 +93,7 @@
   border: none;
   outline: none;
   cursor: pointer;
-  color: #fab005;
+  color: #000;
 }
 
 /* Actions */
@@ -126,7 +126,7 @@
 .refuel-submit {
   flex: 2;
   background: #fab005;
-  color: #fff;
+  color: #000;
   border: none;
   box-shadow: 0 4px 14px 0 rgba(250, 176, 5, 0.39);
 }

@@ -207,8 +207,9 @@ img {
 
 .user-name-container {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 4px;
 }
 
 .user-pfp-small {
@@ -325,7 +326,7 @@ img {
 }
 
 .dash-error {
-  color: var(--danger);
+  color: #b91c1c;
   font-size: 0.85rem;
   font-weight: 500;
 }

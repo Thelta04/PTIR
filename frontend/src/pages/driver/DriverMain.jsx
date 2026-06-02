@@ -53,29 +53,35 @@ export default function DriverMain() {
     <div className="driver-layout">
       {/* Top App Bar */}
       <header className="driver-header">
-        <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} />
+        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
+          <Menu size={24} aria-hidden="true" />
         </button>
-        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-          <span className="client-brand-name">TUXY</span>
+        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}>Motorista</span>
         </div>
         <div
           className="header-actions"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', gap: '4px' }}
         >
-          <span className="user-name-display">{user?.name?.split(' ')[0]}</span>
-          <img
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-            alt="Profile"
-            className="user-pfp-small"
-          />
+          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
+            <img
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+              alt="Profile"
+              className="user-pfp-small"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <span className="user-name-display" style={{ fontSize: '0.85rem', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="driver-main-content">
+      <main className="driver-main-content" tabIndex={0}>
         {renderContent()}
       </main>
 
@@ -90,8 +96,9 @@ export default function DriverMain() {
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.div
+            <motion.aside
               className="drawer-menu"
+              aria-label="Menu de Navegação"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -99,8 +106,8 @@ export default function DriverMain() {
             >
               <div className="drawer-header">
                 <span className="drawer-title">Menu</span>
-                <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} />
+                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
+                  <ChevronLeft size={24} aria-hidden="true" />
                 </button>
               </div>
 
@@ -136,7 +143,7 @@ export default function DriverMain() {
                   Terminar Sessão
                 </button>
               </div>
-            </motion.div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>

@@ -2,7 +2,9 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   width: 100%;
   height: 100%;
@@ -33,6 +35,7 @@ html, body, #root {
   align-items: center;
   margin-left: 20px;
   flex: 1;
+  align-items: flex-start;
 }
 
 .client-brand-name {
@@ -79,7 +82,7 @@ html, body, #root {
 .client-main-content {
   position: relative;
   width: 100%;
-  height: calc(100vh - 80px); 
+  height: calc(100vh - 80px);
 }
 
 .map-wrapper {
@@ -220,7 +223,8 @@ html, body, #root {
   color: #374151;
 }
 
-.searching-view, .waiting-view {
+.searching-view,
+.waiting-view {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -537,7 +541,7 @@ html, body, #root {
   height: 50px;
   border: none;
   border-radius: 10px;
-  background: #ef4444;
+  background: #b91c1c;
   color: #fff;
   font-weight: 600;
   cursor: pointer;
@@ -600,27 +604,32 @@ html, body, #root {
 }
 
 .history-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 12px;
   margin-bottom: 18px;
 }
 
 .history-stat {
-  min-height: 88px;
+  flex: 1;
+  min-height: 70px;
   border: 1px solid #f1cf58;
   border-radius: 8px;
   background: #fff;
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.history-stat-header {
+  display: flex;
   align-items: center;
+  gap: 6px;
 }
 
 .history-stat svg {
-  grid-row: 1 / 3;
   color: #b7791f;
 }
 
@@ -726,35 +735,44 @@ html, body, #root {
 
 .history-trip-details {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .history-trip-details div {
-  min-height: 62px;
+  min-height: auto;
   border: 1px solid #f3f4f6;
   border-radius: 8px;
-  padding: 10px;
+  padding: 6px 10px;
   background: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .history-trip-details span {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: #6b7280;
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .history-trip-details strong {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 5px;
   color: #111827;
   font-size: 0.95rem;
   line-height: 1.25;
   overflow-wrap: anywhere;
+  text-align: right;
 }
 
 @media (max-width: 800px) {
@@ -772,7 +790,7 @@ html, body, #root {
   }
 
   .history-stats {
-    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .history-route {
@@ -785,7 +803,7 @@ html, body, #root {
   }
 
   .history-trip-details {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -811,7 +829,8 @@ html, body, #root {
   right: 0;
   padding: 20px;
   z-index: 20;
-  pointer-events: none; /* Let clicks pass to map except for the panel */
+  pointer-events: none;
+  /* Let clicks pass to map except for the panel */
 }
 
 .status-panel {
@@ -858,9 +877,20 @@ html, body, #root {
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(241, 207, 88, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(241, 207, 88, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(241, 207, 88, 0); }
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(241, 207, 88, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 20px rgba(241, 207, 88, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(241, 207, 88, 0);
+  }
 }
 
 .driver-header-info {
@@ -942,7 +972,8 @@ html, body, #root {
   cursor: pointer;
 }
 
-.panel-btn--cancel, .panel-btn--refuse {
+.panel-btn--cancel,
+.panel-btn--refuse {
   background: #fee2e2;
   color: #ef4444;
 }
@@ -971,4 +1002,24 @@ html, body, #root {
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .history-stat {
+    padding: 8px;
+    column-gap: 6px;
+  }
+
+  .history-stat span {
+    font-size: 0.65rem;
+  }
+
+  .history-stat strong {
+    font-size: 0.95rem;
+  }
+
+  .history-stat svg {
+    width: 14px;
+    height: 14px;
+  }
 }

@@ -309,9 +309,9 @@ export default function DriverScheduleView({ onNavigate }) {
             <div className="schedule-row">
               <span className="schedule-label">Horas:</span>
               <label className="schedule-sublabel">De</label>
-              <input type="time" className="schedule-input" value={startTime} onChange={e => setStartTime(e.target.value)} required />
+              <input type="time" className="schedule-input" value={startTime} onChange={e => setStartTime(e.target.value)} aria-label="Hora de início" required />
               <label className="schedule-sublabel">Até:</label>
-              <input type="time" className="schedule-input" value={endTime} onChange={e => setEndTime(e.target.value)} required />
+              <input type="time" className="schedule-input" value={endTime} onChange={e => setEndTime(e.target.value)} aria-label="Hora de fim" required />
             </div>
           </div>
 
@@ -323,6 +323,7 @@ export default function DriverScheduleView({ onNavigate }) {
                   className="schedule-input"
                   value={startDate}
                   onChange={setStartDate}
+                  aria-label="Data"
                   required
                 />
               </div>
@@ -333,9 +334,9 @@ export default function DriverScheduleView({ onNavigate }) {
                 <div className="schedule-row">
                   <span className="schedule-label">Datas:</span>
                   <label className="schedule-sublabel">De</label>
-                  <EuropeanDateInput className="schedule-input" value={startDate} onChange={setStartDate} required />
+                  <EuropeanDateInput className="schedule-input" value={startDate} onChange={setStartDate} aria-label="Data de início" required />
                   <label className="schedule-sublabel">Até:</label>
-                  <EuropeanDateInput className="schedule-input" value={endDate} onChange={setEndDate} required />
+                  <EuropeanDateInput className="schedule-input" value={endDate} onChange={setEndDate} aria-label="Data de fim" required />
                 </div>
               </div>
 
@@ -382,7 +383,7 @@ export default function DriverScheduleView({ onNavigate }) {
               </button>
             </div>
             <div className="schedule-preferred-row" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-              <select className="schedule-input" style={{ flex: 1, minWidth: '120px' }} value={preferredTaxiPlate} onChange={e => setPreferredTaxiPlate(e.target.value)}>
+              <select className="schedule-input" aria-label="Atribuição rápida de carro" style={{ flex: 1, minWidth: '120px' }} value={preferredTaxiPlate} onChange={e => setPreferredTaxiPlate(e.target.value)}>
                 {allTaxis.map(t => (
                   <option key={t.license_plate} value={t.license_plate}>
                     {t.brand} {t.model} ({t.license_plate}) - {t.comfort_level === 'luxury' ? 'Luxo' : 'Básico'}
@@ -408,6 +409,7 @@ export default function DriverScheduleView({ onNavigate }) {
                   <div className="schedule-shift-taxi" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <select
                       className="schedule-input"
+                      aria-label="Selecionar carro para este turno"
                       value={shift.selectedTaxiPlate}
                       onChange={e => handleTaxiChange(shift.id, e.target.value)}
                       style={{ flex: 1 }}

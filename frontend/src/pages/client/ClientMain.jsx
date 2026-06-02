@@ -104,11 +104,11 @@ export default function ClientMain() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const originCoords = { 
-            lat: position.coords.latitude, 
-            lon: position.coords.longitude 
+          const originCoords = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
           };
-          
+
           getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
             setOrigem(originCoords);
             setOriginAddress(address);
@@ -660,26 +660,29 @@ export default function ClientMain() {
   return (
     <div className="client-layout">
       <header className="client-header">
-        <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} color="#000" />
+        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
+          <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
         <div className="client-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-          <span className="client-brand-name">TUXY</span>
+          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
         </div>
 
         <div
           className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', gap: '4px' }}
         >
-          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-            alt="Profile"
-            className="user-pfp-small"
-          />
+          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
+            <img
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+              alt="Profile"
+              className="user-pfp-small"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <span className="user-name-text" style={{ fontSize: '0.85rem', fontWeight: 'bold', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
         </div>
       </header>
 
@@ -709,8 +712,9 @@ export default function ClientMain() {
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.div
+            <motion.aside
               className="drawer-menu"
+              aria-label="Menu de Navegação"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -718,8 +722,8 @@ export default function ClientMain() {
             >
               <div className="drawer-header">
                 <span className="drawer-title">Menu</span>
-                <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} />
+                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
+                  <ChevronLeft size={24} aria-hidden="true" />
                 </button>
               </div>
 
@@ -740,7 +744,7 @@ export default function ClientMain() {
                   Logout
                 </button>
               </div>
-            </motion.div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>

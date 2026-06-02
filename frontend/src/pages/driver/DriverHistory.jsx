@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, Car, Clock, MapPin, Route, User, Wallet } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Car, ChevronDown, ChevronUp, Clock, MapPin, Route, User, Wallet, Users, Star, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { listTrips } from '../../api/client';
 import { formatDateTimePT } from '../../utils/dateFormat';
@@ -44,6 +44,37 @@ function formatComfort(value) {
   return value || '-';
 }
 
+const simplifyAddress = (addr) => {
+  if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
+  const parts = addr.split(',').map(p => p.trim());
+
+  const streetPrefixes = ['Rua', 'Avenida', 'Av.', 'Travessa', 'Tv.', 'Praça', 'Largo', 'Estrada', 'Azinhaga', 'Caminho', 'Beco', 'Calçada'];
+
+  let streetIdx = -1;
+  for (let i = 0; i < Math.min(parts.length, 3); i++) {
+    if (streetPrefixes.some(prefix => parts[i].toLowerCase().startsWith(prefix.toLowerCase()))) {
+      streetIdx = i;
+      break;
+    }
+  }
+
+  if (streetIdx === -1 && parts.length > 2 && /^\d/.test(parts[1])) {
+    streetIdx = 2;
+  }
+
+  if (streetIdx === -1) streetIdx = 0;
+
+  let street = parts[streetIdx];
+  if (streetIdx > 0 && /^\d/.test(parts[streetIdx - 1])) {
+    street = `${parts[streetIdx - 1]} ${street}`;
+  }
+
+  const freguesia = parts[streetIdx + 1] || '';
+  const concelho = parts[streetIdx + 2] || '';
+
+  return [street, freguesia, concelho].filter(Boolean).join(', ');
+};
+
 function formatEngine(value) {
   const mapping = {
     combustion: 'Combustão',
@@ -52,6 +83,106 @@ function formatEngine(value) {
   };
   return mapping[value] || value || '-';
 }
+
+const DriverTripCard = ({ trip }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <motion.article
+      className="driver-history-card"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <div
+        className="driver-history-card-header"
+        onClick={() => setExpanded(!expanded)}
+        style={{ cursor: 'pointer', marginBottom: expanded ? '14px' : '0' }}
+      >
+        <div>
+          <span className="driver-history-trip-id">Viagem #{trip.id}</span>
+          <h2>{formatDateTimePT(trip.interval?.start_time)}</h2>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className={`trip-badge ${STATUS_CLASSES[trip.status] || ''}`}>
+            {STATUS_LABELS[trip.status] || trip.status}
+          </span>
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="driver-history-route">
+              <div className="driver-history-route-point">
+                <MapPin size={16} />
+                <span title={trip.originAddress}>{simplifyAddress(trip.originAddress) || '-'}</span>
+              </div>
+              <ArrowRight size={18} className="driver-history-route-arrow" />
+              <div className="driver-history-route-point">
+                <MapPin size={16} />
+                <span title={trip.destAddress}>{simplifyAddress(trip.destAddress) || '-'}</span>
+              </div>
+            </div>
+
+            <div className="driver-history-details">
+              <div>
+                <span><User size={14} /> Cliente</span>
+                <strong>
+                  {trip.client_name || '-'}
+                </strong>
+              </div>
+              <div>
+                <span><Clock size={14} /> Início</span>
+                <strong>{formatDateTimePT(trip.interval?.start_time)}</strong>
+              </div>
+              <div>
+                <span><Clock size={14} /> Fim</span>
+                <strong>{formatDateTimePT(trip.interval?.end_time)}</strong>
+              </div>
+              <div>
+                <span><Star size={14} /> Serviço</span>
+                <strong>{formatComfort(trip.comfort_level)}</strong>
+              </div>
+              <div>
+                <span><Car size={14} /> Táxi</span>
+                <strong>
+                  {[trip.taxi_brand, trip.taxi_model, trip.taxi_plate].filter(Boolean).join(' ') || '-'}
+                </strong>
+              </div>
+              <div>
+                <span><Zap size={14} /> Motor</span>
+                <strong>{formatEngine(trip.taxi_engine)}</strong>
+              </div>
+              <div>
+                <span><Users size={14} /> Lugares do táxi</span>
+                <strong>{trip.taxi_passengers ?? '-'}</strong>
+              </div>
+              <div>
+                <span><Users size={14} /> Passageiros</span>
+                <strong>{trip.num_passengers ?? '-'}</strong>
+              </div>
+              <div>
+                <span><Route size={14} /> Distância</span>
+                <strong>{Number(trip.kilometers || 0).toFixed(2)} km</strong>
+              </div>
+              <div>
+                <span><Wallet size={14} /> Preço</span>
+                <strong>{formatPrice(trip.price)}</strong>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.article>
+  );
+};
 
 export default function DriverHistory() {
   const { user } = useAuth();
@@ -80,9 +211,11 @@ export default function DriverHistory() {
   const totals = useMemo(() => {
     return trips.reduce(
       (acc, trip) => {
-        acc.count += 1;
-        acc.kilometers += Number(trip.kilometers) || 0;
-        acc.earned += Number(trip.price) || 0;
+        if (trip.status === 'COMPLETED') {
+          acc.count += 1;
+          acc.kilometers += Number(trip.kilometers) || 0;
+          acc.earned += Number(trip.price) || 0;
+        }
         return acc;
       },
       { count: 0, kilometers: 0, earned: 0 }
@@ -100,18 +233,24 @@ export default function DriverHistory() {
 
       <section className="driver-history-stats">
         <div className="driver-history-stat">
-          <Clock size={18} />
-          <span>Viagens</span>
+          <div className="driver-history-stat-header">
+            <Clock size={18} />
+            <span>Viagens</span>
+          </div>
           <strong>{totals.count}</strong>
         </div>
         <div className="driver-history-stat">
-          <Route size={18} />
-          <span>Quilómetros</span>
+          <div className="driver-history-stat-header">
+            <Route size={18} />
+            <span>Quilómetros</span>
+          </div>
           <strong>{totals.kilometers.toFixed(1)} km</strong>
         </div>
         <div className="driver-history-stat">
-          <Wallet size={18} />
-          <span>Total</span>
+          <div className="driver-history-stat-header">
+            <Wallet size={18} />
+            <span>Total</span>
+          </div>
           <strong>{formatPrice(totals.earned)}</strong>
         </div>
       </section>
@@ -128,84 +267,7 @@ export default function DriverHistory() {
       {!loading && !error && trips.length > 0 && (
         <section className="driver-history-list">
           {trips.map((trip) => (
-            <motion.article
-              key={trip.id}
-              className="driver-history-card"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              <div className="driver-history-card-header">
-                <div>
-                  <span className="driver-history-trip-id">Viagem #{trip.id}</span>
-                  <h2>{formatDateTimePT(trip.interval?.start_time)}</h2>
-                </div>
-                <span className={`trip-badge ${STATUS_CLASSES[trip.status] || ''}`}>
-                  {STATUS_LABELS[trip.status] || trip.status}
-                </span>
-              </div>
-
-              <div className="driver-history-route">
-                <div className="driver-history-route-point">
-                  <MapPin size={16} />
-                  <span>{trip.originAddress || '-'}</span>
-                </div>
-                <ArrowRight size={18} className="driver-history-route-arrow" />
-                <div className="driver-history-route-point">
-                  <MapPin size={16} />
-                  <span>{trip.destAddress || '-'}</span>
-                </div>
-              </div>
-
-              <div className="driver-history-details">
-                <div>
-                  <span>Cliente</span>
-                  <strong>
-                    <User size={14} />
-                    {trip.client_name || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span>Início</span>
-                  <strong>{formatDateTimePT(trip.interval?.start_time)}</strong>
-                </div>
-                <div>
-                  <span>Fim</span>
-                  <strong>{formatDateTimePT(trip.interval?.end_time)}</strong>
-                </div>
-                <div>
-                  <span>Serviço</span>
-                  <strong>{formatComfort(trip.comfort_level)}</strong>
-                </div>
-                <div>
-                  <span>Passageiros</span>
-                  <strong>{trip.num_passengers ?? '-'}</strong>
-                </div>
-                <div>
-                  <span>Distância</span>
-                  <strong>{Number(trip.kilometers || 0).toFixed(2)} km</strong>
-                </div>
-                <div>
-                  <span>Preço</span>
-                  <strong>{formatPrice(trip.price)}</strong>
-                </div>
-                <div>
-                  <span>Táxi</span>
-                  <strong>
-                    <Car size={14} />
-                    {[trip.taxi_brand, trip.taxi_model, trip.taxi_plate].filter(Boolean).join(' ') || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span>Motor</span>
-                  <strong>{formatEngine(trip.taxi_engine)}</strong>
-                </div>
-                <div>
-                  <span>Lugares do táxi</span>
-                  <strong>{trip.taxi_passengers ?? '-'}</strong>
-                </div>
-              </div>
-            </motion.article>
+            <DriverTripCard key={trip.id} trip={trip} />
           ))}
         </section>
       )}

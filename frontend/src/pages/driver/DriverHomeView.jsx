@@ -34,7 +34,7 @@ const createIcon = (color) => new L.DivIcon({
 
 const carIcon = new L.DivIcon({
   html: `
-    <div style="
+    <div aria-label="Localização do táxi" title="Localização do táxi" style="
       background-color: #111827; 
       color: #f0c14b; 
       border-radius: 50%; 
@@ -610,9 +610,9 @@ export default function DriverHomeView({ onNavigate }) {
           <button
             onClick={handleEndShift}
             style={{
-              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#ef4444',
+              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#b91c1c',
               border: 'none',
-              padding: '4px 12px',
+              padding: '8px 16px',
               borderRadius: '4px',
               color: 'white',
               cursor: 'pointer',
@@ -627,7 +627,7 @@ export default function DriverHomeView({ onNavigate }) {
           </button>
         </div>
       ) : (
-        <div className="shift-status-bar" style={{ backgroundColor: '#ef4444', justifyContent: 'space-between', display: 'flex', alignItems: 'center' }}>
+        <div className="shift-status-bar" style={{ backgroundColor: '#b91c1c', color: 'white', justifyContent: 'space-between', display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Clock size={18} />
             <span>Não está num turno</span>
@@ -635,11 +635,11 @@ export default function DriverHomeView({ onNavigate }) {
           <button
             onClick={() => onNavigate && onNavigate('shifts')}
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'white',
               border: 'none',
-              padding: '4px 12px',
+              padding: '6px 12px',
               borderRadius: '4px',
-              color: 'white',
+              color: '#b91c1c',
               cursor: 'pointer',
               fontWeight: 'bold'
             }}
