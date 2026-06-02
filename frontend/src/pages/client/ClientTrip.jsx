@@ -702,8 +702,8 @@ export default function ClientTrip() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Pedir Viagem
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
+                  Agendar Viagens
                 </button>
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
