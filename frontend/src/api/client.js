@@ -148,6 +148,7 @@ export const createTrip = (data) => api.post('trip/create/', data);
 export const acceptTrip = (id, driverId, shiftId) =>
   api.patch(`trip/${id}/accept/`, { driver_id: driverId, shift_id: shiftId });
 export const clientAcceptTrip = (id) => api.patch(`trip/${id}/client-accept/`);
+export const clientRejectTrip = (id) => api.patch(`trip/${id}/client-reject/`);
 export const pickupTrip = (id) => api.patch(`trip/${id}/pickup/`);
 export const completeTrip = (id) => api.patch(`trip/${id}/complete/`);
 export const emitInvoice = (id) => api.patch(`trip/${id}/emit-invoice/`);

@@ -1048,6 +1048,9 @@ class TripListView(views.APIView):
                     else:
                         trip._distance = float('inf')
                 
+                # Filter trips within 20km range
+                trips_list = [trip for trip in trips_list if trip._distance <= 20]
+
                 # Sort the list by calculated distance
                 trips_list.sort(key=lambda t: t._distance)
             except ValueError:
@@ -1560,6 +1563,36 @@ class TripClientAcceptView(views.APIView):
         trip.price = calculate_price(duration_minutes, trip.comfort_level, timezone.now())
 
         trip.status = 'CLIENT_ACCEPTED'
+        trip.save()
+
+        return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)
+
+class TripClientRejectView(views.APIView):
+    @extend_schema(
+        summary="Reject a driver (Client)",
+        description="Client rejects the assigned driver. Trip goes back to PENDING.",
+        request=None,
+        responses={200: TripListSerializer}
+    )
+    def patch(self, request, id):
+        try:
+            trip = Trip.objects.select_related(
+                'client__user',
+                'shift__driver__user',
+                'shift__taxi',
+                'interval'
+            ).get(id=id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if trip.status != 'DRIVER_ACCEPTED':
+            return Response(
+                {"error": f"Trip cannot be rejected. Current status: {trip.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        trip.status = 'PENDING'
+        trip.shift = None
         trip.save()
 
         return Response(TripListSerializer(trip).data, status=status.HTTP_200_OK)

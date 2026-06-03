@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X, MapPin, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, getTripDriverLocation, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, clientRejectTrip, getRouteGeometry, getTripDriverLocation, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -141,7 +141,9 @@ export default function ClientTrip() {
 
           if (updatedTrip) {
             setActiveTrip(updatedTrip);
-            if (updatedTrip.status === 'DRIVER_ACCEPTED') {
+            if (updatedTrip.status === 'PENDING') {
+              setStatus('searching');
+            } else if (updatedTrip.status === 'DRIVER_ACCEPTED') {
               setStatus('accepted');
             } else if (updatedTrip.status === 'CLIENT_ACCEPTED') {
               setStatus('waiting_pickup');
@@ -217,14 +219,19 @@ export default function ClientTrip() {
         isSearching ? 'Cancelar Pedido?' : 'Recusar Motorista?',
         isSearching 
           ? 'Tem a certeza que deseja cancelar o seu pedido de viagem?' 
-          : 'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
+          : 'Tem a certeza que deseja recusar este motorista? Vamos procurar outro motorista para si.',
         async () => {
           try {
-            await cancelTrip(tripId);
-            navigate('/client');
+            if (isSearching) {
+              await cancelTrip(tripId);
+              navigate('/client');
+            } else {
+              await clientRejectTrip(tripId);
+              setStatus('searching');
+            }
           } catch (error) {
-            console.error("Error canceling trip:", error);
-            alert("Erro ao cancelar viagem.");
+            console.error("Error canceling/rejecting trip:", error);
+            alert("Erro ao processar o pedido.");
           }
         }
       );
