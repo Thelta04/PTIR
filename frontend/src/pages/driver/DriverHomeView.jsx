@@ -22,7 +22,6 @@ import {
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
 import { decodePolyline } from '../../utils/map';
-import { playNotificationSound } from '../../utils/notificationSound';
 import 'leaflet/dist/leaflet.css';
 
 // Custom icons using standard markers or SVG
@@ -130,6 +129,36 @@ const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
   }, [activeTrip?.status, routeCoords, map]);
 
   return null;
+};
+
+const playNewTripAlert = () => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const audioContext = new AudioContext();
+    const playTone = (frequency, delay) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + delay);
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + delay + 0.22);
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(audioContext.currentTime + delay);
+      oscillator.stop(audioContext.currentTime + delay + 0.24);
+    };
+
+    playTone(880, 0);
+    playTone(1175, 0.26);
+    setTimeout(() => audioContext.close(), 700);
+  } catch (err) {
+    console.error('Error playing new trip alert:', err);
+  }
 };
 
 export default function DriverHomeView({ onNavigate }) {
@@ -268,7 +297,6 @@ export default function DriverHomeView({ onNavigate }) {
 
   const [toastMsg, setToastMsg] = useState('');
   const showToast = (msg) => {
-    playNotificationSound();
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 4000);
   };
@@ -342,7 +370,7 @@ export default function DriverHomeView({ onNavigate }) {
         } else if (myActive.status === 'PAID') {
           showDriverTripToast(
             `client-paid-${myActive.id}`,
-            'Pagamento recebido. Já pode emitir a fatura.'
+            'O cliente efetuou o pagamento. Já pode emitir a fatura.'
           );
         }
         setActiveTrip(myActive);
@@ -360,7 +388,7 @@ export default function DriverHomeView({ onNavigate }) {
         const hasNewPendingTrip = pending.some((trip) => !knownPendingTripIdsRef.current.has(trip.id));
 
         if (hasLoadedPendingTripsRef.current && hasNewPendingTrip) {
-          showToast('Novo pedido de viagem recebido.');
+          playNewTripAlert();
         }
 
         knownPendingTripIdsRef.current = pendingIds;
@@ -459,10 +487,10 @@ export default function DriverHomeView({ onNavigate }) {
       'Aceitar Viagem?',
       <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-          <img
-            src={`/PFPs/${trip.client_pfp || 1}.jpg`}
-            alt={trip.client_name}
-            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }}
+          <img 
+            src={`/PFPs/${trip.client_pfp || 1}.jpg`} 
+            alt={trip.client_name} 
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }} 
           />
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#1f2937' }}>{trip.client_name}</div>
@@ -828,7 +856,7 @@ export default function DriverHomeView({ onNavigate }) {
           variants={sheetVariants}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         >
-          <div
+          <div 
             onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}
             style={{ cursor: 'pointer' }}
           >
