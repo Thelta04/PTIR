@@ -11,6 +11,7 @@ import ProfileModal from '../../components/ProfileModal';
 import SharedHeader from '../../components/SharedHeader';
 import SharedDrawer from '../../components/SharedDrawer';
 import { calculateEstimatedPrice } from '../../utils/pricing';
+import { calculateDistance } from '../../utils/map';
 import './client.css';
 import '../../components/map-background.css';
 
@@ -38,6 +39,8 @@ export default function ClientMain() {
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
   const [selectingFor, setSelectingFor] = useState(null);
+
+  const [userLocation, setUserLocation] = useState(null);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [driverRating, setDriverRating] = useState('N/A');
@@ -151,6 +154,7 @@ export default function ClientMain() {
             lat: position.coords.latitude,
             lon: position.coords.longitude
           };
+          setUserLocation(originCoords);
 
           getAddressFromCoords(originCoords.lat, originCoords.lon).then(address => {
             setOrigem(originCoords);
@@ -161,6 +165,7 @@ export default function ClientMain() {
           console.error("Error getting location:", error);
           // Fallback if denied
           const defaultCoords = { lat: 38.7111, lon: -9.1368 };
+          setUserLocation(defaultCoords);
           getAddressFromCoords(defaultCoords.lat, defaultCoords.lon).then(address => {
             setOrigem(defaultCoords);
             setOriginAddress(address);
@@ -171,6 +176,12 @@ export default function ClientMain() {
     } else {
       alert("Geolocalização não é suportada por este navegador.");
     }
+  };
+
+  const isOriginCloseToUser = () => {
+    if (!origem || !userLocation) return false;
+    const dist = calculateDistance(origem.lat, origem.lon, userLocation.lat, userLocation.lon);
+    return dist < 100; // 100 meters
   };
 
 
@@ -541,7 +552,9 @@ export default function ClientMain() {
             }}>
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>De</span>
-                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{simplifyAddress(origin_address) || 'Localização Atual'}</div>
+                <div style={{ fontSize: '1rem', color: isOriginCloseToUser() ? '#10b981' : '#1f2937', fontWeight: isOriginCloseToUser() ? '600' : 'normal', lineHeight: '1.3' }}>
+                  {isOriginCloseToUser() ? 'Minha Localização' : (simplifyAddress(origin_address) || 'Localização Atual')}
+                </div>
               </div>
 
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -611,7 +624,7 @@ export default function ClientMain() {
                   <input
                     type="text"
                     placeholder="Rua das Oliveiras, Campo Grande"
-                    value={origin_address}
+                    value={!showOriginSuggestions && isOriginCloseToUser() ? 'Minha Localização' : origin_address}
                     onChange={(e) => {
                       setOriginAddress(e.target.value);
                       setShowOriginSuggestions(true);
@@ -619,7 +632,11 @@ export default function ClientMain() {
                     onFocus={() => setShowOriginSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 200)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('origin')}
-                    style={{ width: '100%' }}
+                    style={{ 
+                      width: '100%', 
+                      color: (!showOriginSuggestions && isOriginCloseToUser()) ? '#10b981' : 'inherit',
+                      fontWeight: (!showOriginSuggestions && isOriginCloseToUser()) ? '600' : 'normal'
+                    }}
                   />
                   {showOriginSuggestions && originSuggestions.length > 0 && (
                     <ul style={{
@@ -667,7 +684,7 @@ export default function ClientMain() {
                   </button>
                   <input
                     type="text"
-                    placeholder="Avenida Dos Campos, Saldanha"
+                    placeholder="Mete o endereço do destino"
                     value={dest_address}
                     onChange={(e) => {
                       setDestinationAddress(e.target.value);
@@ -701,13 +718,6 @@ export default function ClientMain() {
                     </ul>
                   )}
                 </div>
-                <button
-                  className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'destination' ? 'active' : ''}`}
-                  onClick={() => setSelectingFor(selectingFor === 'destination' ? null : 'destination')}
-                  title="Selecionar destino no mapa"
-                >
-                  <MapPin size={20} />
-                </button>
               </div>
             </div>
 
