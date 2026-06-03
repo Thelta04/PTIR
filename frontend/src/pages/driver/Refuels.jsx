@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createRefuel, listShifts, getTaxi } from '../../api/client';
 import './refuels.css';
 
@@ -13,6 +14,12 @@ export default function Refuels() {
   const [activeShift, setActiveShift] = useState(null);
   const [taxiInfo, setTaxiInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const showError = (msg) => {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(''), 5000);
+  };
 
   useEffect(() => {
     const fetchShift = async () => {
@@ -44,27 +51,27 @@ export default function Refuels() {
     const durationNumber = Number(duration);
 
     if (!amount || !price || !mileage) {
-      alert('Preenche a quantidade, o valor pago e a quilometragem atual.');
+      showError('Preenche a quantidade, o valor pago e a quilometragem atual.');
       return;
     }
 
     if (amountNumber <= 0 || priceNumber <= 0 || mileageNumber < 0) {
-      alert('A quantidade, o valor pago e a quilometragem têm de ser válidos.');
+      showError('A quantidade, o valor pago e a quilometragem têm de ser válidos.');
       return;
     }
 
     if (taxiInfo && mileageNumber < taxiInfo.mileage) {
-      alert(`A quilometragem não pode ser inferior à atual (${taxiInfo.mileage} km).`);
+      showError(`A quilometragem não pode ser inferior à atual (${taxiInfo.mileage} km).`);
       return;
     }
 
     if (taxiInfo && taxiInfo.engine_type === 'electric' && (!duration || durationNumber <= 0)) {
-      alert('Preenche a duração do carregamento (minutos).');
+      showError('Preenche a duração do carregamento (minutos).');
       return;
     }
 
     if (!activeShift) {
-      alert('Tens de estar num turno ativo para registar um reabastecimento.');
+      showError('Tens de estar num turno ativo para registar um reabastecimento.');
       return;
     }
 
@@ -90,13 +97,13 @@ export default function Refuels() {
       console.error("Refuel error:", err);
       // Handle possible backend validation errors nicely
       if (err.response && err.response.data) {
-        const errorMsg = Object.values(err.response.data).flat()[0];
-        if (typeof errorMsg === 'string') {
-          alert(`Erro: ${errorMsg}`);
+        const errorVal = Object.values(err.response.data).flat()[0];
+        if (typeof errorVal === 'string') {
+          showError(`Erro: ${errorVal}`);
           return;
         }
       }
-      alert('Ocorreu um erro ao registar o reabastecimento.');
+      showError('Ocorreu um erro ao registar o reabastecimento.');
     } finally {
       setLoading(false);
     }
@@ -104,6 +111,34 @@ export default function Refuels() {
 
   return (
     <div className="refuel-page">
+      <AnimatePresence>
+        {errorMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              bottom: '20px',
+              left: '50%',
+              background: '#fee2e2',
+              color: '#991b1b',
+              padding: '1rem 2rem',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              zIndex: 9999,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              fontWeight: '500',
+              textAlign: 'center',
+              width: 'max-content',
+              maxWidth: '90%'
+            }}
+          >
+            {errorMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="refuel-main">
         <h1>Registar {taxiInfo?.engine_type === 'electric' ? 'Carregamento' : 'Reabastecimento'}</h1>
 

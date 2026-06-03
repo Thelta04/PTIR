@@ -4,7 +4,7 @@ import { listTaxis, createShift, listAllShifts } from '../../api/client';
 import { ArrowLeft, Check, Car, X, Wand2, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EuropeanDateInput } from '../../components/EuropeanDateInput';
-import { formatDatePT, formatTimePT, todayDateInput } from '../../utils/dateFormat';
+import { formatDatePT, formatTimePT, todayDateInput, oneMonthFromNowDateInput } from '../../utils/dateFormat';
 
 const DAYS = [
   { label: 'Segunda', val: 1 },
@@ -21,8 +21,12 @@ export default function DriverScheduleView({ onNavigate }) {
 
   const getTimeStr = (plusHours = 0) => {
     const d = new Date();
+    if (d.getMinutes() > 0 || d.getSeconds() > 0) {
+      d.setHours(d.getHours() + 1);
+    }
+    d.setMinutes(0, 0, 0);
     d.setHours(d.getHours() + plusHours);
-    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return String(d.getHours()).padStart(2, '0') + ':00';
   };
 
   const [step, setStep] = useState(1);
@@ -32,7 +36,7 @@ export default function DriverScheduleView({ onNavigate }) {
   const [startTime, setStartTime] = useState(getTimeStr());
   const [endTime, setEndTime] = useState(getTimeStr(4));
   const [startDate, setStartDate] = useState(todayDateInput());
-  const [endDate, setEndDate] = useState(todayDateInput());
+  const [endDate, setEndDate] = useState(oneMonthFromNowDateInput());
   const [selectedDays, setSelectedDays] = useState([]);
 
   // Step 2 State

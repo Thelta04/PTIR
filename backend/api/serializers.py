@@ -414,15 +414,22 @@ class TripListSerializer(serializers.ModelSerializer):
     taxi_passengers = serializers.IntegerField(source='shift.taxi.num_passengers', read_only=True, default=None)
     client_id   = serializers.IntegerField(source='client.user_id', read_only=True)
     client_name = serializers.CharField(source='client.user.name', read_only=True)
+    client_pfp  = serializers.SerializerMethodField()
     interval    = TimeIntervalSerializer(read_only=True)
 
     class Meta:
         model = Trip    
-        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'driver_id', 'driver_name', 'driver_pfp', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'taxi_passengers', 'interval']
+        fields = ['id', 'status', 'originCoords', 'destCoords', 'originAddress', 'destAddress', 'comfort_level', 'num_passengers', 'kilometers', 'price', 'client_id', 'client_name', 'client_pfp', 'driver_id', 'driver_name', 'driver_pfp', 'taxi_plate', 'taxi_brand', 'taxi_model', 'taxi_engine', 'taxi_passengers', 'interval']
 
     def get_driver_pfp(self, obj):
         try:
             return getattr(obj.shift.driver.user, 'profile_pic', None)
+        except Exception:
+            return None
+
+    def get_client_pfp(self, obj):
+        try:
+            return getattr(obj.client.user, 'profile_pic', None)
         except Exception:
             return None
 
