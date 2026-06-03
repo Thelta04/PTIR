@@ -56,12 +56,12 @@ export default function DriverMain() {
         <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
           <Menu size={24} aria-hidden="true" />
         </button>
-        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
-            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}>Motorista</span>
+        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            TUXY
+            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#666' }}>Motorista</span>
+          </h1>
         </div>
         <div
           className="header-actions"

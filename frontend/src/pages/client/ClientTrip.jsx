@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Bell, Target, ChevronLeft, Star, Clock, Flag, X, MapPin, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapaPedido from '../../components/MapaPedido';
-import { cancelTrip, listTrips, clientAcceptTrip, getRouteGeometry, getTripDriverLocation, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
+import { cancelTrip, listTrips, clientAcceptTrip, clientRejectTrip, getRouteGeometry, getTripDriverLocation, startTripPayment, getTripPaymentStatus, rateTrip, listRatings } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { decodePolyline } from '../../utils/map';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -139,7 +139,9 @@ export default function ClientTrip() {
 
           if (updatedTrip) {
             setActiveTrip(updatedTrip);
-            if (updatedTrip.status === 'DRIVER_ACCEPTED') {
+            if (updatedTrip.status === 'PENDING') {
+              setStatus('searching');
+            } else if (updatedTrip.status === 'DRIVER_ACCEPTED') {
               setStatus('accepted');
             } else if (updatedTrip.status === 'CLIENT_ACCEPTED') {
               setStatus('waiting_pickup');
@@ -215,14 +217,19 @@ export default function ClientTrip() {
         isSearching ? 'Cancelar Pedido?' : 'Recusar Motorista?',
         isSearching 
           ? 'Tem a certeza que deseja cancelar o seu pedido de viagem?' 
-          : 'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
+          : 'Tem a certeza que deseja recusar este motorista? Vamos procurar outro motorista para si.',
         async () => {
           try {
-            await cancelTrip(tripId);
-            navigate('/client');
+            if (isSearching) {
+              await cancelTrip(tripId);
+              navigate('/client');
+            } else {
+              await clientRejectTrip(tripId);
+              setStatus('searching');
+            }
           } catch (error) {
-            console.error("Error canceling trip:", error);
-            alert("Erro ao cancelar viagem.");
+            console.error("Error canceling/rejecting trip:", error);
+            alert("Erro ao processar o pedido.");
           }
         }
       );
@@ -789,12 +796,9 @@ export default function ClientTrip() {
           <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
-            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
+        <div className="client-brand" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
         </div>
 
         <div

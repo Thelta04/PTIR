@@ -778,7 +778,7 @@ export default function DriverHomeView({ onNavigate }) {
                 </button>
               ) : activeTrip.status === 'CLIENT_ACCEPTED' ? (
                 <button className="btn-pickup btn-full" onClick={handlePickup}>
-                  Recolher Passageiro
+                  Passageiro Recolhido
                 </button>
               ) : (
                 <button className="btn-complete btn-full" onClick={handleComplete}>

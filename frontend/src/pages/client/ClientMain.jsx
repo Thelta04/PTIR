@@ -23,6 +23,11 @@ export default function ClientMain() {
 
   const [origin_address, setOriginAddress] = useState('');
   const [dest_address, setDestinationAddress] = useState('');
+  
+  const [originSuggestions, setOriginSuggestions] = useState([]);
+  const [destSuggestions, setDestSuggestions] = useState([]);
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
+  const [showDestSuggestions, setShowDestSuggestions] = useState(false);
 
   const [num_passengers, setPassengers] = useState(1);
   const [comfort_level, setComfort] = useState('basic');
@@ -99,6 +104,42 @@ export default function ClientMain() {
 
     return [street, freguesia, concelho].filter(Boolean).join(', ');
   };
+
+  useEffect(() => {
+    if (!showOriginSuggestions) return;
+    const timer = setTimeout(async () => {
+      if (origin_address.length >= 3) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(origin_address)}&format=json&limit=4&countrycodes=pt`);
+          const data = await res.json();
+          setOriginSuggestions(data);
+        } catch (e) {
+          console.error("Nominatim origin search error", e);
+        }
+      } else {
+        setOriginSuggestions([]);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [origin_address, showOriginSuggestions]);
+
+  useEffect(() => {
+    if (!showDestSuggestions) return;
+    const timer = setTimeout(async () => {
+      if (dest_address.length >= 3) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dest_address)}&format=json&limit=4&countrycodes=pt`);
+          const data = await res.json();
+          setDestSuggestions(data);
+        } catch (e) {
+          console.error("Nominatim dest search error", e);
+        }
+      } else {
+        setDestSuggestions([]);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [dest_address, showDestSuggestions]);
 
   const handleUseCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -498,12 +539,12 @@ export default function ClientMain() {
             }}>
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>De</span>
-                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{origin_address || 'Localização Atual'}</div>
+                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{simplifyAddress(origin_address) || 'Localização Atual'}</div>
               </div>
 
               <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f1af3d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Para</span>
-                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{dest_address || searchValue}</div>
+                <div style={{ fontSize: '1rem', color: '#1f2937', lineHeight: '1.3' }}>{simplifyAddress(dest_address) || searchValue}</div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', borderTop: '2px dashed #f3f4f6', paddingTop: '12px' }}>
@@ -569,10 +610,37 @@ export default function ClientMain() {
                     type="text"
                     placeholder="Rua das Oliveiras, Campo Grande"
                     value={origin_address}
-                    onChange={(e) => setOriginAddress(e.target.value)}
+                    onChange={(e) => {
+                      setOriginAddress(e.target.value);
+                      setShowOriginSuggestions(true);
+                    }}
+                    onFocus={() => setShowOriginSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 200)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('origin')}
                     style={{ width: '100%' }}
                   />
+                  {showOriginSuggestions && originSuggestions.length > 0 && (
+                    <ul style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd',
+                      borderRadius: '8px', zIndex: 10, listStyle: 'none', padding: 0, margin: '4px 0',
+                      maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}>
+                      {originSuggestions.map((place) => (
+                        <li key={place.place_id} 
+                            onClick={() => {
+                              setOriginAddress(place.display_name);
+                              setOrigem({ lat: parseFloat(place.lat), lon: parseFloat(place.lon) });
+                              setShowOriginSuggestions(false);
+                            }}
+                            style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontSize: '0.9rem', color: '#333', textAlign: 'left' }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9f9f9'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          {simplifyAddress(place.display_name)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'origin' ? 'active' : ''}`}
@@ -599,10 +667,37 @@ export default function ClientMain() {
                     type="text"
                     placeholder="Avenida Dos Campos, Saldanha"
                     value={dest_address}
-                    onChange={(e) => setDestinationAddress(e.target.value)}
+                    onChange={(e) => {
+                      setDestinationAddress(e.target.value);
+                      setShowDestSuggestions(true);
+                    }}
+                    onFocus={() => setShowDestSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowDestSuggestions(false), 200)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress('destination')}
                     style={{ width: '100%' }}
                   />
+                  {showDestSuggestions && destSuggestions.length > 0 && (
+                    <ul style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd',
+                      borderRadius: '8px', zIndex: 10, listStyle: 'none', padding: 0, margin: '4px 0',
+                      maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}>
+                      {destSuggestions.map((place) => (
+                        <li key={place.place_id} 
+                            onClick={() => {
+                              setDestinationAddress(place.display_name);
+                              setDestino({ lat: parseFloat(place.lat), lon: parseFloat(place.lon) });
+                              setShowDestSuggestions(false);
+                            }}
+                            style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontSize: '0.9rem', color: '#333', textAlign: 'left' }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9f9f9'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          {simplifyAddress(place.display_name)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <button
                   className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'destination' ? 'active' : ''}`}
@@ -670,12 +765,9 @@ export default function ClientMain() {
           <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
-            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
+        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: '8px' }}>
+          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
         </div>
 
         <div
