@@ -663,7 +663,7 @@ export default function ClientMain() {
                   )}
                 </div>
                 <button
-                  className={`pinpoint-btn pinpoint-btn--small ${selectingFor === 'origin' ? 'active' : ''}`}
+                  className="pinpoint-btn pinpoint-btn--small"
                   onClick={() => setSelectingFor(selectingFor === 'origin' ? null : 'origin')}
                   title="Selecionar origem no mapa"
                 >
