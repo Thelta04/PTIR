@@ -14,6 +14,35 @@
   overflow: hidden;
 }
 
+.manager-dashboard .dash-header {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+}
+
+.manager-dashboard .dash-header-left {
+  justify-self: start;
+}
+
+.manager-dashboard .dash-header-right {
+  justify-self: end;
+}
+
+.manager-dash-brand {
+  align-items: baseline;
+  justify-self: center;
+  gap: 0.55rem;
+}
+
+.manager-dash-brand .dash-brand-name {
+  font-size: 1.75rem;
+  font-weight: 900;
+}
+
+.manager-dash-brand .dash-brand-sub {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 /* Sidebar Refinements */
 .manager-sidebar {
   width: 240px;

@@ -614,8 +614,8 @@ export default function ManagerDashboard() {
       <header className="dash-header">
         <div className="dash-header-left">
           <button className="dash-icon-btn" onClick={() => setSidebarOpen((p) => !p)}><Menu size={20} /></button>
-          <div className="dash-brand"><span className="dash-brand-name">TUXY</span><span className="dash-brand-sub">Backoffice</span></div>
         </div>
+        <div className="dash-brand manager-dash-brand"><span className="dash-brand-name">TUXY</span><span className="dash-brand-sub">Backoffice</span></div>
         <div className="dash-header-right">
           <span className="dash-greeting">Olá, {user?.name?.split(' ')[0]}</span>
           <button className="dash-icon-btn dash-icon-btn--danger" onClick={handleLogout}><LogOut size={18} /></button>
