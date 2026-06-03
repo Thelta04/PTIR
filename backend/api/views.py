@@ -1009,6 +1009,10 @@ class TripListView(views.APIView):
                 max_passengers = active_shift.taxi.num_passengers
                 taxi_comfort = active_shift.taxi.comfort_level
                 
+                # Strict matching: taxis only see trips of their exact comfort level
+                if taxi_comfort:
+                    trips = trips.filter(comfort_level=taxi_comfort)
+                
             if comfort_filter:
                 trips = trips.filter(comfort_level=comfort_filter)
                 

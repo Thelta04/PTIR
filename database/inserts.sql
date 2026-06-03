@@ -89,13 +89,6 @@ VALUES (CURRENT_TIMESTAMP - INTERVAL '45 minutes', NULL),
        (CURRENT_TIMESTAMP - INTERVAL '600 minutes', NULL),
        (CURRENT_TIMESTAMP, NULL);
 
-
-INSERT INTO trip (id_client, kilometers, origin_coords, dest_coords, origin_address, dest_address, comfort_level, price, num_passengers, status, id_shift, id_interval)
-VALUES (2, 5, '38.7111,-9.1368', '38.7369,-9.1427', 'Rossio, Lisboa', 'Saldanha, Lisboa', 'basic', 6.50, 1, 'PENDING', NULL, 12),
-       (4, 15, '38.7616,-9.0937', '38.7223,-9.1393', 'Parque das Nações, Lisboa', 'Marquês de Pombal, Lisboa', 'luxury', 25.00, 2, 'PENDING', NULL, 13),
-       (2, 3, '38.7071,-9.1355', '38.7134,-9.1363', 'Praça do Comércio, Lisboa', 'Martim Moniz, Lisboa', 'basic', 4.90, 4, 'PENDING', NULL, 14),
-       (4, 8, '38.7490,-9.1824', '38.7306,-9.1456', 'Benfica, Lisboa', 'El Corte Inglés, Lisboa', 'basic', 14.50, 2, 'PENDING', NULL, 15);
-
 -- REFUELING
 
 INSERT INTO refueling (cost, kwh, liters, initial_mileage, id_shift, id_interval)
