@@ -995,6 +995,9 @@ class TripListView(views.APIView):
             
         max_passengers = None
         if driver_id:
+            # Exclude trips where the driver is the client
+            trips = trips.exclude(client__user_id=driver_id)
+            
             # Look for an active shift (clocked in, no end time)
             active_shift = Shift.objects.filter(
                 driver__user_id=driver_id,
