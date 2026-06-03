@@ -5,8 +5,10 @@
 export DEBIAN_FRONTEND=noninteractive
 
 # Update and Install Nginx and Keepalived
-sudo apt-get update
-sudo apt-get install -y nginx curl keepalived
+if ! dpkg -s nginx curl keepalived >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y nginx curl keepalived
+fi
 
 # Configure Keepalived for HA
 INSTANCE_NAME=$(hostname)

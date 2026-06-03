@@ -28,7 +28,9 @@ remote_scp() {
     gcloud compute scp "$@" "$instance:/tmp/" \
         --project="$PROJECT_ID" \
         --zone="$ZONE" \
-        --tunnel-through-iap
+        --tunnel-through-iap \
+        --scp-flag="-o IPQoS=cs0" \
+        --scp-flag="-o ServerAliveInterval=15"
 }
 
 # Dynamic Instance Discovery
