@@ -22,6 +22,7 @@ import {
 import { calculateEstimatedPrice } from '../../utils/pricing';
 import { getCoordsFromAddress } from '../../components/geocoding';
 import { decodePolyline } from '../../utils/map';
+import { playNotificationSound } from '../../utils/notificationSound';
 import 'leaflet/dist/leaflet.css';
 
 // Custom icons using standard markers or SVG
@@ -129,36 +130,6 @@ const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
   }, [activeTrip?.status, routeCoords, map]);
 
   return null;
-};
-
-const playNewTripAlert = () => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-
-    const audioContext = new AudioContext();
-    const playTone = (frequency, delay) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + delay);
-      gain.gain.setValueAtTime(0.0001, audioContext.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + delay + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + delay + 0.22);
-
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(audioContext.currentTime + delay);
-      oscillator.stop(audioContext.currentTime + delay + 0.24);
-    };
-
-    playTone(880, 0);
-    playTone(1175, 0.26);
-    setTimeout(() => audioContext.close(), 700);
-  } catch (err) {
-    console.error('Error playing new trip alert:', err);
-  }
 };
 
 export default function DriverHomeView({ onNavigate }) {
@@ -297,6 +268,7 @@ export default function DriverHomeView({ onNavigate }) {
 
   const [toastMsg, setToastMsg] = useState('');
   const showToast = (msg) => {
+    playNotificationSound();
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 4000);
   };
@@ -370,7 +342,7 @@ export default function DriverHomeView({ onNavigate }) {
         } else if (myActive.status === 'PAID') {
           showDriverTripToast(
             `client-paid-${myActive.id}`,
-            'O cliente efetuou o pagamento. Já pode emitir a fatura.'
+            'Pagamento recebido. Já pode emitir a fatura.'
           );
         }
         setActiveTrip(myActive);
@@ -388,7 +360,7 @@ export default function DriverHomeView({ onNavigate }) {
         const hasNewPendingTrip = pending.some((trip) => !knownPendingTripIdsRef.current.has(trip.id));
 
         if (hasLoadedPendingTripsRef.current && hasNewPendingTrip) {
-          playNewTripAlert();
+          showToast('Novo pedido de viagem recebido.');
         }
 
         knownPendingTripIdsRef.current = pendingIds;

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { listTaxis, createShift, listAllShifts } from '../../api/client';
 import { ArrowLeft, Check, Car, X, Wand2, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EuropeanDateInput } from '../../components/EuropeanDateInput';
 import { formatDatePT, formatTimePT, todayDateInput, oneMonthFromNowDateInput } from '../../utils/dateFormat';
+import { playNotificationSound } from '../../utils/notificationSound';
 
 const DAYS = [
   { label: 'Segunda', val: 1 },
@@ -54,6 +55,12 @@ export default function DriverScheduleView({ onNavigate }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (msg) {
+      playNotificationSound();
+    }
+  }, [msg]);
 
   const toggleDay = (val) => {
     setSelectedDays(prev =>

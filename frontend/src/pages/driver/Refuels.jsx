@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createRefuel, listShifts, getTaxi } from '../../api/client';
+import { playNotificationSound } from '../../utils/notificationSound';
 import './refuels.css';
 
 export default function Refuels() {
@@ -18,6 +19,7 @@ export default function Refuels() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const showError = (msg) => {
+    playNotificationSound();
     setErrorMsg(msg);
     setTimeout(() => setErrorMsg(''), 5000);
   };

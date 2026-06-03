@@ -13,6 +13,7 @@ import {
 } from '../../api/client';
 import './manager.css';
 import { EuropeanDateInput, EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
+import { playNotificationSound } from '../../utils/notificationSound';
 import {
   formatDateTimePT,
   dateInputToLocalDate,
@@ -64,6 +65,11 @@ export default function ManagerDashboard() {
   const [tripStatusFilter, setTripStatusFilter] = useState('');
   const [shiftStatusFilter, setShiftStatusFilter] = useState('');
 
+  useEffect(() => {
+    if (apiStatus) {
+      playNotificationSound();
+    }
+  }, [apiStatus]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
