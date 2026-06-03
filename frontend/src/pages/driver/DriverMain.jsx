@@ -98,14 +98,16 @@ export default function DriverMain() {
             />
             <motion.aside
               className="drawer-menu"
-              aria-label="Menu de Navegação"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="drawer-title"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'tween', duration: 0.3 }}
             >
               <div className="drawer-header">
-                <span className="drawer-title">Menu</span>
+                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
                 <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
                   <ChevronLeft size={24} aria-hidden="true" />
                 </button>

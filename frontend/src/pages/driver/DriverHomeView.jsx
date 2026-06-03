@@ -704,7 +704,7 @@ export default function DriverHomeView({ onNavigate }) {
       {activeTrip ? (
         <div className="active-trip-permanent-bar">
           <div className="active-bar-content">
-            <h3 className="active-client-name">{activeTrip.client_name}</h3>
+            <h2 className="active-client-name">{activeTrip.client_name}</h2>
 
             <div className="active-stats-row">
               <div className="stat-item">

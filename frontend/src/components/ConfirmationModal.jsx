@@ -14,7 +14,7 @@ export default function ConfirmationModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="modal-portal">
+        <div className="modal-portal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
           <motion.div 
             className="modal-overlay"
             initial={{ opacity: 0 }}
@@ -29,7 +29,7 @@ export default function ConfirmationModal({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           >
-            <h3 className="modal-title">{title}</h3>
+            <h2 id="modal-title" className="modal-title">{title}</h2>
             <div className="modal-message">{message}</div>
             <div className="modal-actions">
               <button className="modal-btn modal-btn--cancel" onClick={onCancel}>

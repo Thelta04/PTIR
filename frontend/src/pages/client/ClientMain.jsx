@@ -417,7 +417,7 @@ export default function ClientMain() {
                 <img src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div style={{ textAlign: 'left' }}>
-                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{activeTrip?.driver_name}</h3>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{activeTrip?.driver_name}</h2>
                 <div style={{ color: '#f1af3d', fontWeight: 'bold' }}>⭐ {driverRating} ({driverRatingCount} reviews)</div>
               </div>
             </div>
@@ -667,9 +667,12 @@ export default function ClientMain() {
           <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
+        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
         </div>
 
         <div
@@ -717,14 +720,16 @@ export default function ClientMain() {
             />
             <motion.aside
               className="drawer-menu"
-              aria-label="Menu de Navegação"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="drawer-title"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'tween', duration: 0.3 }}
             >
               <div className="drawer-header">
-                <span className="drawer-title">Menu</span>
+                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
                 <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
                   <ChevronLeft size={24} aria-hidden="true" />
                 </button>
@@ -734,11 +739,14 @@ export default function ClientMain() {
                 <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
+                {/* <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
                   Agendar Viagens
-                </button>
+                </button> */}
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
+                  Faturas
                 </button>
               </nav>
 

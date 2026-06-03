@@ -28,7 +28,15 @@ from .serializers import (
 )
 from .authentication import JWTAuthentication, IsManager, IsTripParticipant, generate_tokens, decode_token
 # pyrefly: ignore [missing-import]
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+import io
+from django.http import HttpResponse
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+except ImportError:
+    pass
 
 from django.db import IntegrityError
 
@@ -1698,7 +1706,7 @@ class TripDriverLocationView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        is_client = trip.client.user_id == request.user.id
+        is_client = str(trip.client_id) == str(request.user.id)
         is_driver = bool(trip.shift_id and trip.shift.driver.user_id == request.user.id)
         if not (is_client or is_driver):
             return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
@@ -1950,7 +1958,9 @@ class TripPaymentStartView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
+        import sys
+        print(f"Trip payment auth check - trip.client_id: {trip.client_id} ({type(trip.client_id)}), request.user.id: {getattr(request.user, 'id', None)} ({type(getattr(request.user, 'id', None))})", file=sys.stderr)
+        if str(trip.client_id) != str(request.user.id) and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only pay your own trips."}, status=status.HTTP_403_FORBIDDEN)
 
         if trip.status not in ['COMPLETED', 'WAITING_PAYMENT']:
@@ -2035,7 +2045,7 @@ class TripPaymentStatusView(views.APIView):
         except Trip.DoesNotExist:
             return Response({"error": "Trip not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if trip.client.user_id != request.user.id and not Manager.objects.filter(user=request.user).exists():
+        if str(trip.client_id) != str(request.user.id) and not Manager.objects.filter(user=request.user).exists():
             return Response({"error": "You can only check your own payments."}, status=status.HTTP_403_FORBIDDEN)
 
         stripe.api_key = stripe_secret_key
@@ -2157,9 +2167,9 @@ class InvoiceDetailView(views.APIView):
 class TripInvoiceView(views.APIView):
     @extend_schema(
         summary="Get invoice from trip",
-        description="Returns the invoice issued for a specific trip.",
+        description="Returns the invoice PDF issued for a specific trip.",
         responses={
-            200: InvoiceSerializer,
+            200: OpenApiTypes.BINARY,
             404: inline_serializer(name='TripInvoiceNotFound', fields={'error': serializers.CharField()}),
         }
     )
@@ -2174,11 +2184,63 @@ class TripInvoiceView(views.APIView):
         except Invoice.DoesNotExist:
             return Response({"error": "Invoice not found for this trip."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = InvoiceSerializer(invoice)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        # Add Logo if available
+        import os
+        from django.conf import settings
+        logo_path = os.path.join(settings.BASE_DIR, 'tuxy_logo.png')
+        
+        start_x = 50
+        if os.path.exists(logo_path):
+            p.drawImage(logo_path, 50, height - 70, width=50, height=50, mask='auto')
+            start_x = 110
+
+        # Draw a beautiful simple invoice
+        p.setFont("Helvetica-Bold", 24)
+        p.drawString(start_x, height - 50, "TUXY - Fatura/Recibo")
+        
+        p.setFont("Helvetica", 12)
+        p.drawString(50, height - 100, f"Fatura #{invoice.number}")
+        p.drawString(50, height - 120, f"Data: {invoice.date}")
+        p.drawString(50, height - 140, f"NIF: {invoice.nif}")
+
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, height - 180, "Detalhes da Viagem:")
+        p.setFont("Helvetica", 12)
+        p.drawString(50, height - 200, f"Origem: {invoice.trip.originAddress}")
+        p.drawString(50, height - 220, f"Destino: {invoice.trip.destAddress}")
+        p.drawString(50, height - 240, f"Cliente: {invoice.trip.client.user.name}")
+        
+        if invoice.trip.shift_id and invoice.trip.shift.driver:
+            p.drawString(50, height - 260, f"Motorista: {invoice.trip.shift.driver.user.name}")
+            if invoice.trip.shift.taxi:
+                p.drawString(50, height - 280, f"Taxi: {invoice.trip.shift.taxi.license_plate}")
+
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, height - 320, "Resumo Financeiro:")
+        p.setFont("Helvetica", 12)
+        p.drawString(50, height - 340, f"Valor Total: EUR {invoice.amount_total:.2f}")
+        p.drawString(50, height - 360, f"Valor Pago: EUR {invoice.amount_paid:.2f}")
+
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawString(50, 50, "Obrigado por viajar com a TUXY!")
+        
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="tuxy_fatura_{invoice.number}.pdf"'
+        return response
 
 
 class ClientInvoiceListView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(
         summary="List invoices from a client",
         description="Returns all invoices issued for trips requested by a specific client user ID.",
@@ -2188,6 +2250,9 @@ class ClientInvoiceListView(views.APIView):
         }
     )
     def get(self, request, id):
+        if str(request.user.id) != str(id) and not Manager.objects.filter(user=request.user).exists():
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
         if not Client.objects.filter(user__id=id).exists():
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 

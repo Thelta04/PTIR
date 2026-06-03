@@ -11,20 +11,20 @@ export default function RatingModal({ isOpen, onClose, onRate, driverName }) {
 
   return (
     <AnimatePresence>
-      <div className="rating-modal-overlay">
+      <div className="rating-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rating-modal-title">
         <motion.div 
           className="rating-modal-content"
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
         >
-          <button className="rating-modal-close" onClick={onClose}>
+          <button className="rating-modal-close" onClick={onClose} aria-label="Fechar">
             <X size={24} />
           </button>
 
           <div className="rating-modal-header">
             <div className="rating-success-icon">✨</div>
-            <h2>Como foi a sua viagem?</h2>
+            <h2 id="rating-modal-title">Como foi a sua viagem?</h2>
             <p>Avalie a sua experiência com o motorista <strong>{driverName}</strong></p>
           </div>
 
@@ -36,6 +36,7 @@ export default function RatingModal({ isOpen, onClose, onRate, driverName }) {
                 onClick={() => setRating(star)}
                 onMouseEnter={() => setHover(star)}
                 onMouseLeave={() => setHover(0)}
+                aria-label={`${star} estrela${star > 1 ? 's' : ''}`}
               >
                 <Star
                   size={40}
