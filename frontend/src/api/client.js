@@ -155,6 +155,7 @@ export const startTripPayment = (id, successUrl, cancelUrl) =>
   api.post(`trip/${id}/payment/start/`, { success_url: successUrl, cancel_url: cancelUrl });
 export const getTripPaymentStatus = (id, sessionId) =>
   api.get(`trip/${id}/payment/status/`, { params: { session_id: sessionId } });
+export const listClientInvoices = (clientId) => api.get(`client/${clientId}/invoices/`);
 export const getRouteGeometry = (origin, dest) => api.get('route/', { params: { origin, dest } });
 export const updateDriverLocation = (lat, lon) => api.post('driver/location/', { lat, lon });
 export const getTripDriverLocation = (id) => api.get(`trip/${id}/driver-location/`);

@@ -31,3 +31,6 @@ requests==2.31.0
 
 # Payments
 stripe==14.0.1
+
+# PDF Generation
+reportlab==4.2.0

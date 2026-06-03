@@ -104,25 +104,32 @@ export default function ClientScheduled() {
   return (
     <div className="client-layout client-history-page">
       <header className="client-header">
-        <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} color="#000" />
+        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
+          <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand">
-          <span className="client-brand-name">TUXY</span>
+        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
         </div>
 
         <div
           className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', gap: '4px' }}
         >
-          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-            alt="Profile"
-            className="user-pfp-small"
-          />
+          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
+            <img
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+              alt="Profile"
+              className="user-pfp-small"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <span className="user-name-text" style={{ fontSize: '0.85rem', fontWeight: 'bold', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
         </div>
       </header>
 
@@ -135,18 +142,24 @@ export default function ClientScheduled() {
 
         <section className="history-stats">
           <div className="history-stat">
-            <CalendarClock size={18} />
-            <span>Agendadas</span>
+            <div className="history-stat-header">
+              <CalendarClock size={18} />
+              <span>Agendadas</span>
+            </div>
             <strong>{totals.count}</strong>
           </div>
           <div className="history-stat">
-            <Route size={18} />
-            <span>Quilómetros</span>
+            <div className="history-stat-header">
+              <Route size={18} />
+              <span>Quilómetros</span>
+            </div>
             <strong>{totals.kilometers.toFixed(1)} km</strong>
           </div>
           <div className="history-stat">
-            <Wallet size={18} />
-            <span>Estimativa</span>
+            <div className="history-stat-header">
+              <Wallet size={18} />
+              <span>Estimativa</span>
+            </div>
             <strong>{formatPrice(totals.estimated)}</strong>
           </div>
         </section>
@@ -250,17 +263,20 @@ export default function ClientScheduled() {
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.div
+            <motion.aside
               className="drawer-menu"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="drawer-title"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'tween', duration: 0.3 }}
             >
               <div className="drawer-header">
-                <span className="drawer-title">Menu</span>
-                <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} />
+                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
+                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
+                  <ChevronLeft size={24} aria-hidden="true" />
                 </button>
               </div>
 
@@ -268,11 +284,14 @@ export default function ClientScheduled() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Início
                 </button>
-                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/scheduled')}>
+                {/* <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/scheduled')}>
                   Agendar Viagens
-                </button>
+                </button> */}
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
+                </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
+                  Faturas
                 </button>
               </nav>
 
@@ -281,7 +300,7 @@ export default function ClientScheduled() {
                   Terminar Sessão
                 </button>
               </div>
-            </motion.div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>

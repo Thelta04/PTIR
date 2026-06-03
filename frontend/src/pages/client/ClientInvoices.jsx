@@ -1,51 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronUp, ChevronDown, Clock, MapPin, Menu, Route, User, Wallet, Users, Star, Car, Zap } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, MapPin, Menu, Receipt, User, Wallet, FileText, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { listTrips } from '../../api/client';
+import { listClientInvoices } from '../../api/client';
 import ProfileModal from '../../components/ProfileModal';
 import { formatDateTimePT } from '../../utils/dateFormat';
 import './client.css';
-
-const STATUS_LABELS = {
-  PENDING: 'Pendente',
-  DRIVER_ACCEPTED: 'Motorista aceite',
-  CLIENT_ACCEPTED: 'Confirmada',
-  IN_PROGRESS: 'Em curso',
-  WAITING_PAYMENT: 'A aguardar pagamento',
-  PAID: 'Paga',
-  COMPLETED: 'Concluída',
-  CANCELED: 'Cancelada',
-};
-
-const STATUS_CLASSES = {
-  PENDING: 'trip-badge--pending',
-  DRIVER_ACCEPTED: 'trip-badge--accepted',
-  CLIENT_ACCEPTED: 'trip-badge--accepted',
-  IN_PROGRESS: 'trip-badge--active',
-  WAITING_PAYMENT: 'trip-badge--active',
-  PAID: 'trip-badge--done',
-  COMPLETED: 'trip-badge--done',
-  CANCELED: 'trip-badge--canceled',
-};
-
-function getTripDateValue(trip) {
-  const rawDate = trip.interval?.start_time;
-  const date = rawDate ? new Date(rawDate) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
-}
-
-function formatPrice(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? `€${number.toFixed(2)}` : '-';
-}
-
-function formatComfort(value) {
-  if (value === 'basic') return 'Básico';
-  if (value === 'luxury') return 'Luxo';
-  return value || '-';
-}
 
 const simplifyAddress = (addr) => {
   if (!addr || addr === 'Current Location' || addr === 'Localização Atual') return addr;
@@ -78,7 +39,12 @@ const simplifyAddress = (addr) => {
   return [street, freguesia, concelho].filter(Boolean).join(', ');
 };
 
-const ClientTripCard = ({ trip, user }) => {
+function formatPrice(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `€${number.toFixed(2)}` : '-';
+}
+
+const ClientInvoiceCard = ({ invoice }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -94,12 +60,12 @@ const ClientTripCard = ({ trip, user }) => {
         style={{ cursor: 'pointer', marginBottom: expanded ? '14px' : '0' }}
       >
         <div>
-          <span className="history-trip-id">Viagem #{trip.id}</span>
-          <h2>{formatDateTimePT(trip.interval?.start_time)}</h2>
+          <span className="history-trip-id">Fatura #{invoice.number}</span>
+          <h2>{new Date(invoice.date).toLocaleDateString('pt-PT')}</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className={`trip-badge ${STATUS_CLASSES[trip.status] || ''}`}>
-            {STATUS_LABELS[trip.status] || trip.status}
+          <span className="trip-badge trip-badge--done">
+            Emitida
           </span>
           {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </div>
@@ -116,52 +82,44 @@ const ClientTripCard = ({ trip, user }) => {
             <div className="history-route">
               <div className="history-route-point">
                 <MapPin size={16} />
-                <span title={trip.originAddress}>{simplifyAddress(trip.originAddress) || '-'}</span>
+                <span title={invoice.originAddress}>{simplifyAddress(invoice.originAddress) || '-'}</span>
               </div>
               <ArrowRight size={18} className="history-route-arrow" />
               <div className="history-route-point">
                 <MapPin size={16} />
-                <span title={trip.destAddress}>{simplifyAddress(trip.destAddress) || '-'}</span>
+                <span title={invoice.destAddress}>{simplifyAddress(invoice.destAddress) || '-'}</span>
               </div>
             </div>
 
             <div className="history-trip-details">
               <div>
-                <span><Star size={14} /> Serviço</span>
-                <strong>{formatComfort(trip.comfort_level)}</strong>
+                <span><Calendar size={14} /> Data Viagem</span>
+                <strong>{invoice.trip_start_time ? formatDateTimePT(invoice.trip_start_time) : '-'}</strong>
               </div>
               <div>
-                <span><Users size={14} /> Passageiros</span>
-                <strong>{trip.num_passengers ?? '-'}</strong>
+                <span><Wallet size={14} /> Valor Total</span>
+                <strong>{formatPrice(invoice.amount_total)}</strong>
               </div>
               <div>
-                <span><Route size={14} /> Distância</span>
-                <strong>{Number(trip.kilometers || 0).toFixed(2)} km</strong>
-              </div>
-              <div>
-                <span><Wallet size={14} /> Preço</span>
-                <strong>{formatPrice(trip.price)}</strong>
+                <span><Receipt size={14} /> NIF</span>
+                <strong>{invoice.nif || '-'}</strong>
               </div>
               <div>
                 <span><User size={14} /> Motorista</span>
-                <strong>{trip.driver_name || '-'}</strong>
+                <strong>{invoice.driver_name || '-'}</strong>
               </div>
-              <div>
-                <span><Car size={14} /> Táxi</span>
-                <strong>
-                  {[trip.taxi_brand, trip.taxi_model, trip.taxi_plate].filter(Boolean).join(' ') || '-'}
-                </strong>
-              </div>
-              <div>
-                <span><Zap size={14} /> Motor</span>
-                <strong>{trip.taxi_engine || '-'}</strong>
-              </div>
-              <div>
-                <span><User size={14} /> Cliente</span>
-                <strong>
-                  {trip.client_name || user?.name || '-'}
-                </strong>
-              </div>
+            </div>
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+              <a
+                href={`/api/trip/${invoice.trip_id}/invoice/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.9rem', color: '#854d0e' }}
+              >
+                <FileText size={16} color='#854d0e' /> Ver Fatura PDF
+              </a>
             </div>
           </motion.div>
         )}
@@ -170,47 +128,30 @@ const ClientTripCard = ({ trip, user }) => {
   );
 };
 
-export default function ClientHistory() {
+export default function ClientInvoices() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [trips, setTrips] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchTrips = async () => {
+    const fetchInvoices = async () => {
       try {
-        const { data } = await listTrips();
-        const mine = data
-          .filter((trip) => trip.client_id === user.id)
-          .sort((a, b) => getTripDateValue(b) - getTripDateValue(a));
-        setTrips(mine);
+        const { data } = await listClientInvoices(user.id);
+        setInvoices(data);
       } catch (err) {
-        setError(err.response?.data?.error || 'Erro ao carregar o histórico de viagens.');
+        setError(err.response?.data?.error || 'Erro ao carregar as faturas.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTrips();
+    if (user?.id) fetchInvoices();
   }, [user.id]);
-
-  const totals = useMemo(() => {
-    return trips.reduce(
-      (acc, trip) => {
-        if (trip.status === 'COMPLETED') {
-          acc.count += 1;
-          acc.kilometers += Number(trip.kilometers) || 0;
-          acc.spent += Number(trip.price) || 0;
-        }
-        return acc;
-      },
-      { count: 0, kilometers: 0, spent: 0 }
-    );
-  }, [trips]);
 
   const handleMenuClick = (path) => {
     setIsMenuOpen(false);
@@ -250,56 +191,27 @@ export default function ClientHistory() {
               style={{ margin: 0 }}
             />
           </div>
-          <span className="user-name-text" style={{ fontSize: '0.85rem', fontWeight: 'bold', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
+          <span className="user-name" style={{ margin: 0, lineHeight: 1, height: '14px', display: 'flex' }}>
+            {user?.name?.split(' ')[0]}
+          </span>
         </div>
       </header>
 
       <main className="client-history-main">
-        <section className="history-toolbar">
-          <div>
-            <h1>Histórico de viagens</h1>
-          </div>
-        </section>
+        <h1 className="history-title">Minhas Faturas</h1>
 
-        <section className="history-stats">
-          <div className="history-stat">
-            <div className="history-stat-header">
-              <Clock size={18} />
-              <span>Viagens</span>
-            </div>
-            <strong>{totals.count}</strong>
-          </div>
-          <div className="history-stat">
-            <div className="history-stat-header">
-              <Route size={18} />
-              <span>Quilómetros</span>
-            </div>
-            <strong>{totals.kilometers.toFixed(1)} km</strong>
-          </div>
-          <div className="history-stat">
-            <div className="history-stat-header">
-              <Wallet size={18} />
-              <span>Total</span>
-            </div>
-            <strong>{formatPrice(totals.spent)}</strong>
-          </div>
-        </section>
-
-        {loading && <div className="history-message">A carregar viagens...</div>}
-        {error && <div className="history-message history-message--error">{error}</div>}
-
-        {!loading && !error && trips.length === 0 && (
-          <div className="history-empty">
-            Ainda não existem viagens associadas a esta conta.
-          </div>
-        )}
-
-        {!loading && !error && trips.length > 0 && (
-          <section className="history-list">
-            {trips.map((trip) => (
-              <ClientTripCard key={trip.id} trip={trip} user={user} />
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>A carregar faturas...</div>
+        ) : error ? (
+          <div className="history-empty" style={{ color: '#d9534f' }}>{error}</div>
+        ) : invoices.length === 0 ? (
+          <div className="history-empty">Não tem faturas emitidas.</div>
+        ) : (
+          <div className="history-list">
+            {invoices.map((invoice) => (
+              <ClientInvoiceCard key={invoice.number} invoice={invoice} user={user} />
             ))}
-          </section>
+          </div>
         )}
       </main>
 
@@ -313,7 +225,7 @@ export default function ClientHistory() {
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.aside
+            <motion.div
               className="drawer-menu"
               role="dialog"
               aria-modal="true"
@@ -321,15 +233,14 @@ export default function ClientHistory() {
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
               <div className="drawer-header">
                 <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
                 <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} aria-hidden="true" />
+                  ✕
                 </button>
               </div>
-
               <nav className="drawer-nav">
                 <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
                   Início
@@ -337,20 +248,19 @@ export default function ClientHistory() {
                 {/* <button className="drawer-link" onClick={() => handleMenuClick('/client/scheduled')}>
                   Agendar Viagens
                 </button> */}
-                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/history')}>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
+                <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/invoices')}>
                   Faturas
                 </button>
               </nav>
-
               <div className="drawer-footer">
                 <button className="drawer-logout" onClick={handleLogout}>
                   Terminar Sessão
                 </button>
               </div>
-            </motion.aside>
+            </motion.div>
           </>
         )}
       </AnimatePresence>
@@ -358,7 +268,8 @@ export default function ClientHistory() {
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
-        forcedType="CLIENT"
+        user={user}
+        onLogout={handleLogout}
       />
     </div>
   );

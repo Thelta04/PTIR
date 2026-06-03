@@ -32,10 +32,11 @@ body,
 
 .client-brand {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
   margin-left: 20px;
   flex: 1;
-  align-items: flex-start;
 }
 
 .client-brand-name {
@@ -621,6 +622,7 @@ body,
   flex-direction: column;
   justify-content: center;
   gap: 4px;
+  align-items: center;
 }
 
 .history-stat-header {
@@ -686,7 +688,7 @@ body,
 
 .history-trip-id {
   display: block;
-  color: #b7791f;
+  color: #854d0e;
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;

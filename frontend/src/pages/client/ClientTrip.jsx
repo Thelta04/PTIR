@@ -407,7 +407,7 @@ export default function ClientTrip() {
                 <img src={`/PFPs/${activeTrip?.driver_pfp || 1}.jpg`} alt="Driver" />
               </div>
               <div className="driver-details">
-                <h3>{activeTrip?.driver_name || 'Motorista'}</h3>
+                <h2>{activeTrip?.driver_name || 'Motorista'}</h2>
                 <div className="rating">
                   <Star size={14} fill="#f1af3d" color="#f1af3d" />
                   <span>{driverRating} ({driverRatingCount})</span>
@@ -692,6 +692,7 @@ export default function ClientTrip() {
                 setIsPaidPanelClosed(true);
                 setIsRatingModalOpen(true);
               }}
+              aria-label="Fechar"
               style={{
                 position: 'absolute',
                 top: '15px',
@@ -784,25 +785,32 @@ export default function ClientTrip() {
   return (
     <div className="client-layout">
       <header className="client-header">
-        <button className="menu-btn" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} color="#000" />
+        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
+          <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand">
-          <span className="client-brand-name">TUXY</span>
+        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
+            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
         </div>
 
         <div
           className="user-name-container"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', gap: '4px' }}
         >
-          <span className="user-name-text">{user?.name?.split(' ')[0]}</span>
-          <img
-            src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-            alt="Profile"
-            className="user-pfp-small"
-          />
+          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
+            <img
+              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
+              alt="Profile"
+              className="user-pfp-small"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <span className="user-name-text" style={{ fontSize: '0.85rem', fontWeight: 'bold', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
         </div>
       </header>
 
@@ -835,17 +843,20 @@ export default function ClientTrip() {
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.div
+            <motion.aside
               className="drawer-menu"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="drawer-title"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'tween', duration: 0.3 }}
             >
               <div className="drawer-header">
-                <span className="drawer-title">Menu</span>
-                <button className="drawer-close" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} />
+                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
+                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
+                  <ChevronLeft size={24} aria-hidden="true" />
                 </button>
               </div>
 
@@ -859,6 +870,9 @@ export default function ClientTrip() {
                 <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
                   Histórico
                 </button>
+                <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
+                  Faturas
+                </button>
               </nav>
 
               <div className="drawer-footer">
@@ -866,7 +880,7 @@ export default function ClientTrip() {
                   Terminar Sessão
                 </button>
               </div>
-            </motion.div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>
