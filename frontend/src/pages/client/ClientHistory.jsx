@@ -229,12 +229,11 @@ export default function ClientHistory() {
           <Menu size={24} color="#000" aria-hidden="true" />
         </button>
 
-        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: '8px', height: '40px', alignItems: 'center' }}>
             <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
             <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
           </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
         </div>
 
         <div
