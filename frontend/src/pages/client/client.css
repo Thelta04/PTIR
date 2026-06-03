@@ -13,7 +13,7 @@ body,
 
 .client-layout {
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #fff;
 }
@@ -117,7 +117,7 @@ body,
 .client-main-content {
   position: relative;
   width: 100%;
-  height: calc(100vh - 80px);
+  height: calc(100dvh - 80px);
 }
 
 .map-wrapper {
@@ -509,7 +509,7 @@ body,
   top: 0;
   left: 0;
   width: 280px;
-  height: 100vh;
+  height: 100dvh;
   background: #fff;
   z-index: 50;
   display: flex;
@@ -593,7 +593,7 @@ body,
 .client-history-page {
   background: #f8fafc;
   height: auto;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-y: auto;
 }
 

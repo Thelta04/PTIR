@@ -74,7 +74,7 @@ body {
   color: var(--gray-700);
   background: var(--gray-100);
   line-height: 1.5;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {
@@ -93,7 +93,7 @@ img {
 
 /* -- Login Page ---------------------------------- */
 .login-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
@@ -185,7 +185,7 @@ img {
 .dashboard {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--gray-100);
 }
 
@@ -640,7 +640,7 @@ img {
 
 /* Pagia login user ---------------------------- */
 .login-page-user {
-  min-height: 100vh;
+  min-height: 100dvh;
   align-items: center;
   justify-content: center;
   background:

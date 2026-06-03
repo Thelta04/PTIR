@@ -45,7 +45,7 @@
 
 /* Decision Page Driver */
 .decision-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: #fef9e7; /* Beige background */
   display: flex;
   flex-direction: column;
