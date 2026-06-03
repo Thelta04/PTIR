@@ -93,11 +93,13 @@ export default function DriverShiftsView({ onNavigate }) {
       const schedStart = new Date(shift.scheduled_interval.start_time);
       const schedEnd = shift.scheduled_interval.end_time ? new Date(shift.scheduled_interval.end_time) : null;
 
-      if (now < schedStart || (schedEnd && now > schedEnd)) {
+      // Allow starting up to 10 minutes early
+      const allowedStart = new Date(schedStart.getTime() - 10 * 60000);
+      if (now < allowedStart || (schedEnd && now > schedEnd)) {
         setModalConfig({
           isOpen: true,
           title: 'Aviso',
-          message: 'Apenas pode iniciar o turno durante o horário agendado.',
+          message: 'Apenas pode iniciar o turno no horário agendado (ou até 10 minutos antes).',
           onConfirm: closeModal,
           hideCancel: true,
           confirmText: 'OK'
