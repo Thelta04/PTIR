@@ -1,7 +1,6 @@
 .pfp-selector-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 1.5rem;
 }
 
 .pfp-current-wrapper {
@@ -12,7 +11,7 @@
   overflow: hidden;
   border: 3px solid #f1cf58;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .pfp-current-img {
@@ -26,7 +25,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   font-size: 0.75rem;
   padding: 4px 0;
@@ -43,7 +42,7 @@
 .pfp-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -58,7 +57,7 @@
   max-width: 400px;
   width: 95%;
   text-align: center;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .pfp-modal-content h3 {

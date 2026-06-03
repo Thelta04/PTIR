@@ -8,6 +8,8 @@ import DriverScheduleView from './DriverScheduleView';
 import DriverShiftsView from './DriverShiftsView';
 import DriverHistory from './DriverHistory';
 import ProfileModal from '../../components/ProfileModal';
+import SharedHeader from '../../components/SharedHeader';
+import SharedDrawer from '../../components/SharedDrawer';
 import './driver.css';
 import '../client/client.css';
 import '../../components/map-background.css';
@@ -51,102 +53,51 @@ export default function DriverMain() {
 
   return (
     <div className="driver-layout">
-      {/* Top App Bar */}
-      <header className="driver-header">
-        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} aria-hidden="true" />
-        </button>
-        <div className="client-brand" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
-            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}>Motorista</span>
-        </div>
-        <div
-          className="header-actions"
-          onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer', gap: '4px' }}
-        >
-          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
-            <img
-              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-              alt="Profile"
-              className="user-pfp-small"
-              style={{ margin: 0 }}
-            />
-          </div>
-          <span className="user-name-display" style={{ fontSize: '0.85rem', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
-        </div>
-      </header>
+      <SharedHeader 
+        user={user} 
+        subtitle="Motorista"
+        onMenuClick={() => setIsMenuOpen(true)} 
+        onProfileClick={() => setIsProfileModalOpen(true)}
+        navigateTo="/driver"
+      />
 
       {/* Main Content Area */}
       <main className="driver-main-content" tabIndex={0}>
         {renderContent()}
       </main>
 
-      {/* Sidebar Drawer overlay */}
       <AnimatePresence>
         {isMenuOpen && (
-          <>
-            <motion.div
-              className="drawer-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMenuOpen(false)}
-            />
-            <motion.aside
-              className="drawer-menu"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="drawer-title"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
+          <SharedDrawer
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            onLogout={handleLogout}
+          >
+            <button
+              className={`drawer-link ${activeTab === 'home' ? 'drawer-link--active' : ''}`}
+              onClick={() => handleNav('home')}
             >
-              <div className="drawer-header">
-                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
-                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} aria-hidden="true" />
-                </button>
-              </div>
-
-              <nav className="drawer-nav">
-                <button
-                  className={`drawer-link ${activeTab === 'home' ? 'active' : ''}`}
-                  onClick={() => handleNav('home')}
-                >
-                  Página Inicial
-                </button>
-                <button
-                  className={`drawer-link ${activeTab === 'refuels' ? 'active' : ''}`}
-                  onClick={() => handleNav('refuels')}
-                >
-                  Registar Reabastecimento
-                </button>
-                <button
-                  className={`drawer-link ${activeTab === 'shifts' ? 'active' : ''}`}
-                  onClick={() => handleNav('shifts')}
-                >
-                  Gerir Turnos
-                </button>
-                <button
-                  className={`drawer-link ${activeTab === 'history' ? 'active' : ''}`}
-                  onClick={() => handleNav('history')}
-                >
-                  Ver Histórico de Viagens
-                </button>
-              </nav>
-
-              <div className="drawer-footer">
-                <button className="drawer-logout" onClick={handleLogout}>
-                  Terminar Sessão
-                </button>
-              </div>
-            </motion.aside>
-          </>
+              Página Inicial
+            </button>
+            <button
+              className={`drawer-link ${activeTab === 'refuels' ? 'drawer-link--active' : ''}`}
+              onClick={() => handleNav('refuels')}
+            >
+              Registar Reabastecimento
+            </button>
+            <button
+              className={`drawer-link ${activeTab === 'shifts' ? 'drawer-link--active' : ''}`}
+              onClick={() => handleNav('shifts')}
+            >
+              Gerir Turnos
+            </button>
+            <button
+              className={`drawer-link ${activeTab === 'history' ? 'drawer-link--active' : ''}`}
+              onClick={() => handleNav('history')}
+            >
+              Ver Histórico de Viagens
+            </button>
+          </SharedDrawer>
         )}
       </AnimatePresence>
 

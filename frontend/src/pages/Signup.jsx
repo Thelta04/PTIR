@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { PSelect, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 import PFPSelector from '../components/PFPSelector';
 import { getPasswordValidationMessage } from '../utils/validation';
-
 
 const ROLE_ROUTES = {
   MANAGER: '/manager',
@@ -60,87 +58,86 @@ export default function Signup() {
   const passwordWarning = password ? getPasswordValidationMessage(password) : '';
 
   return (
-    <div className="login-page-user">
+    <main className="login-page">
+      <motion.div
+        className="login-card"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
+        {/* Brand */}
+        <div className="login-brand">
+          <h1 className="login-brand-name" style={{ margin: 0 }}>TUXY</h1>
+          <span className="login-brand-sub">Cliente</span>
+        </div>
 
-      {/* Brand */}
-      <div className="tuxy-header-div">
-        <span className="tuxy-header-title">TUXY</span>
-        <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Cliente</span>
-      </div>
-      <div className="login-form-container">
-        <p className="login-welcome">Bem-vindo</p>
-        <p className="login-subtitle">Registe-se para aceder à aplicação</p>
-
+        <p className="login-subtitle" style={{ marginBottom: '1.5rem' }}>
+          Bem-vindo! Registe-se para aceder à aplicação.
+        </p>
 
         <form onSubmit={handleSubmit} className="login-form">
-
           <PFPSelector selectedPfp={profilePic} onSelect={setProfilePic} />
 
-          <PInputText
-            label="Nome"
-            className="session-input"
+          <label className="login-label" htmlFor="signup-name">Nome</label>
+          <input
+            id="signup-name"
+            type="text"
+            className="login-input"
+            value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
 
-          <PInputNumber
-            label="NIF"
-            className="session-input"
-            name="some-name"
+          <label className="login-label" htmlFor="signup-nif">NIF</label>
+          <input
+            id="signup-nif"
+            type="number"
+            className="login-input"
             placeholder="NNN NNN NNN"
+            value={nif}
             onChange={(e) => setNif(e.target.value)}
             required
           />
 
-          <PSelect
-            id="login-opcao"
-            name="options"
-            label="Género"
-            className="session-input"
+          <label className="login-label" htmlFor="signup-gender">Género</label>
+          <select
+            id="signup-gender"
+            className="login-input"
             value={opcao}
             onChange={(e) => setGender(e.target.value)}
             required
+            style={{ backgroundColor: '#fff' }}
           >
-            <PSelectOption value="Female">
-              Feminino
-            </PSelectOption>
+            <option value="" disabled>Selecione um género</option>
+            <option value="Female">Feminino</option>
+            <option value="Male">Masculino</option>
+            <option value="Other">Outro</option>
+          </select>
 
-            <PSelectOption value="Male">
-              Masculino
-            </PSelectOption>
-
-            <PSelectOption value="Other">
-              Outro
-            </PSelectOption>
-          </PSelect>
-
-
-          <PInputEmail
-            id="login-email"
-            label="Email"
+          <label className="login-label" htmlFor="signup-email">Email</label>
+          <input
+            id="signup-email"
             type="email"
-            className="session-input"
+            className="login-input"
             placeholder="seu@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoFocus
           />
 
-
-          <PInputPassword
-            id="login-email"
-            className="session-input"
-            label="Palavra-passe"
-            name="password"
-            toggle={true}
+          <label className="login-label" htmlFor="signup-password">Palavra-passe</label>
+          <input
+            id="signup-password"
+            type="password"
+            className="login-input"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required={true}
+            required
           />
 
           {passwordWarning && (
-            <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
+            <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem', color: '#b91c1c' }}>
               {passwordWarning}
             </div>
           )}
@@ -150,6 +147,7 @@ export default function Signup() {
               className="login-error"
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
+              style={{ backgroundColor: '#fef2f2', color: '#b91c1c', borderRadius: '8px' }}
             >
               {error}
             </motion.div>
@@ -157,19 +155,24 @@ export default function Signup() {
 
           <button
             type="submit"
-            className="login-btn"
+            className="login-btn btn--primary"
+            style={{ fontWeight: 'bold' }}
             disabled={loading}
           >
             {loading ? 'A registar…' : 'Registar'}
-
-
           </button>
-          <p className="login-subtitle">Já tem uma conta? <a href="/login">Iniciar Sessão</a></p>
-          <hr></hr>
-          <p className="login-subtitle">Deseja registar-se como motorista? <a href="/signup-driver">Registe-se aqui!</a></p>
+          
+          <div style={{ marginTop: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--gray-600)' }}>
+              Já tem uma conta? <a href="/login" style={{ fontWeight: '600', color: '#854d0e' }}>Iniciar Sessão</a>
+            </span>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--gray-200)' }} />
+            <span style={{ fontSize: '0.9rem', color: 'var(--gray-600)' }}>
+              Deseja registar-se como motorista? <a href="/signup-driver" style={{ fontWeight: '600', color: '#854d0e' }}>Registe-se aqui!</a>
+            </span>
+          </div>
         </form>
-      </div>
-    </div>
-
+      </motion.div>
+    </main>
   );
 }
