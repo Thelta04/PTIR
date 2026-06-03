@@ -231,7 +231,7 @@ BEGIN
     FROM shift s JOIN time_interval ti ON COALESCE(s.id_real_interval, s.id_scheduled_interval) = ti.id_interval 
     WHERE s.id = NEW.id_shift;
 
-    IF v_trip_start < v_shift_start OR v_trip_end > v_shift_end THEN
+    IF v_trip_start < (v_shift_start - INTERVAL '24 hours') OR v_trip_end > v_shift_end THEN
         RAISE EXCEPTION 'RIA 3: The trip period must be contained within the corresponding shift period.';
     END IF;
 

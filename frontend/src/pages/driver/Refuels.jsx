@@ -14,6 +14,7 @@ export default function Refuels() {
   const [activeShift, setActiveShift] = useState(null);
   const [taxiInfo, setTaxiInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [shiftLoading, setShiftLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
   const showError = (msg) => {
@@ -38,7 +39,11 @@ export default function Refuels() {
           }
         } catch (err) {
           console.error("Failed to fetch shift/taxi", err);
+        } finally {
+          setShiftLoading(false);
         }
+      } else {
+        setShiftLoading(false);
       }
     };
     fetchShift();
@@ -142,7 +147,13 @@ export default function Refuels() {
       <div className="refuel-main">
         <h1>Registar {taxiInfo?.engine_type === 'electric' ? 'Carregamento' : 'Reabastecimento'}</h1>
 
-        <section className="refuel-card">
+        {!shiftLoading && !activeShift && (
+          <div style={{ background: '#fef3c7', color: '#92400e', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #fde68a', fontSize: '0.95rem' }}>
+            <strong>Aviso:</strong> Precisas de ter um turno ativo para poder registar um reabastecimento. Por favor, inicia um turno primeiro.
+          </div>
+        )}
+
+        <section className="refuel-card" style={{ opacity: !activeShift && !shiftLoading ? 0.6 : 1, pointerEvents: !activeShift && !shiftLoading ? 'none' : 'auto' }}>
           <div className="refuel-inputs">
 
             <div className="refuel-input-row">
@@ -243,7 +254,7 @@ export default function Refuels() {
             Limpar
           </button>
 
-          <button className="refuel-submit" onClick={handleSubmit} disabled={loading}>
+          <button className="refuel-submit" onClick={handleSubmit} disabled={loading || (!activeShift && !shiftLoading)}>
             {loading ? 'A registar...' : 'Confirmar'}
           </button>
         </div>
