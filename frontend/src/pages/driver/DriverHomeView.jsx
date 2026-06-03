@@ -646,13 +646,14 @@ export default function DriverHomeView({ onNavigate }) {
           </div>
           <button
             onClick={handleEndShift}
+            disabled={!!activeTrip}
             style={{
-              background: isShiftEnded ? 'rgba(255,255,255,0.2)' : '#b91c1c',
+              background: activeTrip ? '#ccc' : (isShiftEnded ? 'rgba(255,255,255,0.2)' : '#b91c1c'),
               border: 'none',
               padding: '8px 16px',
               borderRadius: '4px',
-              color: 'white',
-              cursor: 'pointer',
+              color: activeTrip ? '#888' : 'white',
+              cursor: activeTrip ? 'not-allowed' : 'pointer',
               fontWeight: 'bold',
               display: 'flex',
               alignItems: 'center',

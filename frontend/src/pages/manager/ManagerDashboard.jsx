@@ -799,9 +799,8 @@ export default function ManagerDashboard() {
                     onChange={(e) => setTripStatusFilter(e.target.value)}
                   >
                     <option value="">Todos os Estados</option>
-                    <option value="PENDING">Pendente</option>
-                    <option value="DRIVER_ACCEPTED">Motorista Aceitou</option>
-                    <option value="CLIENT_ACCEPTED">Cliente Aceitou</option>
+                    <option value="REALIZADAS">Não Canceladas</option>
+                    <option value="PENDING_GROUP">Pendente</option>
                     <option value="IN_PROGRESS">Em Progresso</option>
                     <option value="WAITING_PAYMENT">A Aguardar Pagamento</option>
                     <option value="PAID">Pago</option>
@@ -813,7 +812,12 @@ export default function ManagerDashboard() {
                   <thead><tr><th>ID</th><th>Estado</th><th>Cliente</th><th>Motorista</th><th>Rota</th><th>Data/Hora</th><th>Duração</th><th>Preço</th></tr></thead>
                   <tbody>
                     {data.trips
-                      .filter(t => tripStatusFilter ? t.status === tripStatusFilter : true)
+                      .filter(t => {
+                        if (!tripStatusFilter) return true;
+                        if (tripStatusFilter === 'REALIZADAS') return t.status !== 'CANCELED';
+                        if (tripStatusFilter === 'PENDING_GROUP') return ['PENDING', 'DRIVER_ACCEPTED', 'CLIENT_ACCEPTED'].includes(t.status);
+                        return t.status === tripStatusFilter;
+                      })
                       .sort((a, b) => {
                         const timeA = a.interval?.start_time ? new Date(a.interval.start_time).getTime() : 0;
                         const timeB = b.interval?.start_time ? new Date(b.interval.start_time).getTime() : 0;

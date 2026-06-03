@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { listShifts, startShift, endShift, deleteShift } from '../../api/client';
+import { listShifts, startShift, endShift, deleteShift, listTrips } from '../../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Clock, Trash2, Filter, Plus } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -16,6 +16,7 @@ export default function DriverShiftsView({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+  const [hasActiveTrip, setHasActiveTrip] = useState(false);
 
   const showToast = (msg) => {
     setActionMsg(msg);
@@ -37,6 +38,18 @@ export default function DriverShiftsView({ onNavigate }) {
     try {
       setLoading(true);
       const { data } = await listShifts(user.id);
+      
+      try {
+        const tripsRes = await listTrips();
+        const myActive = tripsRes.data.filter(t => 
+          t.shift?.driver?.id === user.id && 
+          ['DRIVER_ACCEPTED', 'CLIENT_ACCEPTED', 'IN_PROGRESS'].includes(t.status)
+        );
+        setHasActiveTrip(myActive.length > 0);
+      } catch (e) {
+        console.error('Error fetching trips', e);
+      }
+
       // Sort by date
       const sorted = [...data].sort((a, b) =>
         new Date(a.scheduled_interval?.start_time) - new Date(b.scheduled_interval?.start_time)
@@ -342,7 +355,16 @@ export default function DriverShiftsView({ onNavigate }) {
                   </>
                 )}
                 {started && !ended && (
-                  <button className="btn btn--danger" onClick={() => handleEnd(s.id)}>
+                  <button 
+                    className="btn btn--danger" 
+                    onClick={() => handleEnd(s.id)}
+                    disabled={hasActiveTrip}
+                    style={{
+                      background: hasActiveTrip ? '#ccc' : '',
+                      color: hasActiveTrip ? '#888' : '',
+                      cursor: hasActiveTrip ? 'not-allowed' : 'pointer'
+                    }}
+                  >
                     <Square size={14} /> Terminar Turno
                   </button>
                 )}
