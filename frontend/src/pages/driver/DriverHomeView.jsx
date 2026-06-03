@@ -487,10 +487,10 @@ export default function DriverHomeView({ onNavigate }) {
       'Aceitar Viagem?',
       <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-          <img 
-            src={`/PFPs/${trip.client_pfp || 1}.jpg`} 
-            alt={trip.client_name} 
-            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }} 
+          <img
+            src={`/PFPs/${trip.client_pfp || 1}.jpg`}
+            alt={trip.client_name}
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }}
           />
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#1f2937' }}>{trip.client_name}</div>
@@ -856,7 +856,7 @@ export default function DriverHomeView({ onNavigate }) {
           variants={sheetVariants}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         >
-          <div 
+          <div
             onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}
             style={{ cursor: 'pointer' }}
           >

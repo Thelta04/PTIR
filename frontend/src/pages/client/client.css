@@ -26,7 +26,7 @@ body,
   grid-template-columns: minmax(58px, 1fr) auto minmax(58px, 1fr);
   align-items: center;
   padding: 0 20px;
-  position: relative;
+  position: sticky;
   z-index: 30;
 }
 
