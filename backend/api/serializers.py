@@ -437,12 +437,14 @@ class ShiftDetailSerializer(serializers.ModelSerializer):
     driver_id          = serializers.IntegerField(source='driver.user_id', read_only=True)
     driver_name        = serializers.CharField(source='driver.user.name', read_only=True)
     taxi_plate         = serializers.CharField(source='taxi.license_plate', read_only=True)
+    taxi_brand         = serializers.CharField(source='taxi.brand', read_only=True)
+    taxi_model         = serializers.CharField(source='taxi.model', read_only=True)
     scheduled_interval = TimeIntervalSerializer(read_only=True)
     real_interval      = TimeIntervalSerializer(read_only=True)
 
     class Meta:
         model = Shift
-        fields = ['id', 'driver_id', 'driver_name', 'taxi_plate', 'scheduled_interval', 'real_interval']
+        fields = ['id', 'driver_id', 'driver_name', 'taxi_plate', 'taxi_brand', 'taxi_model', 'scheduled_interval', 'real_interval']
 
 class RatingListSerializer(serializers.ModelSerializer):
     trip_id = serializers.IntegerField(source='trip.id', read_only=True)
