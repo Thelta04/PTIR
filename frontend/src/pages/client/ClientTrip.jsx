@@ -92,8 +92,17 @@ export default function ClientTrip() {
     message: '',
     onConfirm: () => { },
   });
+  const [tripToast, setTripToast] = useState('');
+  const notifiedTripEventsRef = useRef(new Set());
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+  const showTripToast = (eventKey, message) => {
+    if (notifiedTripEventsRef.current.has(eventKey)) return;
+    notifiedTripEventsRef.current.add(eventKey);
+    setTripToast(message);
+    setTimeout(() => setTripToast(''), 4500);
+  };
 
   const showConfirm = (title, message, onConfirm) => {
     setModalConfig({
@@ -148,8 +157,16 @@ export default function ClientTrip() {
             } else if (updatedTrip.status === 'CLIENT_ACCEPTED') {
               setStatus('waiting_pickup');
             } else if (updatedTrip.status === 'IN_PROGRESS') {
+              showTripToast(
+                `trip-started-${updatedTrip.id}`,
+                'A sua viagem começou.'
+              );
               setStatus('in_progress');
             } else if (updatedTrip.status === 'WAITING_PAYMENT') {
+              showTripToast(
+                `trip-ended-${updatedTrip.id}`,
+                'A sua viagem acabou. Pode efetuar o pagamento.'
+              );
               setStatus('waiting_payment');
             } else if (updatedTrip.status === 'PAID') {
               setStatus('paid');
@@ -818,6 +835,20 @@ export default function ClientTrip() {
         </section>
 
       </main>
+
+      <AnimatePresence>
+        {tripToast && (
+          <motion.div
+            className="client-trip-toast"
+            initial={{ opacity: 0, y: -12, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -12, x: '-50%' }}
+            transition={{ duration: 0.18 }}
+          >
+            {tripToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isMenuOpen && (

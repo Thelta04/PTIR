@@ -22,9 +22,9 @@ body,
   height: 80px;
   width: 100%;
   background: #ffffff;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(58px, 1fr) auto minmax(58px, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 0 20px;
   position: relative;
   z-index: 30;
@@ -34,15 +34,42 @@ body,
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
-  margin-left: 8px;
-  flex: 1;
+  align-items: center;
+  justify-self: center;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.client-brand-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+}
+
+.client-brand-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
 }
 
 .client-brand-name {
   font-size: 2.2rem;
   font-weight: 900;
   color: #000;
+  line-height: 1;
+  margin: 0;
+}
+
+.client-brand-subtitle {
+  color: #666;
+  display: flex;
+  font-size: 0.85rem;
+  font-weight: 600;
+  height: 14px;
+  line-height: 1;
+  margin-top: 4px;
 }
 
 .menu-btn,
@@ -60,9 +87,15 @@ body,
 
 .user-name-container {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
+  justify-self: end;
   padding: 0 5px;
+}
+
+.client-header .menu-btn {
+  justify-self: start;
 }
 
 .user-name-text {
@@ -833,6 +866,28 @@ body,
   z-index: 20;
   pointer-events: none;
   /* Let clicks pass to map except for the panel */
+}
+
+.client-trip-toast {
+  align-items: center;
+  background: #111827;
+  border: 1px solid rgba(241, 207, 88, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  color: #fff;
+  display: flex;
+  font-size: 0.95rem;
+  font-weight: 700;
+  justify-content: center;
+  left: 50%;
+  max-width: calc(100vw - 32px);
+  min-height: 44px;
+  padding: 10px 16px;
+  position: fixed;
+  text-align: center;
+  top: 92px;
+  width: max-content;
+  z-index: 60;
 }
 
 .status-panel {

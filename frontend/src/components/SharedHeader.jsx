@@ -10,13 +10,13 @@ export default function SharedHeader({ title = 'TUXY', subtitle, user, onMenuCli
         <Menu size={24} color="#000" aria-hidden="true" />
       </button>
 
-      <div className="client-brand" onClick={() => navigate(navigateTo)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', gap: '8px', height: '40px', alignItems: 'center' }}>
-          <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-          <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>{title}</h1>
+      <div className="client-brand" onClick={() => navigate(navigateTo)}>
+        <div className="client-brand-main">
+          <img src="/icon_small.png" alt="TUXY Icon" className="client-brand-icon" />
+          <h1 className="client-brand-name">{title}</h1>
         </div>
         {subtitle && (
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex', marginTop: '4px' }}>
+          <span className="client-brand-subtitle">
             {subtitle}
           </span>
         )}

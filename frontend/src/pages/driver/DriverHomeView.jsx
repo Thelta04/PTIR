@@ -131,6 +131,36 @@ const MapController = ({ activeTrip, routeCoords, driverLoc }) => {
   return null;
 };
 
+const playNewTripAlert = () => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const audioContext = new AudioContext();
+    const playTone = (frequency, delay) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + delay);
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + delay + 0.22);
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(audioContext.currentTime + delay);
+      oscillator.stop(audioContext.currentTime + delay + 0.24);
+    };
+
+    playTone(880, 0);
+    playTone(1175, 0.26);
+    setTimeout(() => audioContext.close(), 700);
+  } catch (err) {
+    console.error('Error playing new trip alert:', err);
+  }
+};
+
 export default function DriverHomeView({ onNavigate }) {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
@@ -141,6 +171,8 @@ export default function DriverHomeView({ onNavigate }) {
   const [eta, setEta] = useState(null);
   const driverLocRef = useRef(null);
   const lastLocationPublishRef = useRef(0);
+  const knownPendingTripIdsRef = useRef(new Set());
+  const hasLoadedPendingTripsRef = useRef(false);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
@@ -334,6 +366,15 @@ export default function DriverHomeView({ onNavigate }) {
         setEta(null);
         const loc = driverLocRef.current || { lat: 0.0, lon: 0.0 };
         const { data: pending } = await listPendingTrips(user.id, loc.lat, loc.lon);
+        const pendingIds = new Set(pending.map((trip) => trip.id));
+        const hasNewPendingTrip = pending.some((trip) => !knownPendingTripIdsRef.current.has(trip.id));
+
+        if (hasLoadedPendingTripsRef.current && hasNewPendingTrip) {
+          playNewTripAlert();
+        }
+
+        knownPendingTripIdsRef.current = pendingIds;
+        hasLoadedPendingTripsRef.current = true;
         setTrips(pending);
       }
     } catch (err) {
