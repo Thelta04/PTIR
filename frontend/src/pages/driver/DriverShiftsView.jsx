@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Clock, Trash2, Filter, Plus } from 'lucide-react';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { formatDateTimePT } from '../../utils/dateFormat';
+import { playNotificationSound } from '../../utils/notificationSound';
 
 function formatDt(iso) {
   return formatDateTimePT(iso);
@@ -19,6 +20,7 @@ export default function DriverShiftsView({ onNavigate }) {
   const [hasActiveTrip, setHasActiveTrip] = useState(false);
 
   const showToast = (msg) => {
+    playNotificationSound();
     setActionMsg(msg);
     setTimeout(() => setActionMsg(''), 4000);
   };

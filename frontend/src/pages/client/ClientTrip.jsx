@@ -11,6 +11,7 @@ import ProfileModal from '../../components/ProfileModal';
 import SharedHeader from '../../components/SharedHeader';
 import SharedDrawer from '../../components/SharedDrawer';
 import RatingModal from '../../components/RatingModal';
+import { playNotificationSound } from '../../utils/notificationSound';
 import './client.css';
 
 export default function ClientTrip() {
@@ -100,6 +101,7 @@ export default function ClientTrip() {
   const showTripToast = (eventKey, message) => {
     if (notifiedTripEventsRef.current.has(eventKey)) return;
     notifiedTripEventsRef.current.add(eventKey);
+    playNotificationSound();
     setTripToast(message);
     setTimeout(() => setTripToast(''), 4500);
   };
