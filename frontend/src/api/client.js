@@ -127,12 +127,15 @@ export const listTrips = (status) => {
   return api.get('trip/', { params });
 };
 
-export const getReports = (start_date, end_date, driver_id, comfort_level) => {
+export const getReports = (start_date, end_date, driver_id, comfort_level, taxi_license_plate, brand, model) => {
   const params = {};
   if (start_date) params.start_date = start_date;
   if (end_date) params.end_date = end_date;
   if (driver_id) params.driver_id = driver_id;
   if (comfort_level) params.comfort_level = comfort_level;
+  if (taxi_license_plate) params.taxi_license_plate = taxi_license_plate;
+  if (brand) params.brand = brand;
+  if (model) params.model = model;
   return api.get('reports/', { params });
 };
 
@@ -158,6 +161,10 @@ export const updateDriverLocation = (lat, lon) => api.post('driver/location/', {
 export const getTripDriverLocation = (id) => api.get(`trip/${id}/driver-location/`);
 export const cancelTrip = (id) => api.patch(`trip/${id}/cancel/`);
 export const rateTrip = (tripId, score) => api.post('rating/create/', { trip_id: tripId, score });
+// Invoices
+export const listInvoices = () => api.get('invoices/');
+
+// -- Ratting
 export const listRatings = (driverId) => api.get(`rating/${driverId}/`);
 export const getPricing = () => api.get('pricing/');
 export const updatePricing = (data) => api.patch('pricing/', data);

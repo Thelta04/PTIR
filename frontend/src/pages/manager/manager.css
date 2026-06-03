@@ -62,10 +62,11 @@
 .manager-main {
   flex: 1;
   padding: 2rem 3rem;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  min-width: 0;
 }
 
 .section-header {
@@ -73,6 +74,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .section-title {
@@ -88,13 +91,15 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
   box-shadow: var(--shadow-md);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .manager-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  min-width: 600px;
 }
 
 .manager-table th {
@@ -215,35 +220,48 @@
 
 .reports-filter-card {
   background: var(--gold-100);
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--gold-200);
   display: flex;
   align-items: flex-end;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .filter-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--gold-700);
 }
 
 .filter-input {
-  height: 42px;
-  padding: 0 12px;
+  height: 34px;
+  padding: 0 10px;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--gold-300);
   background: #fff;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   outline: none;
+  width: 150px; /* Base width for most filters */
+}
+
+/* Specific widths for certain filters to fit content better */
+.filter-group:has(.filter-input[name="reports_start"]),
+.filter-group:has(.filter-input[name="reports_end"]),
+.filter-group:has(input[placeholder="DD-MM-AAAA"]) {
+  width: 130px;
+}
+
+.filter-group select.filter-input {
+  width: auto;
+  min-width: 140px;
 }
 
 .filter-input:focus {
@@ -251,13 +269,14 @@
 }
 
 .fetch-btn {
-  height: 42px;
-  padding: 0 24px;
+  height: 34px;
+  padding: 0 16px;
   background: var(--gold-600);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
   font-weight: 700;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }

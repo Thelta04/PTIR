@@ -13,13 +13,15 @@ const pickerStyle = {
 function getWrapperStyle(className) {
   const baseStyle = {
     position: 'relative',
-    display: 'block',
-    width: '100%',
+    display: 'inline-block',
+    width: 'fit-content',
   };
 
   if (className?.includes('schedule-input')) {
     return {
       ...baseStyle,
+      display: 'block',
+      width: '100%',
       flex: 1,
       minWidth: 100,
     };
