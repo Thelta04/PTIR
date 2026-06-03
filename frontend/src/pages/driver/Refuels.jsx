@@ -96,7 +96,7 @@ export default function Refuels() {
     } catch (err) {
       console.error("Refuel error:", err);
       // Handle possible backend validation errors nicely
-      if (err.response && err.response.data) {
+      if (err.response && err.response.data && typeof err.response.data === 'object' && !Array.isArray(err.response.data)) {
         const errorVal = Object.values(err.response.data).flat()[0];
         if (typeof errorVal === 'string') {
           showError(`Erro: ${errorVal}`);
