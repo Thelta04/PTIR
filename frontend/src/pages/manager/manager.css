@@ -184,32 +184,39 @@
 /* Reports Section */
 .reports-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
   background: #fff;
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  min-width: 0;
 }
 
 .stat-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-value {
-  font-size: 1.8rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--gray-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .reports-container {
@@ -295,6 +302,49 @@
 @media (max-width: 1024px) {
   .report-details-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .manager-main {
+    padding: 1.5rem 1rem;
+  }
+
+  .reports-filter-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .filter-group, 
+  .filter-group select.filter-input,
+  .filter-group:has(.filter-input[name="reports_start"]),
+  .filter-group:has(.filter-input[name="reports_end"]),
+  .filter-group:has(input[placeholder="DD-MM-AAAA"]) {
+    width: 100% !important;
+  }
+
+  .filter-input {
+    width: 100% !important;
+  }
+
+  .fetch-btn {
+    grid-column: span 2;
+    width: 100%;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 500px) {
+  .reports-filter-card {
+    grid-template-columns: 1fr;
+  }
+
+  .fetch-btn {
+    grid-column: span 1;
   }
 }
 
