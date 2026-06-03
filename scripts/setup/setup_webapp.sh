@@ -23,11 +23,16 @@ sudo mkdir -p "$TARGET_DIR"
 sudo chown "$APP_USER:$APP_USER" "$TARGET_DIR"
 
 # Install system dependencies
-echo "Installing system dependencies..."
+echo "Checking system dependencies..."
 wait_for_dpkg_lock
 
-sudo apt-get update -qq
-sudo apt-get install -y python3-venv python3-pip curl nginx libpq-dev -qq
+if ! dpkg -s python3-venv python3-pip curl nginx libpq-dev >/dev/null 2>&1; then
+    echo "Installing system dependencies..."
+    sudo apt-get update -qq
+    sudo apt-get install -y python3-venv python3-pip curl nginx libpq-dev -qq
+else
+    echo "System dependencies are already installed."
+fi
 
 # Extract artifacts
 echo "Extracting artifacts..."

@@ -18,8 +18,10 @@ export DEBIAN_FRONTEND=noninteractive
 wait_for_dpkg_lock
 
 # Install PostgreSQL
-sudo apt-get update -qq
-sudo apt-get install -y postgresql postgresql-contrib -qq
+if ! dpkg -s postgresql postgresql-contrib >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo apt-get install -y postgresql postgresql-contrib -qq
+fi
 
 # Configure PostgreSQL
 PG_VERSION=$(psql -V | awk '{print $3}' | cut -d. -f1)

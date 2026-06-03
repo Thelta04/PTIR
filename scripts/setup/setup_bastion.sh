@@ -10,8 +10,10 @@ echo "--- Bastion Setup: Installing security tools ---"
 while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 2; done
 
 export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update -qq
-sudo apt-get install -y -qq fail2ban
+if ! dpkg -s fail2ban >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq fail2ban
+fi
 
 # SSH Hardening
 echo "--- Hardening SSH ---"
