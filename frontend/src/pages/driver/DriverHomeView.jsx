@@ -173,6 +173,7 @@ export default function DriverHomeView({ onNavigate }) {
   const lastLocationPublishRef = useRef(0);
   const knownPendingTripIdsRef = useRef(new Set());
   const hasLoadedPendingTripsRef = useRef(false);
+  const notifiedDriverTripEventsRef = useRef(new Set());
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
@@ -300,6 +301,12 @@ export default function DriverHomeView({ onNavigate }) {
     setTimeout(() => setToastMsg(''), 4000);
   };
 
+  const showDriverTripToast = (eventKey, message) => {
+    if (notifiedDriverTripEventsRef.current.has(eventKey)) return;
+    notifiedDriverTripEventsRef.current.add(eventKey);
+    showToast(message);
+  };
+
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
   const showConfirm = (title, message, onConfirm) => {
@@ -354,6 +361,17 @@ export default function DriverHomeView({ onNavigate }) {
         // If transitioning from no trip to an active trip, we might want to open it once
         if (!activeTripRef.current) {
           setSheetState('open');
+        }
+        if (myActive.status === 'CLIENT_ACCEPTED') {
+          showDriverTripToast(
+            `client-confirmed-${myActive.id}`,
+            'O cliente confirmou o motorista. Pode ir recolher o passageiro.'
+          );
+        } else if (myActive.status === 'PAID') {
+          showDriverTripToast(
+            `client-paid-${myActive.id}`,
+            'O cliente efetuou o pagamento. Já pode emitir a fatura.'
+          );
         }
         setActiveTrip(myActive);
         setTrips([]); // Don't show other pending trips
@@ -913,31 +931,11 @@ export default function DriverHomeView({ onNavigate }) {
       <AnimatePresence>
         {toastMsg && (
           <motion.div
-            className="dash-toast"
-            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            className="client-trip-toast"
+            initial={{ opacity: 0, y: -12, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: 50, x: '-50%' }}
-            style={{
-              position: 'fixed',
-              bottom: '10px',
-              left: '50%',
-              background: '#fef2f2',
-              color: '#991b1b',
-              padding: '1rem 2rem',
-              borderRadius: '8px',
-              border: '1px solid #fecaca',
-              zIndex: 9999,
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-              fontWeight: '500',
-              textAlign: 'center',
-              width: 'max-content',
-              maxWidth: '90%',
-              maxHeight: '5%',
-              wordWrap: 'break-word',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            exit={{ opacity: 0, y: -12, x: '-50%' }}
+            transition={{ duration: 0.18 }}
           >
             {toastMsg}
           </motion.div>

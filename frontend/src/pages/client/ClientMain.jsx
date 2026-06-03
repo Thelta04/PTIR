@@ -628,6 +628,7 @@ export default function ClientMain() {
                     onChange={(e) => {
                       setOriginAddress(e.target.value);
                       setShowOriginSuggestions(true);
+                      setOrigem(null);
                     }}
                     onFocus={() => setShowOriginSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 200)}
@@ -689,6 +690,7 @@ export default function ClientMain() {
                     onChange={(e) => {
                       setDestinationAddress(e.target.value);
                       setShowDestSuggestions(true);
+                      setDestino(null);
                     }}
                     onFocus={() => setShowDestSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowDestSuggestions(false), 200)}
@@ -760,7 +762,12 @@ export default function ClientMain() {
               <button
                 className="search-btn search-btn--primary"
                 onClick={handleProceedToSelection}
-                style={{ width: '100%' }}
+                style={{ 
+                  width: '100%',
+                  opacity: !(origem && destino) ? 0.5 : 1,
+                  cursor: !(origem && destino) ? 'not-allowed' : 'pointer'
+                }}
+                disabled={!(origem && destino)}
               >
                 Pedir Tuxy
               </button>
