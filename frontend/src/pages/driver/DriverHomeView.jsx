@@ -850,25 +850,23 @@ export default function DriverHomeView({ onNavigate }) {
         </div>
       ) : activeShift ? (
         <motion.div
-          className="bottom-sheet draggable-sheet"
+          className="bottom-sheet"
           initial="closed"
           animate={sheetState}
           variants={sheetVariants}
-          drag="y"
-          dragConstraints={{ top: -100, bottom: 100 }}
-          dragElastic={0.8}
-          onDragEnd={(e, info) => {
-            if (info.offset.y < -50) setSheetState('open');
-            else if (info.offset.y > 50) setSheetState('closed');
-          }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         >
-          <div className="sheet-handle-wrapper" onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}>
-            <div className="sheet-handle"></div>
-          </div>
+          <div 
+            onClick={() => setSheetState(sheetState === 'open' ? 'closed' : 'open')}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="sheet-handle-wrapper">
+              <div className="sheet-handle"></div>
+            </div>
 
-          <div className="sheet-header">
-            <h2 className="sheet-title">Escolher Passageiro</h2>
+            <div className="sheet-header">
+              <h2 className="sheet-title">Escolher Passageiro</h2>
+            </div>
           </div>
 
           <div className="passenger-list">

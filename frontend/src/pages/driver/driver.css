@@ -31,7 +31,9 @@
   font-weight: 700;
   font-size: 0.95rem;
   border-bottom: 1.5px solid #f1cf58;
-  z-index: 5;
+  z-index: 50;
+  position: sticky;
+  top: 0;
 }
 
 .menu-btn,
