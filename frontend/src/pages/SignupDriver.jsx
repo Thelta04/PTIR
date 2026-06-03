@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { PSelect, PInputDate, PSelectOption, PInputEmail, PInputPassword, PInputNumber, PInputText } from '@porsche-design-system/components-react';
 import PFPSelector from '../components/PFPSelector';
 import { getLicenseNumberValidationMessage, getPasswordValidationMessage } from '../utils/validation';
-
 
 const ROLE_ROUTES = {
   MANAGER: '/manager',
@@ -81,142 +79,150 @@ export default function SignupDriver() {
   const licenseNumberWarning = license_number ? getLicenseNumberValidationMessage(license_number) : '';
 
   return (
-    <div className="login-page-user">
-      
+    <main className="login-page">
+      <motion.div
+        className="login-card"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
         {/* Brand */}
-          <div className="tuxy-header-div">
-          <span className="tuxy-header-title">TUXY</span>
-          <span className="login-brand-sub" style={{ color: "var(--gold-900)" }}>Driver</span>
+        <div className="login-brand">
+          <h1 className="login-brand-name" style={{ margin: 0 }}>TUXY</h1>
+          <span className="login-brand-sub">Motorista</span>
         </div>
-        <div className="login-form-container">
-          <p className="login-welcome">Novo Motorista</p>
-          <p className="login-subtitle">Registe-se para aceder à aplicação</p>
 
+        <p className="login-subtitle" style={{ marginBottom: '1.5rem' }}>
+          Novo Motorista! Registe-se para aceder à aplicação.
+        </p>
 
-          <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit} className="login-form">
+          <PFPSelector selectedPfp={profilePic} onSelect={setProfilePic} />
 
-            <PFPSelector selectedPfp={profilePic} onSelect={setProfilePic} />
-
-            <PInputText 
-            label="Nome" 
-            className="session-input"
+          <label className="login-label" htmlFor="signup-name">Nome</label>
+          <input
+            id="signup-name"
+            type="text"
+            className="login-input"
+            value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            />
+          />
 
-            <PInputNumber 
-            label="NIF" 
-            className="session-input"
-            name="some-name" 
+          <label className="login-label" htmlFor="signup-nif">NIF</label>
+          <input
+            id="signup-nif"
+            type="number"
+            className="login-input"
+            placeholder="NNN NNN NNN"
+            value={nif}
             onChange={(e) => setNif(e.target.value)}
             required
-            />
+          />
 
-            <div style={{ display: "flex", padding: "0 5px"}}>
-              <PSelect
-                id="login-opcao"
-                name="options"
-                label="Género"
-                className="session-input half-width"
+          <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label className="login-label" htmlFor="signup-gender">Género</label>
+              <select
+                id="signup-gender"
+                className="login-input"
                 value={opcao}
                 onChange={(e) => setGender(e.target.value)}
                 required
-                >
-                <PSelectOption value="Female">
-                    Feminino
-                </PSelectOption>
-                
-                <PSelectOption value="Male">
-                    Masculino
-                </PSelectOption>
-
-                <PSelectOption value="Other">
-                    Outro
-                </PSelectOption>
-              </PSelect>
-
-              <PInputDate
-                id="login-data"
-                name="some-name"
-                label="Data de Nascimento"
-                className="session-input half-width"
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                locale="pt-PT" /* Força o formato de Portugal (dd/mm/yyyy) */
-                required
-              />
-
+                style={{ backgroundColor: '#fff' }}
+              >
+                <option value="" disabled>Selecione</option>
+                <option value="Female">Feminino</option>
+                <option value="Male">Masculino</option>
+                <option value="Other">Outro</option>
+              </select>
             </div>
 
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label className="login-label" htmlFor="signup-date">Data Nascimento</label>
+              <input
+                id="signup-date"
+                type="date"
+                className="login-input"
+                value={birth_date}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
+          <label className="login-label" htmlFor="signup-email">Email</label>
+          <input
+            id="signup-email"
+            type="email"
+            className="login-input"
+            placeholder="seu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          
+          <label className="login-label" htmlFor="signup-password">Palavra-passe</label>
+          <input
+            id="signup-password"
+            type="password"
+            className="login-input"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-            <PInputEmail
-              id="login-email"
-              label="Email" 
-              type="email"
-              className="session-input"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-            />
+          {passwordWarning && (
+            <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem', color: '#b91c1c' }}>
+              {passwordWarning}
+            </div>
+          )}
 
-            
-            <PInputPassword 
-              id="login-password"
-              className="session-input" 
-              label="Palavra-passe" 
-              name="password" 
-              toggle={true}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={true}
-            />
-
-            {passwordWarning && (
-              <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
-                {passwordWarning}
-              </div>
-            )}
-
-            <PInputText 
-            label="Número da Carta de Condução" 
-            className="session-input"
-            name="some-name" 
+          <label className="login-label" htmlFor="signup-license">Número da Carta de Condução</label>
+          <input
+            id="signup-license"
+            type="text"
+            className="login-input"
+            value={license_number}
             onChange={(e) => setLicenseNumber(e.target.value)}
             maxLength={12}
             required
-            />
+          />
 
-            {licenseNumberWarning && (
-              <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem' }}>
-                {licenseNumberWarning}
-              </div>
-            )}
+          {licenseNumberWarning && (
+            <div className="login-error" style={{ marginTop: '-8px', fontSize: '0.85rem', color: '#b91c1c' }}>
+              {licenseNumberWarning}
+            </div>
+          )}
 
-            {error && (
-              <motion.div
-                className="login-error"
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <button
-              type="submit"
-              className="login-btn"
-              disabled={loading}
+          {error && (
+            <motion.div
+              className="login-error"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ backgroundColor: '#fef2f2', color: '#b91c1c', borderRadius: '8px' }}
             >
-              {loading ? 'A registar…' : 'Registar'}
+              {error}
+            </motion.div>
+          )}
 
-            
-            </button>
-            <p className="login-subtitle">Já tem uma conta? <a href="/login-user">Iniciar Sessão</a></p>
-            </form>
-        </div>
-    </div>
-    
+          <button
+            type="submit"
+            className="login-btn btn--primary"
+            style={{ fontWeight: 'bold', marginTop: '0.5rem' }}
+            disabled={loading}
+          >
+            {loading ? 'A registar…' : 'Registar'}
+          </button>
+          
+          <div style={{ marginTop: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--gray-600)' }}>
+              Já tem uma conta? <a href="/login-user" style={{ fontWeight: '600', color: '#854d0e' }}>Iniciar Sessão</a>
+            </span>
+          </div>
+        </form>
+      </motion.div>
+    </main>
   );
 }

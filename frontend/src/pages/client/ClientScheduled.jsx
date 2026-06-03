@@ -5,6 +5,8 @@ import { ArrowRight, CalendarClock, ChevronLeft, Clock, MapPin, Menu, Route, Use
 import { useAuth } from '../../context/AuthContext';
 import { listTrips } from '../../api/client';
 import ProfileModal from '../../components/ProfileModal';
+import SharedHeader from '../../components/SharedHeader';
+import SharedDrawer from '../../components/SharedDrawer';
 import { formatDateTimePT } from '../../utils/dateFormat';
 import './client.css';
 
@@ -103,35 +105,12 @@ export default function ClientScheduled() {
 
   return (
     <div className="client-layout client-history-page">
-      <header className="client-header">
-        <button className="menu-btn" aria-label="Abrir menu" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} color="#000" aria-hidden="true" />
-        </button>
-
-        <div className="client-brand" onClick={() => navigate('/client')} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
-            <img src="/icon_small.png" alt="TUXY Icon" style={{ width: '28px', height: '28px' }} />
-            <h1 className="client-brand-name" style={{ margin: 0, lineHeight: 1 }}>TUXY</h1>
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#666', lineHeight: 1, height: '14px', display: 'flex' }}></span>
-        </div>
-
-        <div
-          className="user-name-container"
-          onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer', gap: '4px' }}
-        >
-          <div style={{ height: '40px', display: 'flex', alignItems: 'center' }}>
-            <img
-              src={`/PFPs/${user?.profile_pic || 1}.jpg`}
-              alt="Profile"
-              className="user-pfp-small"
-              style={{ margin: 0 }}
-            />
-          </div>
-          <span className="user-name-text" style={{ fontSize: '0.85rem', fontWeight: 'bold', lineHeight: 1, height: '14px', display: 'flex', alignItems: 'center' }}>{user?.name?.split(' ')[0]}</span>
-        </div>
-      </header>
+      <SharedHeader 
+        user={user} 
+        onMenuClick={() => setIsMenuOpen(true)} 
+        onProfileClick={() => setIsProfileModalOpen(true)}
+        navigateTo="/client"
+      />
 
       <main className="client-history-main">
         <section className="history-toolbar">
@@ -255,53 +234,21 @@ export default function ClientScheduled() {
 
       <AnimatePresence>
         {isMenuOpen && (
-          <>
-            <motion.div
-              className="drawer-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMenuOpen(false)}
-            />
-            <motion.aside
-              className="drawer-menu"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="drawer-title"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
-            >
-              <div className="drawer-header">
-                <h2 id="drawer-title" className="drawer-title" style={{ margin: 0, fontSize: '1.2rem' }}>Menu</h2>
-                <button className="drawer-close" aria-label="Fechar menu" onClick={() => setIsMenuOpen(false)}>
-                  <ChevronLeft size={24} aria-hidden="true" />
-                </button>
-              </div>
-
-              <nav className="drawer-nav">
-                <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
-                  Início
-                </button>
-                {/* <button className="drawer-link drawer-link--active" onClick={() => handleMenuClick('/client/scheduled')}>
-                  Agendar Viagens
-                </button> */}
-                <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
-                  Histórico
-                </button>
-                <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
-                  Faturas
-                </button>
-              </nav>
-
-              <div className="drawer-footer">
-                <button className="drawer-logout" onClick={handleLogout}>
-                  Terminar Sessão
-                </button>
-              </div>
-            </motion.aside>
-          </>
+          <SharedDrawer
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            onLogout={handleLogout}
+          >
+            <button className="drawer-link" onClick={() => handleMenuClick('/client')}>
+              Início
+            </button>
+            <button className="drawer-link" onClick={() => handleMenuClick('/client/history')}>
+              Histórico
+            </button>
+            <button className="drawer-link" onClick={() => handleMenuClick('/client/invoices')}>
+              Faturas
+            </button>
+          </SharedDrawer>
         )}
       </AnimatePresence>
 

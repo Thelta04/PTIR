@@ -50,6 +50,19 @@
   padding: 0;
 }
 
+/* Hide scrollbars globally but keep functionality */
+*::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
+* {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
@@ -89,21 +102,32 @@ img {
     radial-gradient(ellipse at 30% 20%, rgba(242, 228, 160, 0.35) 0%, transparent 60%),
     radial-gradient(ellipse at 80% 80%, rgba(217, 184, 74, 0.15) 0%, transparent 60%),
     var(--gray-100);
-  padding: 2rem;
+  padding: 1rem;
 }
 
 .login-card {
   width: 100%;
   max-width: 760px;
-  min-height: 620px;
   background: #fff;
   border-radius: 24px;
-  padding: 4rem 3rem;
+  padding: 2.5rem 2rem;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--gold-200);
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    padding: 1.5rem 1.25rem;
+    border-radius: 16px;
+  }
+}
+
+.login-brand {
+  display: flex;
+  align-items: flex-end;
 }
 
 .login-brand-name {
@@ -113,6 +137,7 @@ img {
 
 .login-brand-sub {
   font-size: 1.2rem;
+  margin-bottom: 7px;
 }
 
 .login-subtitle {
@@ -123,7 +148,7 @@ img {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 
 .login-label {
@@ -133,10 +158,11 @@ img {
 
 .login-input {
   width: 100%;
-  height: 54px;
+  height: 48px;
   padding: 0 1rem;
   font-size: 1rem;
   border-radius: 8px;
+  border: 1px solid var(--gray-300);
 }
 
 .login-error {
@@ -145,10 +171,14 @@ img {
 }
 
 .login-btn {
-  height: 56px;
-  margin-top: 1rem;
+  height: 48px;
+  margin-top: 0.8rem;
   font-size: 1rem;
   border-radius: 8px;
+  background: #f1cf58;
+  color: #000;
+  border: none;
+  font-weight: bold;
 }
 
 /* -- Dashboard Shell ----------------------------- */
@@ -593,13 +623,9 @@ img {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--gold-200), var(--gold-400));
+  background: #fdf2b3;
   border-color: var(--gold-400);
-  color: var(--gray-800);
-}
-
-.btn--primary:hover {
-  box-shadow: 0 2px 10px rgba(217, 184, 74, 0.3);
+  color: black;
 }
 
 .btn--danger {

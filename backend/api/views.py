@@ -2335,8 +2335,14 @@ class RefuelListCreateView(views.APIView):
             from datetime import timedelta
             
             duration = serializer.validated_data.pop('duration', 0)
+            
             end_time = timezone.now()
-            start_time = end_time - timedelta(minutes=duration) if duration else end_time
+            if duration:
+                start_time = end_time - timedelta(minutes=duration)
+            else:
+                # For combustion vehicles, make it 'instant' but valid for the start_time < end_time constraint
+                start_time = end_time - timedelta(seconds=1)
+                
             interval = TimeInterval.objects.create(start_time=start_time, end_time=end_time)
             
             refuel = serializer.save(interval=interval)
