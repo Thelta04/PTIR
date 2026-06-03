@@ -62,7 +62,7 @@ const ClientInvoiceCard = ({ invoice }) => {
         style={{ cursor: 'pointer', marginBottom: expanded ? '14px' : '0' }}
       >
         <div>
-          <span className="history-trip-id">Fatura #{invoice.number}</span>
+          <span className="history-trip-id">Fatura #{new Date(invoice.date).getFullYear()}/{invoice.number}</span>
           <h2>{new Date(invoice.date).toLocaleDateString('pt-PT')}</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -167,9 +167,9 @@ export default function ClientInvoices() {
 
   return (
     <div className="client-layout client-history-page">
-      <SharedHeader 
-        user={user} 
-        onMenuClick={() => setIsMenuOpen(true)} 
+      <SharedHeader
+        user={user}
+        onMenuClick={() => setIsMenuOpen(true)}
         onProfileClick={() => setIsProfileModalOpen(true)}
         navigateTo="/client"
       />
@@ -186,7 +186,7 @@ export default function ClientInvoices() {
         ) : (
           <div className="history-list">
             {invoices.map((invoice) => (
-              <ClientInvoiceCard key={invoice.number} invoice={invoice} user={user} />
+              <ClientInvoiceCard key={invoice.trip_id} invoice={invoice} user={user} />
             ))}
           </div>
         )}

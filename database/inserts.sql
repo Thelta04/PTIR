@@ -114,5 +114,5 @@ VALUES (5, 1),
 -- INVOICE
 
 INSERT INTO invoice (id_trip, number, date, amount_total, amount_paid, nif)
-VALUES (1, 1, '2025-01-02', 15.00, 15.00, '987654321'),
+VALUES (1, 0, '2025-01-02', 15.00, 15.00, '987654321'),
        (2, 2, '2025-01-03', 35.00, 35.00, '321654987');

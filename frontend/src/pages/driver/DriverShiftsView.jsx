@@ -320,7 +320,7 @@ export default function DriverShiftsView({ onNavigate }) {
               </div>
 
               <div className="shift-card-body">
-                <p><strong>Táxi:</strong> {s.taxi_plate}</p>
+                <p><strong>Táxi:</strong> {s.taxi_brand && s.taxi_model ? `${s.taxi_brand} ${s.taxi_model} (${s.taxi_plate})` : s.taxi_plate}</p>
                 <p><strong>Agendado:</strong> {formatDt(s.scheduled_interval?.start_time)} → {formatDt(s.scheduled_interval?.end_time)}</p>
                 {started && (
                   <p><strong>Real:</strong> {formatDt(s.real_interval?.start_time)} → {formatDt(s.real_interval?.end_time)}</p>
