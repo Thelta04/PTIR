@@ -995,7 +995,7 @@ export default function ManagerDashboard() {
                         }))
                       }
                     >
-                      <option value="">Todos os motoristas</option>
+                      <option value="">Todos</option>
                       {data.drivers.map((driver) => (
                         <option key={driver.id} value={driver.id}>
                           {driver.name}
@@ -1015,7 +1015,7 @@ export default function ManagerDashboard() {
                         }))
                       }
                     >
-                      <option value="">Todos os tipos</option>
+                      <option value="">Todos</option>
                       <option value="basic">Básico</option>
                       <option value="luxury">Luxo</option>
                     </select>
@@ -1033,7 +1033,7 @@ export default function ManagerDashboard() {
                         }))
                       }
                     >
-                      <option value="">Todas as marcas</option>
+                      <option value="">Todas</option>
                       {Object.keys(taxiModelsByBrand).map(brand => (
                         <option key={brand} value={brand}>{brand}</option>
                       ))}
@@ -1070,7 +1070,7 @@ export default function ManagerDashboard() {
                         }))
                       }
                     >
-                      <option value="">Todos os táxis</option>
+                      <option value="">Todos</option>
                       {data.taxis.map((taxi) => (
                         <option key={taxi.license_plate} value={taxi.license_plate}>
                           {taxi.brand} {taxi.model} ({taxi.license_plate})
@@ -1097,7 +1097,7 @@ export default function ManagerDashboard() {
                       <div className="stat-card"><div className="stat-label">Total de Viagens</div><div className="stat-value">{data.reports.total_trips}</div></div>
                       <div className="stat-card"><div className="stat-label">Total de Horas</div><div className="stat-value">{data.reports.total_hours?.toFixed(1)}h</div></div>
                       <div className="stat-card"><div className="stat-label">Total de Distância</div><div className="stat-value">{data.reports.total_kilometers?.toLocaleString()} km</div></div>
-                      <div className="stat-card"><div className="stat-label">Faturação Estimada</div><div className="stat-value">€{(data.reports.total_kilometers * 1.2).toFixed(2)}</div></div>
+                      <div className="stat-card"><div className="stat-label">Valor Faturado</div><div className="stat-value">€{(data.reports.total_kilometers * 1.2).toFixed(2)}</div></div>
                     </div>
                     <div className="report-details-grid">
                       <div className="data-table-container">

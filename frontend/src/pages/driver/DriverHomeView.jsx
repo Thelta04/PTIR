@@ -347,6 +347,28 @@ export default function DriverHomeView({ onNavigate }) {
       return;
     }
 
+    const now = new Date();
+    let over8h = false;
+    let passedScheduled = false;
+
+    if (activeShift.real_interval?.start_time) {
+      const start = new Date(activeShift.real_interval.start_time);
+      const diff = now - start;
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      if (hours >= 8) over8h = true;
+    }
+
+    if (activeShift.scheduled_interval?.end_time) {
+      if (now >= new Date(activeShift.scheduled_interval.end_time)) {
+        passedScheduled = true;
+      }
+    }
+
+    if (over8h || passedScheduled) {
+      showToast('Não é possível aceitar nova viagem. O turno expirou ou excedeu 8h.');
+      return;
+    }
+
     let distFromDriver = '?';
     if (trip.originCoords) {
       const [tLat, tLon] = trip.originCoords.split(',').map(Number);
@@ -405,6 +427,17 @@ export default function DriverHomeView({ onNavigate }) {
     showConfirm(
       'Aceitar Viagem?',
       <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+          <img 
+            src={`/PFPs/${trip.client_pfp || 1}.jpg`} 
+            alt={trip.client_name} 
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }} 
+          />
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#1f2937' }}>{trip.client_name}</div>
+            <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Cliente</div>
+          </div>
+        </div>
         <div><strong>De:</strong> {simplifyAddress(trip.originAddress)}</div>
         <div><strong>Para:</strong> {simplifyAddress(trip.destAddress)}</div>
         <hr style={{ border: '0', borderTop: '1px dashed #eee', margin: '5px 0' }} />
@@ -519,9 +552,13 @@ export default function DriverHomeView({ onNavigate }) {
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         setShiftDuration(`${hours}h ${minutes}m`);
 
-        if (activeShift.scheduled_interval?.end_time) {
-          setIsShiftEnded(now >= new Date(activeShift.scheduled_interval.end_time));
+        let ended = false;
+        if (hours >= 8) {
+          ended = true;
+        } else if (activeShift.scheduled_interval?.end_time) {
+          ended = now >= new Date(activeShift.scheduled_interval.end_time);
         }
+        setIsShiftEnded(ended);
       };
       updateTimer();
       timer = setInterval(updateTimer, 60000);

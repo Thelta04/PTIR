@@ -9,7 +9,8 @@ export default function ConfirmationModal({
   onConfirm, 
   onCancel, 
   confirmText = "Confirmar", 
-  cancelText = "Cancelar" 
+  cancelText = "Cancelar",
+  hideCancel = false
 }) {
   return (
     <AnimatePresence>
@@ -32,9 +33,11 @@ export default function ConfirmationModal({
             <h2 id="modal-title" className="modal-title">{title}</h2>
             <div className="modal-message">{message}</div>
             <div className="modal-actions">
-              <button className="modal-btn modal-btn--cancel" onClick={onCancel}>
-                {cancelText}
-              </button>
+              {!hideCancel && (
+                <button className="modal-btn modal-btn--cancel" onClick={onCancel}>
+                  {cancelText}
+                </button>
+              )}
               <button className="modal-btn modal-btn--confirm" onClick={onConfirm}>
                 {confirmText}
               </button>

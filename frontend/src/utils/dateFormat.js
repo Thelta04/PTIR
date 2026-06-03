@@ -144,6 +144,14 @@ export function todayDateInput() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+export function oneMonthFromNowDateInput() {
+  const now = new Date();
+  now.setMonth(now.getMonth() + 1);
+  const pad = (value) => String(value).padStart(2, '0');
+
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 export function nowDateTimeInput() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, '0');

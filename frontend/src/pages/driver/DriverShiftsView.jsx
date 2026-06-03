@@ -63,8 +63,34 @@ export default function DriverShiftsView({ onNavigate }) {
     // Only allow to clock in one shift at a time
     const hasActive = shifts.some(s => s.real_interval && !s.real_interval.end_time);
     if (hasActive) {
-      alert('Já tem um turno em curso. Termine o turno atual antes de iniciar um novo.');
+      setModalConfig({
+        isOpen: true,
+        title: 'Aviso',
+        message: 'Já tem um turno em curso. Termine o turno atual antes de iniciar um novo.',
+        onConfirm: closeModal,
+        hideCancel: true,
+        confirmText: 'OK'
+      });
       return;
+    }
+
+    const shift = shifts.find(s => s.id === id);
+    if (shift && shift.scheduled_interval) {
+      const now = new Date();
+      const schedStart = new Date(shift.scheduled_interval.start_time);
+      const schedEnd = shift.scheduled_interval.end_time ? new Date(shift.scheduled_interval.end_time) : null;
+
+      if (now < schedStart || (schedEnd && now > schedEnd)) {
+        setModalConfig({
+          isOpen: true,
+          title: 'Aviso',
+          message: 'Apenas pode iniciar o turno durante o horário agendado.',
+          onConfirm: closeModal,
+          hideCancel: true,
+          confirmText: 'OK'
+        });
+        return;
+      }
     }
 
     setModalConfig({
@@ -112,12 +138,19 @@ export default function DriverShiftsView({ onNavigate }) {
           await deleteShift(id);
           showToast('Turno apagado com sucesso!');
           fetchShifts();
+          closeModal();
         } catch (err) {
           const errData = err.response?.data;
           const errorMsg = typeof errData === 'object' ? JSON.stringify(errData) : err.message;
-          alert(`Falha ao apagar turno: ${errorMsg}`);
+          setModalConfig({
+            isOpen: true,
+            title: 'Erro',
+            message: `Falha ao apagar turno: ${errorMsg}`,
+            onConfirm: closeModal,
+            hideCancel: true,
+            confirmText: 'OK'
+          });
         }
-        closeModal();
       }
     });
   };
@@ -325,6 +358,8 @@ export default function DriverShiftsView({ onNavigate }) {
         message={modalConfig.message}
         onConfirm={modalConfig.onConfirm}
         onCancel={closeModal}
+        hideCancel={modalConfig.hideCancel}
+        confirmText={modalConfig.confirmText || 'Confirmar'}
       />
     </div>
   );
