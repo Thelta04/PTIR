@@ -716,7 +716,6 @@ export default function ClientTrip() {
             <button 
               onClick={() => {
                 setIsPaidPanelClosed(true);
-                setIsRatingModalOpen(true);
               }}
               aria-label="Fechar"
               style={{
