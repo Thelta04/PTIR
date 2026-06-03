@@ -2,14 +2,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Menu, Search, Bell, LogOut, Users, Car, CalendarClock, BarChart3, X, User, MapPin, Trash2, ShieldCheck, ShieldAlert, Edit2, Plus, Info, Star, Settings
+  Menu, Search, Bell, LogOut, Users, Car, CalendarClock, BarChart3, X, User, MapPin, Trash2, ShieldCheck, ShieldAlert, Edit2, Plus, Info, Star, Settings, FileText
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import {
   listDrivers, listTaxis, listAllShifts, createDriver, createTaxi, createShift,
   listClients, createClient, listTrips, deleteShift, toggleUserStatus, deleteUser,
   deleteTaxi, updateDriver, getReports, updateClient, updateTaxi, updateShift,
-  getPricing, updatePricing, simulatePricing
+  getPricing, updatePricing, simulatePricing, listInvoices
 } from '../../api/client';
 import './manager.css';
 import { EuropeanDateInput, EuropeanDateTimeInput } from '../../components/EuropeanDateInput';
@@ -28,6 +28,7 @@ const sidebarItems = [
   { key: 'taxis', label: 'Táxis', icon: Car },
   { key: 'shifts', label: 'Turnos', icon: CalendarClock },
   { key: 'trips', label: 'Viagens', icon: MapPin },
+  { key: 'invoices', label: 'Faturas', icon: FileText },
   { key: 'reports', label: 'Relatórios', icon: BarChart3 },
   { key: 'settings', label: 'Configurações', icon: Settings },
 ];
@@ -56,7 +57,7 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('clients');
-  const [data, setData] = useState({ clients: [], drivers: [], taxis: [], shifts: [], trips: [] });
+  const [data, setData] = useState({ clients: [], drivers: [], taxis: [], shifts: [], trips: [], invoices: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apiStatus, setApiStatus] = useState('');
@@ -94,6 +95,7 @@ export default function ManagerDashboard() {
       taxis: listTaxis,
       shifts: listAllShifts,
       trips: listTrips,
+      invoices: listInvoices,
       settings: getPricing
     };
 
@@ -143,11 +145,19 @@ export default function ManagerDashboard() {
       reports_end: fd.reports_end || todayDateInput(),
       reports_driver_id: fd.reports_driver_id || '',
       reports_comfort_level: fd.reports_comfort_level || '',
+      reports_taxi_license_plate: fd.reports_taxi_license_plate || '',
+      reports_brand: fd.reports_brand || '',
+      reports_model: fd.reports_model || '',
     }));
 
     if (data.drivers.length === 0) {
       listDrivers()
         .then(res => setData(d => ({ ...d, drivers: res.data })))
+        .catch(() => { });
+    }
+    if (data.taxis.length === 0) {
+      listTaxis()
+        .then(res => setData(d => ({ ...d, taxis: res.data })))
         .catch(() => { });
     }
   }, [activeSection]); // eslint-disable-line
@@ -837,6 +847,40 @@ export default function ManagerDashboard() {
                   </tbody>
                 </table>
               </div>
+            ) : activeSection === 'invoices' ? (
+              <div className="data-table-container">
+                <table className="manager-table">
+                  <thead>
+                    <tr>
+                      <th>Nº Fatura</th>
+                      <th>Data</th>
+                      <th>Cliente</th>
+                      <th>Motorista</th>
+                      <th>Táxi</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.invoices
+                      .sort((a, b) => new Date(b.date) - new Date(a.date) || b.number - a.number)
+                      .map((inv, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 700, color: '#111' }}>{inv.number}/{new Date(inv.date).getFullYear()}</td>
+                          <td>{new Date(inv.date).toLocaleDateString('pt-PT')}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 600 }}>{inv.client_name}</span>
+                              <span style={{ fontSize: '0.75rem', color: '#999' }}>NIF: {inv.nif}</span>
+                            </div>
+                          </td>
+                          <td>{inv.driver_name || '-'}</td>
+                          <td>{inv.taxi_plate || '-'}</td>
+                          <td style={{ fontWeight: 700 }}>€{inv.amount_total}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             ) : activeSection === 'settings' ? (
               <div className="reports-container">
                 <div className="data-table-container">
@@ -914,6 +958,7 @@ export default function ManagerDashboard() {
                     <label className="filter-label">Data Início</label>
                     <EuropeanDateInput
                       className="filter-input"
+                      name="reports_start"
                       value={formData.reports_start || ''}
                       onChange={(value) =>
                         setFormData((fd) => ({
@@ -928,6 +973,7 @@ export default function ManagerDashboard() {
                     <label className="filter-label">Data Fim</label>
                     <EuropeanDateInput
                       className="filter-input"
+                      name="reports_end"
                       value={formData.reports_end || ''}
                       onChange={(value) =>
                         setFormData((fd) => ({
@@ -974,6 +1020,64 @@ export default function ManagerDashboard() {
                       <option value="luxury">Luxo</option>
                     </select>
                   </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Marca</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_brand || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_brand: e.target.value,
+                          reports_model: '',
+                        }))
+                      }
+                    >
+                      <option value="">Todas as marcas</option>
+                      {Object.keys(taxiModelsByBrand).map(brand => (
+                        <option key={brand} value={brand}>{brand}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Modelo</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_model || ''}
+                      disabled={!formData.reports_brand}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_model: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os modelos</option>
+                      {(taxiModelsByBrand[formData.reports_brand] || []).map(model => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="filter-group">
+                    <label className="filter-label">Táxi (Matrícula)</label>
+                    <select
+                      className="filter-input"
+                      value={formData.reports_taxi_license_plate || ''}
+                      onChange={(e) =>
+                        setFormData((fd) => ({
+                          ...fd,
+                          reports_taxi_license_plate: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos os táxis</option>
+                      {data.taxis.map((taxi) => (
+                        <option key={taxi.license_plate} value={taxi.license_plate}>
+                          {taxi.brand} {taxi.model} ({taxi.license_plate})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <button onClick={() => {
                     const s = formData.reports_start; const e = formData.reports_end;
                     if (!s || !e) { setReportsError('Selecione ambas as datas.'); return; }
@@ -982,7 +1086,7 @@ export default function ManagerDashboard() {
                       return;
                     }
                     setReportsLoading(true); setReportsError('');
-                    getReports(s, e, formData.reports_driver_id, formData.reports_comfort_level).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
+                    getReports(s, e, formData.reports_driver_id, formData.reports_comfort_level, formData.reports_taxi_license_plate, formData.reports_brand, formData.reports_model).then(res => setData(d => ({ ...d, reports: res.data }))).catch(err => { setReportsError(err.response?.data?.error || 'Falha ao obter relatórios'); setData(d => ({ ...d, reports: null })); }).finally(() => setReportsLoading(false));
                   }} className="fetch-btn" disabled={reportsLoading || !formData.reports_start || !formData.reports_end}>{reportsLoading ? 'A processar...' : 'Gerar Relatório'}</button>
                   {reportsError && <div style={{ color: 'red', fontSize: '13px', marginLeft: '10px' }}>{reportsError}</div>}
                 </div>

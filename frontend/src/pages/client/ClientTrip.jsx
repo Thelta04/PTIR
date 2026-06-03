@@ -210,9 +210,12 @@ export default function ClientTrip() {
 
   const handleCancel = async () => {
     if (tripId) {
+      const isSearching = status === 'searching';
       showConfirm(
-        'Recusar Motorista?',
-        'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
+        isSearching ? 'Cancelar Pedido?' : 'Recusar Motorista?',
+        isSearching 
+          ? 'Tem a certeza que deseja cancelar o seu pedido de viagem?' 
+          : 'Tem a certeza que deseja recusar este motorista? A sua viagem será cancelada.',
         async () => {
           try {
             await cancelTrip(tripId);

@@ -1283,6 +1283,10 @@ class ReportsView(views.APIView):
         end = request.query_params.get('end_date')
         driver_id = request.query_params.get('driver_id')
         comfort_level = request.query_params.get('comfort_level')
+        taxi_license_plate = request.query_params.get('taxi_license_plate')
+        brand = request.query_params.get('brand')
+        model = request.query_params.get('model')
+
         if not start or not end:
             return Response({'error': 'start_date and end_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1315,6 +1319,15 @@ class ReportsView(views.APIView):
                 return Response({'error': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             trips = trips.filter(shift__driver__user_id=driver_id)
+
+        if taxi_license_plate:
+            trips = trips.filter(shift__taxi__license_plate=taxi_license_plate)
+        
+        if brand:
+            trips = trips.filter(shift__taxi__brand=brand)
+        
+        if model:
+            trips = trips.filter(shift__taxi__model=model)
 
         total_trips = trips.count()
         total_kilometers = 0.0
