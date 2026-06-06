@@ -31,6 +31,9 @@ sudo iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 sudo iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
 sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
 
+# Permitir acesso ao Metadata Server da Google Cloud (Necessário para SSH/OS Login)
+sudo iptables -A OUTPUT -d 169.254.169.254 -p tcp --dport 80 -j ACCEPT
+
 # Default DROP: Bloqueia tudo o que não foi explicitamente autorizado
 sudo iptables -P INPUT DROP
 sudo iptables -P OUTPUT DROP
