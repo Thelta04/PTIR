@@ -13,7 +13,7 @@ wait_for_dpkg_lock() {
 remote_exec() {
     local instance="$1"
     shift
-    gcloud compute ssh "$instance" \
+    gcloud compute ssh "${REMOTE_USER}@$instance" \
         --project="$PROJECT_ID" \
         --zone="$ZONE" \
         --tunnel-through-iap \
@@ -25,7 +25,7 @@ remote_scp() {
     local instance="$1"
     shift
     # Note: files are uploaded to /tmp/ then moved by the execution script
-    gcloud compute scp "$@" "$instance:/tmp/" \
+    gcloud compute scp "$@" "${REMOTE_USER}@$instance:/tmp/" \
         --project="$PROJECT_ID" \
         --zone="$ZONE" \
         --tunnel-through-iap \

@@ -73,7 +73,7 @@ echo "VM '$NEW_NAME' created successfully with IP $NEW_IP"
 echo ""
 echo "Waiting for $NEW_NAME to be SSH-ready..."
 for i in $(seq 1 30); do
-    if gcloud compute ssh "$NEW_NAME" \
+    if gcloud compute ssh "${REMOTE_USER}@$NEW_NAME" \
         --project="$PROJECT_ID" --zone="$ZONE" \
         --tunnel-through-iap \
         --command="echo ready" 2>/dev/null; then

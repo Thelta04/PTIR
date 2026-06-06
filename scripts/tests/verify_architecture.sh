@@ -19,7 +19,7 @@ LB_IP="${1:-34.175.164.1}"
 
 # Helper function to run remote commands
 remote_exec() {
-    gcloud compute ssh "$1" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap --command="$2" 2>/dev/null
+    gcloud compute ssh "${REMOTE_USER}@$1" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap --command="$2" 2>/dev/null
 }
 
 # Cleanup function to restore system to default state
@@ -42,7 +42,7 @@ cleanup() {
         echo "  Detected: db-02 was promoted to PRIMARY. Reverting to REPLICA..."
         # Re-run setup_db.sh on db-02 to restore replication
         # Upload setup_db.sh if it might be missing or to ensure latest
-        gcloud compute scp "$SCRIPT_DIR/../setup/setup_db.sh" "$SCRIPT_DIR/../common/utils.sh" "$SCRIPT_DIR/../config.sh" "db-02:/tmp/" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap 2>/dev/null
+        gcloud compute scp "$SCRIPT_DIR/../setup/setup_db.sh" "$SCRIPT_DIR/../common/utils.sh" "$SCRIPT_DIR/../config.sh" "${REMOTE_USER}@db-02:/tmp/" --project="$PROJECT_ID" --zone="$ZONE" --tunnel-through-iap 2>/dev/null
         remote_exec "db-02" "chmod +x /tmp/setup_db.sh && sudo /tmp/setup_db.sh '$DB_NAME' '$DB_USER' '$DB_PASSWORD' 'replica' '$DB_PRIMARY_IP'"
     else
         echo "  db-02 is already in replica mode."
