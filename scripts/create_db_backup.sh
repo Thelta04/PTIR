@@ -27,7 +27,7 @@ echo "Creating Database Backup VM ($DB_BACKUP_IP)..."
 gcloud compute instances create "$INSTANCE" \
     --project="$PROJECT_ID" \
     --zone="$ZONE" \
-    --machine-type=e2-micro \
+    --machine-type=e2-small \
     --image-family=ubuntu-2204-lts \
     --image-project=ubuntu-os-cloud \
     --private-network-ip="$DB_BACKUP_IP" \

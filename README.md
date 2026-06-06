@@ -229,6 +229,136 @@ curl -X POST http://<host>/api/auth/login/ \
 └── nginx/              # Production Proxy Configurations
 ```
 
-## 📝 To Implement
-* Avoid api polling to check trip status, use websocket instead.
-* Add notifications for new trip requests.
+## Good to Remember
+
+### Checking Connected IPs via SSH
+
+If you need to see who has connected to a server (or check for failed login attempts), you can run the following commands while logged into that server:
+
+* **See all successful logins (Recent):**
+  ```bash
+  last -i
+  ```
+  *(The `-i` flag forces it to show IP addresses instead of hostnames).*
+
+* **See all failed login attempts (Recent):**
+  ```bash
+  sudo lastb -i
+  ```
+
+* **Get a clean list of all IPs that successfully connected via SSH:**
+  ```bash
+  sudo grep "Accepted" /var/log/auth.log | awk '{print $11}' | sort | uniq -c | sort -nr
+  ```
+
+* **Get a list of all IPs that failed to authenticate:**
+  ```bash
+  sudo grep "Disconnected from authenticating user" /var/log/auth.log | awk '{print $11}' | sort | uniq
+  ```
+
+### Service Status (run on each VM)
+
+* **Check if Nginx, Gunicorn, PostgreSQL, or Keepalived are running:**
+  ```bash
+  sudo systemctl status nginx
+  sudo systemctl status gunicorn
+  sudo systemctl status postgresql
+  sudo systemctl status keepalived
+  ```
+
+* **Check which ports are listening:**
+  ```bash
+  sudo ss -tulpn
+  ```
+
+### Database Replication
+
+* **Check if a DB node is Primary or Replica:**
+  ```bash
+  sudo -u postgres psql -c "SELECT pg_is_in_recovery();"
+  # t = Replica, f = Primary
+  ```
+
+* **On the Primary — see connected replicas:**
+  ```bash
+  sudo -u postgres psql -c "SELECT client_addr, state, sent_lsn, replay_lsn FROM pg_stat_replication;"
+  ```
+
+* **On the Replica — see replication receiver status:**
+  ```bash
+  sudo -u postgres psql -c "SELECT sender_host, status, received_lsn FROM pg_stat_wal_receiver;"
+  ```
+
+### Load Balancer & Keepalived
+
+* **Check which LB currently holds the VIP (`10.10.10.100`):**
+  ```bash
+  ip addr show | grep 10.10.10.100
+  ```
+
+* **Check Keepalived state:**
+  ```bash
+  sudo journalctl -u keepalived --no-pager -n 20
+  ```
+
+* **See the current Nginx upstream servers:**
+  ```bash
+  cat /etc/nginx/sites-available/tuxy.pt | grep "server 10"
+  ```
+
+* **Check the LB healthcheck log:**
+  ```bash
+  sudo tail -f /var/log/lb_healthcheck.log
+  ```
+
+### Firewall
+
+* **View current iptables rules:**
+  ```bash
+  sudo iptables -L -n -v --line-numbers
+  ```
+
+### Quick Verification Commands (run from your machine or bastion)
+
+* **Verify LB is distributing traffic (check X-Served-By):**
+  ```bash
+  for i in {1..10}; do curl -sk https://tuxy.pt/ -o /dev/null -D - 2>/dev/null | grep X-Served-By; done
+  ```
+
+* **Check HTTPS and TLS version:**
+  ```bash
+  curl -vsk https://tuxy.pt/ -o /dev/null 2>&1 | grep -E "SSL connection|TLSv"
+  ```
+
+* **Check HTTP→HTTPS redirect:**
+  ```bash
+  curl -sI http://tuxy.pt/ | head -3
+  ```
+
+* **Check API health:**
+  ```bash
+  curl -sk https://tuxy.pt/api/check/
+  ```
+
+### Logs (tail in real-time during demo)
+
+* **Keepalived failover log (on LB VMs):**
+  ```bash
+  sudo tail -f /var/log/keepalived_notify.log
+  ```
+
+* **DB healthcheck log (on db-02):**
+  ```bash
+  sudo tail -f /var/log/db_healthcheck.log
+  ```
+
+* **Nginx access/error logs:**
+  ```bash
+  sudo tail -f /var/log/nginx/access.log
+  sudo tail -f /var/log/nginx/error.log
+  ```
+
+* **Fail2ban status on bastion:**
+  ```bash
+  sudo fail2ban-client status sshd
+  ```
