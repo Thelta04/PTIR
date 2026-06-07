@@ -9,9 +9,9 @@ source "$SCRIPT_DIR/../common/config.sh"
 # Load DB credentials from .env
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 if [ -f "$ROOT_DIR/.env" ]; then
-    DB_NAME=$(grep '^DB_NAME=' "$ROOT_DIR/.env" | cut -d'=' -f2)
-    DB_USER=$(grep '^DB_USER=' "$ROOT_DIR/.env" | cut -d'=' -f2)
-    DB_PASSWORD=$(grep '^DB_PASSWORD=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+    DB_NAME=$(grep '^POSTGRES_DB=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+    DB_USER=$(grep '^POSTGRES_USER=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+    DB_PASSWORD=$(grep '^POSTGRES_PASSWORD=' "$ROOT_DIR/.env" | cut -d'=' -f2)
 fi
 
 # Use provided IP or fallback to the one used before
