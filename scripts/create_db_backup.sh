@@ -18,9 +18,9 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
     echo "ERROR: .env file not found in $ROOT_DIR."
     exit 1
 fi
-DB_NAME=$(grep '^DB_NAME=' "$ROOT_DIR/.env" | cut -d'=' -f2)
-DB_USER=$(grep '^DB_USER=' "$ROOT_DIR/.env" | cut -d'=' -f2)
-DB_PASSWORD=$(grep '^DB_PASSWORD=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+DB_NAME=$(grep '^POSTGRES_DB=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+DB_USER=$(grep '^POSTGRES_USER=' "$ROOT_DIR/.env" | cut -d'=' -f2)
+DB_PASSWORD=$(grep '^POSTGRES_PASSWORD=' "$ROOT_DIR/.env" | cut -d'=' -f2)
 
 # Create VM if it doesn't exist
 echo "Creating Database Backup VM ($DB_BACKUP_IP)..."
