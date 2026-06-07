@@ -8,9 +8,9 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common/config.sh"
 
-# Default to lb-03 or allow parameter
-INSTANCE="${1:-lb-03}"
-IP="${2:-10.10.10.12}"
+# Default to lb-01 or allow parameter
+INSTANCE="${1:-lb-01}"
+IP="${2:-10.10.10.10}"
 
 echo "Creating Load Balancer VM '$INSTANCE' ($IP)"
 gcloud compute instances create "$INSTANCE" \
@@ -21,6 +21,7 @@ gcloud compute instances create "$INSTANCE" \
     --private-network-ip="$IP" \
     --network="$NETWORK" \
     --subnet="$SUBNET" \
+    --address="$STATIC_IP_NAME" \
     --tags="http-server,https-server,$TAG_LB" \
     2>/dev/null || echo "VM '$INSTANCE' already exists."
 

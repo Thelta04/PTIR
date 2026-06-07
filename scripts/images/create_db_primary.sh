@@ -8,9 +8,9 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common/config.sh"
 
-# Default to db-03 to avoid colliding with existing db-01/02, or allow parameter
-INSTANCE="${1:-db-03}"
-IP="${2:-10.10.10.32}"
+# Default to db-01 to avoid colliding with existing db-01/02, or allow parameter
+INSTANCE="${1:-db-01}"
+IP="${2:-10.10.10.30}"
 
 echo "Creating Database VM '$INSTANCE' ($IP)"
 gcloud compute instances create "$INSTANCE" \

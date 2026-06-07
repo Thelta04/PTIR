@@ -8,9 +8,9 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common/config.sh"
 
-# Default to lb-04 or allow parameter
-INSTANCE="${1:-lb-04}"
-IP="${2:-10.10.10.13}"
+# Default to lb-02 or allow parameter
+INSTANCE="${1:-lb-02}"
+IP="${2:-10.10.10.11}"
 
 echo "Creating Backup Load Balancer VM '$INSTANCE' ($IP)"
 gcloud compute instances create "$INSTANCE" \
