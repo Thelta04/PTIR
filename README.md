@@ -292,9 +292,7 @@ If you need to see who has connected to a server (or check for failed login atte
 ### Load Balancer & Keepalived
 
 * **Check which LB currently holds the VIP (`10.10.10.100`):**
-  ```bash
-  ip addr show | grep 10.10.10.100
-  ```
+  Check if there is a "Entering MASTER STATE" recently
 
 * **Check Keepalived state:**
   ```bash
@@ -306,9 +304,10 @@ If you need to see who has connected to a server (or check for failed login atte
   cat /etc/nginx/sites-available/tuxy.pt | grep "server 10"
   ```
 
-* **Check the LB healthcheck log:**
+* **Check the LB healthcheck cron and log:**
   ```bash
-  sudo tail -f /var/log/lb_healthcheck.log
+  cat /etc/cron.d/lb_healthcheck
+  cat /var/log/lb_healthcheck.log
   ```
 
 ### Firewall
@@ -361,4 +360,9 @@ If you need to see who has connected to a server (or check for failed login atte
 * **Fail2ban status on bastion:**
   ```bash
   sudo fail2ban-client status sshd
+  ```
+
+* **Load Tests:**
+  ```bash
+  python3 -m locust -f scripts/tests/load_tests.py --host https://tuxy.pt
   ```
