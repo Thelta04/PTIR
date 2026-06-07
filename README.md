@@ -322,7 +322,7 @@ If you need to see who has connected to a server (or check for failed login atte
 
 * **Verify LB is distributing traffic (check X-Served-By):**
   ```bash
-  for i in {1..10}; do curl -sk https://tuxy.pt/ -o /dev/null -D - 2>/dev/null | grep X-Served-By; done
+  for i in {1..10}; do curl -I https://tuxy.pt/ -o /dev/null -D - 2>/dev/null | grep x-served-by; done
   ```
 
 * **Check HTTPS and TLS version:**
