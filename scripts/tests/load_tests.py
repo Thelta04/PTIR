@@ -24,8 +24,8 @@ TRIP_PAYLOAD = {
     "originAddress": "Marques de Pombal, Lisboa",
     "destAddress": "Saldanha, Lisboa",
     # Non-numeric coords avoid external route-provider calls during load tests.
-    "originCoords": "load-test-origin",
-    "destCoords": "load-test-destination",
+    "originCoords": "38.7252,-9.1500",
+    "destCoords": "38.7330,-9.1437",
     "comfort_level": "basic",
     "num_passengers": 2,
 }
@@ -41,6 +41,27 @@ def record_served_by(request_type, name, response_time, response_length, respons
         with served_by_lock:
             served_by_counts[served_by] += 1
 
+
+FLOW_STEPS = [
+    ("POST", "POST /api/auth/create/client/", "Create Client"),
+    ("POST", "POST /api/auth/login/ driver", "Login Driver"),
+    ("POST", "POST /api/auth/login/ client", "Login Client"),
+    ("GET", "GET /api/shift/get/:driver_id/", "Get Shift"),
+    ("GET", "GET /api/taxi/", "Get Taxi"),
+    ("POST", "POST /api/shift/create/", "Create Shift"),
+    ("PATCH", "PATCH /api/shift/:id/start", "Start Shift"),
+    ("GET", "GET /api/check/", "Check Auth"),
+    ("POST", "POST /api/trip/create/", "Create Trip"),
+    ("GET", "GET /api/trip/ pending", "Get Pending Trips"),
+    ("PATCH", "PATCH /api/trip/:id/accept/", "Driver Accept"),
+    ("PATCH", "PATCH /api/trip/:id/client-accept/", "Client Accept"),
+    ("PATCH", "PATCH /api/trip/:id/pickup/", "Pickup"),
+    ("PATCH", "PATCH /api/trip/:id/complete/", "Complete Trip"),
+    ("PATCH", "PATCH /api/trip/:id/pay-mock/", "Pay Mock"),
+    ("GET", "GET /api/pricing/", "Get Pricing"),
+    ("PATCH", "PATCH /api/trip/:id/emit-invoice/", "Emit Invoice"),
+    ("POST", "POST /api/rating/create/", "Create Rating"),
+]
 
 @events.quitting.add_listener
 def print_test_summary(environment, **kwargs):
