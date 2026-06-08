@@ -73,3 +73,5 @@ Because these rules exist, we must explicitly create `ALLOW` rules (with priorit
 *   `allow-egress-dns` (`tcp:53, udp:53`): Ensures VMs can resolve domain names (like `google.com` or `tuxy.pt`) by explicitly allowing DNS traffic.
 *   `allow-all-egress-metadata` (`tcp:80`): Allows all servers to query `169.254.169.254` (Google's metadata server), which is critical for startup scripts and SSH key management.
 *   `lan-allow-http` / `lan-allow-https`: Broad/legacy rules allowing port 80/443 on the `lan` network.
+
+python3 -m locust -f scripts/tests/load_tests.py --host https://tuxy.pt
